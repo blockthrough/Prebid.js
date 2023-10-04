@@ -1,19 +1,45 @@
 import { expect } from 'chai';
 import { spec } from 'modules/BTBidAdapter.js';
-import { config } from '../../../src/config.js';
-import { deepAccess } from '../../../src/utils.js';
+import { BANNER } from '../../../src/mediaTypes.js';
+// load modules that register ORTB processors
+import 'src/prebid.js';
+import 'modules/currency.js';
+import 'modules/userId/index.js';
+import 'modules/multibid/index.js';
+import 'modules/priceFloors.js';
+import 'modules/consentManagement.js';
+import 'modules/consentManagementUsp.js';
+import 'modules/consentManagementGpp.js';
+import 'modules/enrichmentFpdModule.js';
+import 'modules/gdprEnforcement.js';
+import 'modules/gppControl_usnat.js';
+import 'modules/schain.js';
 
 describe('BT Bid Adapter', () => {
-  let sandbox;
   const ENDPOINT_URL = 'https://pbs.btloader.com/openrtb2/auction';
-
-  beforeEach(() => {
-    sandbox = sinon.createSandbox();
-  });
-
-  afterEach(() => {
-    sandbox.restore();
-  });
+  const validBidRequests = [
+    {
+      bidId: '2e9f38ea93bb9e',
+      bidder: 'blockthrough',
+      adUnitCode: 'adunit-code',
+      mediaTypes: { [BANNER]: { sizes: [[300, 250]] } },
+      params: {
+        ab: true,
+        siteId: '55555',
+        bidderA: {
+          pubId: '11111',
+        },
+      },
+      bidderRequestId: 'test-bidder-request-id',
+      auctionId: 'test-auction-id',
+    },
+  ];
+  const bidderRequest = {
+    auctionId: 'test-auction-id',
+    bidderCode: 'blockthrough',
+    bidderRequestId: 'test-bidder-request-id',
+    bids: validBidRequests,
+  };
 
   describe('isBidRequestValid', function () {
     it('should validate bid request with valid params', () => {
@@ -51,382 +77,78 @@ describe('BT Bid Adapter', () => {
 
   describe('buildRequests', () => {
     it('should build post request when ortb2 fields are present', () => {
-      const bidderRequest = {
-        auctionId: 12345,
-        bidderCode: 'blockthrough',
-        bidderRequestId: '12345',
-        bids: [
-          {
-            adUnitCode: 'leaderboard',
-            auctionId: 'test12345',
-            bidId: 'bid12345',
-            bidder: 'blockthrough',
-            getFloor: ({ currency, mediaType, size }) => {
-              return { floor: 0.03, currency: 'USD' };
-            },
-            mediaTypes: {
-              banner: { sizes: [[728, 90]] },
-            },
-            ortb2: {
-              regs: {
-                ext: { us_privacy: 'uspString' },
-              },
-              device: {
-                w: 1920,
-                h: 1280,
-                ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
-                language: 'en',
-              },
-              site: {
-                domain: 'test.com',
-                page: 'https://www.test.com/',
-                publisher: {
-                  domain: 'test.com',
-                },
-              },
-            },
-            ortb2Imp: {
-              ext: {
-                tid: '12345',
-              },
-            },
-            params: {
-              ab: true,
-              siteId: '1234567',
-              pubmatic: {
-                publisherId: '111111',
-              },
-            },
-            schain: {
-              ver: '1.0',
-              complete: 1,
-              nodes: [{ asi: 'test.com', sid: '1234567', hp: 1 }],
-            },
-            transactionId: '111111',
-            userIdAsEids: [{ source: 'test.com', uids: [{ id: '11111' }] }],
-          },
-        ],
-        uspConsent: 'uspString',
-        gdprConsent: {
-          gdprApplies: 1,
-          consentString: 'gdprString',
-        },
-        gppConsent: {
-          gppString: 'gppString',
-          fullGppData: {},
-          applicableSections: [7],
+      const bidderParams = {
+        bidderA: {
+          pubId: '11111',
         },
       };
-      const validBidRequests = [
-        {
-          adUnitCode: 'leaderboard',
-          auctionId: 'test12345',
-          bidId: 'bid12345',
-          bidder: 'blockthrough',
-          getFloor: ({ currency, mediaType, size }) => {
-            return { floor: 0.03, currency: 'USD' };
-          },
-          mediaTypes: {
-            banner: { sizes: [[728, 90]] },
-          },
-          ortb2: {
-            regs: {
-              ext: { us_privacy: 'uspString' },
-            },
-            device: {
-              w: 1920,
-              h: 1280,
-              ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
-              language: 'en',
-            },
-            site: {
-              domain: 'test.com',
-              page: 'https://www.test.com/',
-              publisher: {
-                domain: 'test.com',
-              },
-            },
-          },
-          ortb2Imp: {
-            ext: {
-              tid: '12345',
-              gpid: 'path/leaderboard',
-            },
-          },
-          params: {
-            ab: true,
-            siteId: '1234567',
-            pubmatic: {
-              publisherId: '111111',
-            },
-          },
-          schain: {
-            ver: '1.0',
-            complete: 1,
-            nodes: [{ asi: 'test.com', sid: '1234567', hp: 1 }],
-          },
-          transactionId: '111111',
-          userIdAsEids: [{ source: 'test.com', uids: [{ id: '11111' }] }],
-        },
-      ];
-
-      const expectedData = JSON.stringify({
-        id: 'test12345',
-        source: {
-          tid: '111111',
-          ext: {
-            schain: {
-              ver: '1.0',
-              complete: 1,
-              nodes: [{ asi: 'test.com', sid: '1234567', hp: 1 }],
-            },
-          },
-        },
-        imp: [
-          {
-            id: 'bid12345',
-            tagid: 'leaderboard',
-            ab: true,
-            siteId: '1234567',
-            ext: { pubmatic: { publisherId: '111111' } },
-            banner: { format: [{ w: 728, h: 90 }] },
-            bidfloor: 0.03,
-            bidfloorcur: 'USD',
-            gpid: 'path/leaderboard',
-          },
-        ],
-        device: {
-          w: 1920,
-          h: 1280,
-          ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36',
-          language: 'en',
-        },
-        site: {
-          domain: 'test.com',
-          page: 'https://www.test.com/',
-          publisher: { domain: 'test.com' },
-        },
-        user: {
-          ext: {
-            consent: 'gdprString',
-            eids: [{ source: 'test.com', uids: [{ id: '11111' }] }],
-          },
-        },
-        regs: { ext: { us_privacy: 'uspString' } },
-        at: 1,
-        ext: { tid: '12345', gpid: 'path/leaderboard' },
-      });
 
       const requests = spec.buildRequests(validBidRequests, bidderRequest);
 
-      expect(requests).to.be.an('array');
-      expect(requests).to.have.lengthOf(validBidRequests.length);
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(ENDPOINT_URL);
-      expect(requests[0].data).to.equal(expectedData);
-      expect(requests[0].bids).to.equal(validBidRequests);
-    });
-
-    it('should build post request ortb2 fields are not present', () => {
-      const bidderRequest = {
-        auctionId: 12345,
-        bidderCode: 'blockthrough',
-        bidderRequestId: '12345',
-        bids: [
-          {
-            adUnitCode: 'leaderboard',
-            auctionId: 'test12345',
-            bidId: 'bid12345',
-            bidder: 'blockthrough',
-            getFloor: ({ currency, mediaType, size }) => {
-              return { floor: 0.03, currency: 'USD' };
-            },
-            mediaTypes: {
-              banner: { sizes: [[728, 90]] },
-            },
-            params: {
-              ab: true,
-              siteId: '1234567',
-              pubmatic: {
-                publisherId: '111111',
-              },
-            },
-            schain: {
-              ver: '1.0',
-              complete: 1,
-              nodes: [{ asi: 'test.com', sid: '1234567', hp: 1 }],
-            },
-            transactionId: '111111',
-            userIdAsEids: [{ source: 'test.com', uids: [{ id: '11111' }] }],
-          },
-        ],
-        uspConsent: 'uspString',
-        gdprConsent: {
-          gdprApplies: 1,
-          consentString: 'gdprString',
-        },
-        gppConsent: {
-          gppString: 'gppString',
-          fullGppData: {},
-          applicableSections: [7],
-        },
-      };
-      const validBidRequests = [
-        {
-          adUnitCode: 'leaderboard',
-          auctionId: 'test12345',
-          bidId: 'bid12345',
-          bidder: 'blockthrough',
-          getFloor: ({ currency, mediaType, size }) => {
-            return { floor: 0.03, currency: 'USD' };
-          },
-          mediaTypes: {
-            banner: { sizes: [[728, 90]] },
-          },
-          params: {
-            ab: true,
-            siteId: '1234567',
-            pubmatic: {
-              publisherId: '111111',
-            },
-          },
-          schain: {
-            ver: '1.0',
-            complete: 1,
-            nodes: [{ asi: 'test.com', sid: '1234567', hp: 1 }],
-          },
-          transactionId: '111111',
-          userIdAsEids: [{ source: 'test.com', uids: [{ id: '11111' }] }],
-        },
-      ];
-
-      const expectedData = JSON.stringify({
-        id: 'test12345',
-        source: {
-          tid: '111111',
-          ext: {
-            schain: {
-              ver: '1.0',
-              complete: 1,
-              nodes: [{ asi: 'test.com', sid: '1234567', hp: 1 }],
-            },
-          },
-        },
-        imp: [
-          {
-            id: 'bid12345',
-            tagid: 'leaderboard',
-            ab: true,
-            siteId: '1234567',
-            ext: { pubmatic: { publisherId: '111111' } },
-            banner: { format: [{ w: 728, h: 90 }] },
-            bidfloor: 0.03,
-            bidfloorcur: 'USD',
-          },
-        ],
-        device: {
-          w: 785,
-          h: 600,
-          ua: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/117.0.5938.92 Safari/537.36',
-          devicetype: 'pc',
-        },
-        site: { page: 'https://test.com/', domain: 'test.com' },
-        user: {
-          ext: {
-            consent: 'gdprString',
-            eids: [{ source: 'test.com', uids: [{ id: '11111' }] }],
-          },
-        },
-        regs: {
-          ext: { gdpr: 1, us_privacy: 'uspString' },
-          gpp: 'gppString',
-          gpp_sid: [7],
-        },
-        at: 1,
-        ext: { ssl: 1 },
-        test: 1,
-      });
-
-      sandbox.stub(config, 'getConfig').callsFake((key) => {
-        const config = {
-          debug: true,
-          pageUrl: 'https://test.com/',
-        };
-        return deepAccess(config, key);
-      });
-
-      const requests = spec.buildRequests(validBidRequests, bidderRequest);
-
-      expect(requests).to.be.an('array');
-      expect(requests).to.have.lengthOf(validBidRequests.length);
-      expect(requests[0].method).to.equal('POST');
-      expect(requests[0].url).to.equal(ENDPOINT_URL);
-      expect(requests[0].data).to.equal(expectedData);
-      expect(requests[0].bids).to.equal(validBidRequests);
+      expect(requests[0].data).to.exist;
+      expect(requests[0].data.imp[0].ext).to.deep.equal(bidderParams);
+      expect(requests[0].data.imp[0].ab).to.be.true;
+      expect(requests[0].data.imp[0].siteId).to.equal('55555');
     });
   });
 
   describe('interpretResponse', () => {
     it('should return empty array if serverResponse is not defined', () => {
-      const bids = spec.interpretResponse(undefined, {});
+      const bidRequest = spec.buildRequests(validBidRequests, bidderRequest);
+      const bids = spec.interpretResponse(undefined, bidRequest);
 
       expect(bids.length).to.equal(0);
     });
 
-    it('should return empty array if seatbid array is empty', () => {
-      const serverResponse = {
+    it('should return bids array when serverResponse is defined and seatbid array is not empty', () => {
+      const bidResponse = {
         body: {
-          seatbid: [],
-        },
-      };
-
-      const bids = spec.interpretResponse(serverResponse, {});
-
-      expect(bids.length).to.equal(0);
-    });
-
-    it('should return bids array', () => {
-      const serverResponse = {
-        body: {
+          id: 'bid-response',
           cur: 'USD',
-          id: '11111',
           seatbid: [
             {
               bid: [
                 {
-                  adm: "<img src='https://www.addomain.com/ae123'></img>",
-                  crid: '55555',
-                  currency: 'USD',
-                  price: 1.0,
-                  w: 728,
-                  h: 90,
-                  ttl: 280,
-                  impid: '11111',
+                  impid: '2e9f38ea93bb9e',
+                  crid: 'creative-id',
+                  cur: 'USD',
+                  price: 9,
+                  price: 2,
+                  w: 300,
+                  h: 250,
+                  mtype: 1,
+                  adomain: ['test.com'],
                 },
               ],
-              seat: '1234',
             },
           ],
         },
       };
 
-      const expectedBid = {
-        requestId: '11111',
-        cpm: 1.0,
-        currency: 'USD',
-        width: 728,
-        height: 90,
-        ad: "<img src='https://www.addomain.com/ae123'></img>",
-        ttl: 280,
-        creativeId: '55555',
-        netRevenue: true,
-        btBidderCode: '1234',
-      };
+      const expectedBids = [
+        {
+          cpm: 2,
+          creativeId: 'creative-id',
+          creative_id: 'creative-id',
+          currency: 'USD',
+          height: 250,
+          mediaType: 'banner',
+          meta: {
+            advertiserDomains: ['test.com'],
+          },
+          netRevenue: true,
+          requestId: '2e9f38ea93bb9e',
+          ttl: 30,
+          width: 300,
+        },
+      ];
 
-      const bids = spec.interpretResponse(serverResponse, {});
+      const request = spec.buildRequests(validBidRequests, bidderRequest)[0];
+      const bids = spec.interpretResponse(bidResponse, request);
 
-      expect(bids.length).to.equal(1);
-      expect(bids[0]).to.deep.equal(expectedBid);
+      expect(bids).to.deep.equal(expectedBids);
     });
   });
 });

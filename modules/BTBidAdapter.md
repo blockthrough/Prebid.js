@@ -6,20 +6,21 @@
 
 # Description
 
-The BT Bidder Adapter provides an interface to the BT Service. The BT Bidder Adapter sends one request to the BT Service per ad unit, but the BT Service will then send one request to each configured exchange. This is functionally similar to Prebid Server. One client side request, bids from many exchanges.
+The BT Bidder Adapter provides an interface to the BT Service. The BT Bidder Adapter sends one request to the BT Service per ad unit. Behind the scenes, the BT Service further disperses requests to various configured exchanges. This operational model closely resembles that of Prebid Server, where a single request is made from the client side, and responses are gathered from multiple exchanges.
 
-The BT service accepts industry standard OpenRTB 2.5 as its payload. The BT Bidder Adapter converts Prebid.js parameters into an OpenRTB 2.5 request.
+# Bid Params
 
-# Params
-
-- `ab` required, whether AdBlock is enabled.
-- `siteId` required, site id.
+| Key    | Scope    | Type    | Description                                                    |
+| ------ | -------- | ------- | -------------------------------------------------------------- |
+| ab     | Required | Boolean | Whether AdBlock is enabled.                                    |
+| siteId | Required | String  | Unique site ID.                                                |
+| bidder | Required | Object  | Bidder configuration. Could configure several bidders this way |
 
 ## AdUnits configuration example
 
 ```
     var adUnits = [{
-      code: 'your-slot', //use exactly the same code as your slot div id.
+      code: 'banner-div-1',
       mediaTypes: {
           banner: {
               sizes: [[728, 90]]
@@ -30,9 +31,12 @@ The BT service accepts industry standard OpenRTB 2.5 as its payload. The BT Bidd
         params: {
             ab: true,
             siteId: '12345',
-            pubmatic: {
+            bidderA: {
                 publisherId: 55555,
-              },
+            },
+            bidderB: {
+              zoneId: 12,
+            }
       }
       }]
     }];
