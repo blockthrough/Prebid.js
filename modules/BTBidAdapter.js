@@ -1,7 +1,6 @@
 import { config } from '../src/config.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { isBoolean, isStr } from '../src/utils.js';
-import { logWarn } from '../src/utils.js';
+import { deepSetValue, isBoolean, isStr, logWarn } from '../src/utils.js';
 import { BANNER } from '../src/mediaTypes.js';
 import { ortbConverter } from '../libraries/ortbConverter/converter.js';
 
