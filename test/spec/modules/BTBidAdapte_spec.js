@@ -153,7 +153,7 @@ describe('BT Bid Adapter', () => {
   });
 
   describe('getUserSyncs', () => {
-    const SYNC_URL = 'http://temp/sync.html';
+    const SYNC_URL = 'https://cdn.btloader.com/user_sync.html';
 
     it('should return an empty array if no sync options are provided', () => {
       const syncs = spec.getUserSyncs({}, [], null, null, null);

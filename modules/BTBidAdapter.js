@@ -7,7 +7,7 @@ import { ortbConverter } from '../libraries/ortbConverter/converter.js';
 const BIDDER_CODE = 'blockthrough';
 const GVLID = 815;
 const ENDPOINT_URL = 'https://pbs.btloader.com/openrtb2/auction';
-const SYNC_URL = 'http://temp/sync.html';
+const SYNC_URL = 'https://cdn.btloader.com/user_sync.html';
 
 const CONVERTER = ortbConverter({
   context: {
