@@ -142,19 +142,19 @@ function getUserSyncs(
   let syncs = [];
   const syncUrl = new URL(SYNC_URL);
 
-  if (gdprConsent) {
-    syncUrl.searchParams.set('gdpr', Number(gdprConsent.gdprApplies));
-    syncUrl.searchParams.set('gdpr_consent', gdprConsent.consentString);
-  }
-  if (gppConsent) {
-    syncUrl.searchParams.set('gpp', gppConsent.gppString);
-    syncUrl.searchParams.set('gpp_sid', gppConsent.applicableSections);
-  }
-  if (uspConsent) {
-    syncUrl.searchParams.set('us_privacy', uspConsent);
-  }
-
   if (syncOptions.iframeEnabled) {
+    if (gdprConsent) {
+      syncUrl.searchParams.set('gdpr', Number(gdprConsent.gdprApplies));
+      syncUrl.searchParams.set('gdpr_consent', gdprConsent.consentString);
+    }
+    if (gppConsent) {
+      syncUrl.searchParams.set('gpp', gppConsent.gppString);
+      syncUrl.searchParams.set('gpp_sid', gppConsent.applicableSections);
+    }
+    if (uspConsent) {
+      syncUrl.searchParams.set('us_privacy', uspConsent);
+    }
+
     syncs.push({ type: 'iframe', url: syncUrl.href });
   }
 
