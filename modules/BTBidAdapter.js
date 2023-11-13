@@ -92,12 +92,12 @@ function isBidRequestValid(bid) {
   const { ab, siteId } = bid.params;
 
   if (!siteId || !isStr(siteId)) {
-    logWarn("BT Bid Adapter: a string type 'siteId' must be provided.");
+    logWarn('BT Bid Adapter: a string type "siteId" must be provided.');
     return false;
   }
 
   if (!isBoolean(ab)) {
-    logWarn("BT Bid Adapter: a boolean type 'ab' must be provided.");
+    logWarn('BT Bid Adapter: a boolean type "ab" must be provided.');
     return false;
   }
 
