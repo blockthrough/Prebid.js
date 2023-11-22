@@ -24,8 +24,12 @@ describe('BT Bid Adapter', () => {
       adUnitCode: 'adunit-code',
       mediaTypes: { [BANNER]: { sizes: [[300, 250]] } },
       params: {
-        ab: true,
-        siteId: '55555',
+        blockthrough: {
+          ab: true,
+          websiteID: 'websiteID',
+          orgID: 'orgID',
+          auctionID: 'qwerty',
+        },
         bidderA: {
           pubId: '11111',
         },
@@ -45,8 +49,11 @@ describe('BT Bid Adapter', () => {
     it('should validate bid request with valid params', () => {
       const validBid = {
         params: {
-          ab: true,
-          siteId: 'exampleSiteId',
+          blockthrough: {
+            ab: true,
+            orgID: 'orgID',
+            websiteID: 'websiteID',
+          },
           pubmatic: {
             publisherId: 55555,
           },
@@ -89,8 +96,14 @@ describe('BT Bid Adapter', () => {
       expect(requests[0].url).to.equal(ENDPOINT_URL);
       expect(requests[0].data).to.exist;
       expect(requests[0].data.imp[0].ext).to.deep.equal(bidderParams);
+      expect(requests[0].data.imp[0].blockthrough.auctionID).to.deep.equal(
+        'qwerty'
+      );
       expect(requests[0].data.site.ext.blockthrough.ab).to.be.true;
-      expect(requests[0].data.site.ext.blockthrough.siteId).to.equal('55555');
+      expect(requests[0].data.site.ext.blockthrough.websiteID).to.equal(
+        'websiteID'
+      );
+      expect(requests[0].data.site.ext.blockthrough.orgID).to.equal('orgID');
     });
   });
 

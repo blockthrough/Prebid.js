@@ -10,11 +10,12 @@ The BT Bidder Adapter provides an interface to the BT Service. The BT Bidder Ada
 
 # Bid Params
 
-| Key    | Scope    | Type    | Description                                                    |
-| ------ | -------- | ------- | -------------------------------------------------------------- |
-| ab     | Required | Boolean | Whether AdBlock is enabled.                                    |
-| siteId | Required | String  | Unique site ID.                                                |
-| bidder | Required | Object  | Bidder configuration. Could configure several bidders this way |
+| Key                    | Scope    | Type    | Description                                                    |
+| ---------------------- | -------- | ------- | -------------------------------------------------------------- |
+| blockthrough.ab        | Required | Boolean | Whether AdBlock is enabled.                                    |
+| blockthrough.orgID     | Required | String  | Unique org ID.                                                 |
+| blockthrough.websiteID | Required | String  | Unique site ID.                                                |
+| bidder                 | Required | Object  | Bidder configuration. Could configure several bidders this way |
 
 ## AdUnits configuration example
 
@@ -29,8 +30,11 @@ The BT Bidder Adapter provides an interface to the BT Service. The BT Bidder Ada
       bids: [{
         bidder: 'blockthrough',
         params: {
-            ab: true,
-            siteId: '12345',
+            blockthrough: {
+              ab: false,
+              orgID: 'orgID',
+              websiteID: 'websiteID',
+            },
             bidderA: {
                 publisherId: 55555,
             },

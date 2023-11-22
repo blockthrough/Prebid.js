@@ -1,6 +1,12 @@
 import { config } from '../src/config.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { deepSetValue, isBoolean, isStr, logWarn } from '../src/utils.js';
+import {
+  deepSetValue,
+  isBoolean,
+  isPlainObject,
+  isStr,
+  logWarn,
+} from '../src/utils.js';
 import { BANNER } from '../src/mediaTypes.js';
 import { ortbConverter } from '../libraries/ortbConverter/converter.js';
 
@@ -32,7 +38,12 @@ function imp(buildImp, bidRequest, context) {
   const { params, ortb2Imp } = bidRequest;
 
   if (params) {
-    const { siteId, ab, ...btBidParams } = params;
+    const { blockthrough, ...btBidParams } = params;
+
+    if (blockthrough.auctionID) {
+      deepSetValue(imp, 'blockthrough.auctionID', blockthrough.auctionID);
+      delete blockthrough.auctionID;
+    }
     Object.assign(imp, { ext: btBidParams });
   }
   if (ortb2Imp?.ext.gpid) {
@@ -56,8 +67,8 @@ function request(buildRequest, imps, bidderRequest, context) {
   const { params } = bidderRequest.bids?.[0] || {};
 
   if (params) {
-    const { ab, siteId } = params;
-    deepSetValue(request, 'site.ext.blockthrough', { ab, siteId });
+    const { blockthrough } = params;
+    deepSetValue(request, 'site.ext.blockthrough', blockthrough);
   }
   if (config.getConfig('debug')) {
     request.test = 1;
@@ -89,14 +100,25 @@ function bidResponse(buildBidResponse, bid, context) {
  * @returns {boolean} True if the bid request is valid, false otherwise.
  */
 function isBidRequestValid(bid) {
-  const { ab, siteId } = bid.params;
-
-  if (!siteId || !isStr(siteId)) {
-    logWarn('BT Bid Adapter: a string type "siteId" must be provided.');
+  const { blockthrough } = bid.params;
+  if (!isPlainObject(blockthrough) || !Object.keys(blockthrough).length) {
+    logWarn(
+      'BT Bid Adapter: a object type "blockthrough" with site ids and adblock data must be provided.'
+    );
     return false;
   }
 
-  if (!isBoolean(ab)) {
+  if (!blockthrough.orgID || !isStr(blockthrough.orgID)) {
+    logWarn('BT Bid Adapter: a string type "orgID" must be provided.');
+    return false;
+  }
+
+  if (!blockthrough.websiteID || !isStr(blockthrough.websiteID)) {
+    logWarn('BT Bid Adapter: a string type "websiteID" must be provided.');
+    return false;
+  }
+
+  if (!isBoolean(blockthrough.ab)) {
     logWarn('BT Bid Adapter: a boolean type "ab" must be provided.');
     return false;
   }
