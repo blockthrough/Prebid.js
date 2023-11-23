@@ -40,11 +40,15 @@ function imp(buildImp, bidRequest, context) {
   if (params) {
     const { blockthrough, ...btBidParams } = params;
 
+    Object.assign(imp, { ext: btBidParams });
     if (blockthrough.auctionID) {
-      deepSetValue(imp, 'blockthrough.auctionID', blockthrough.auctionID);
+      deepSetValue(
+        imp,
+        'ext.prebid.blockthrough.auctionID',
+        blockthrough.auctionID
+      );
       delete blockthrough.auctionID;
     }
-    Object.assign(imp, { ext: btBidParams });
   }
   if (ortb2Imp?.ext.gpid) {
     deepSetValue(imp, 'gpid', ortb2Imp.ext.gpid);

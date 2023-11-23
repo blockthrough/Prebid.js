@@ -28,7 +28,7 @@ describe('BT Bid Adapter', () => {
           ab: true,
           websiteID: 'websiteID',
           orgID: 'orgID',
-          auctionID: 'qwerty',
+          auctionID: 'auctionID',
         },
         bidderA: {
           pubId: '11111',
@@ -84,9 +84,14 @@ describe('BT Bid Adapter', () => {
 
   describe('buildRequests', () => {
     it('should build post request when ortb2 fields are present', () => {
-      const bidderParams = {
+      const impExtParams = {
         bidderA: {
           pubId: '11111',
+        },
+        prebid: {
+          blockthrough: {
+            auctionID: 'auctionID',
+          },
         },
       };
 
@@ -95,10 +100,7 @@ describe('BT Bid Adapter', () => {
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(ENDPOINT_URL);
       expect(requests[0].data).to.exist;
-      expect(requests[0].data.imp[0].ext).to.deep.equal(bidderParams);
-      expect(requests[0].data.imp[0].blockthrough.auctionID).to.deep.equal(
-        'qwerty'
-      );
+      expect(requests[0].data.imp[0].ext).to.deep.equal(impExtParams);
       expect(requests[0].data.site.ext.blockthrough.ab).to.be.true;
       expect(requests[0].data.site.ext.blockthrough.websiteID).to.equal(
         'websiteID'
