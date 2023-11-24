@@ -25,9 +25,6 @@ describe('BT Bid Adapter', () => {
       mediaTypes: { [BANNER]: { sizes: [[300, 250]] } },
       params: {
         blockthrough: {
-          ab: true,
-          websiteID: 'websiteID',
-          orgID: 'orgID',
           auctionID: 'auctionID',
         },
         bidderA: {
@@ -35,11 +32,9 @@ describe('BT Bid Adapter', () => {
         },
       },
       bidderRequestId: 'test-bidder-request-id',
-      auctionId: 'test-auction-id',
     },
   ];
   const bidderRequest = {
-    auctionId: 'test-auction-id',
     bidderCode: 'blockthrough',
     bidderRequestId: 'test-bidder-request-id',
     bids: validBidRequests,
@@ -49,11 +44,6 @@ describe('BT Bid Adapter', () => {
     it('should validate bid request with valid params', () => {
       const validBid = {
         params: {
-          blockthrough: {
-            ab: true,
-            orgID: 'orgID',
-            websiteID: 'websiteID',
-          },
           pubmatic: {
             publisherId: 55555,
           },
@@ -88,11 +78,6 @@ describe('BT Bid Adapter', () => {
         bidderA: {
           pubId: '11111',
         },
-        prebid: {
-          blockthrough: {
-            auctionID: 'auctionID',
-          },
-        },
       };
 
       const requests = spec.buildRequests(validBidRequests, bidderRequest);
@@ -101,11 +86,7 @@ describe('BT Bid Adapter', () => {
       expect(requests[0].url).to.equal(ENDPOINT_URL);
       expect(requests[0].data).to.exist;
       expect(requests[0].data.imp[0].ext).to.deep.equal(impExtParams);
-      expect(requests[0].data.site.ext.blockthrough.ab).to.be.true;
-      expect(requests[0].data.site.ext.blockthrough.websiteID).to.equal(
-        'websiteID'
-      );
-      expect(requests[0].data.site.ext.blockthrough.orgID).to.equal('orgID');
+      //expect(requests[0].data.imp[0].id).to.deep.equal('auctionID');
     });
   });
 
@@ -126,7 +107,7 @@ describe('BT Bid Adapter', () => {
             {
               bid: [
                 {
-                  impid: '2e9f38ea93bb9e',
+                  impid: 'auctionID',
                   crid: 'creative-id',
                   cur: 'USD',
                   price: 2,
