@@ -16,6 +16,31 @@ The BT adapter requires setup and approval from the Blockthrough team. Please re
 | ------ | -------- | ------ | -------------------------------------------------------------- |
 | bidder | Required | Object | Bidder configuration. Could configure several bidders this way |
 
+# Bidder Config
+
+Make sure to set ab, orgID, websiteID values received after approval using `pbjs.setBidderConfig`.
+
+## Example
+
+```javascript
+pbjs.setBidderConfig({
+  bidders: ['blockthrough'],
+  config: {
+    ortb2: {
+      site: {
+        ext: {
+          blockthrough: {
+            ab: false,
+            orgID: 'orgID',
+            websiteID: 'websiteID',
+          },
+        },
+      },
+    },
+  },
+});
+```
+
 ## AdUnits configuration example
 
 ```javascript
