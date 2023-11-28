@@ -78,6 +78,9 @@ describe('BT Bid Adapter', () => {
         bidderA: {
           pubId: '11111',
         },
+        prebid: {
+          blockthrough: { auctionID: 'auctionID' },
+        },
       };
 
       const requests = spec.buildRequests(validBidRequests, bidderRequest);
@@ -86,7 +89,6 @@ describe('BT Bid Adapter', () => {
       expect(requests[0].url).to.equal(ENDPOINT_URL);
       expect(requests[0].data).to.exist;
       expect(requests[0].data.imp[0].ext).to.deep.equal(impExtParams);
-      //expect(requests[0].data.imp[0].id).to.deep.equal('auctionID');
     });
   });
 
@@ -107,7 +109,7 @@ describe('BT Bid Adapter', () => {
             {
               bid: [
                 {
-                  impid: 'auctionID',
+                  impid: '2e9f38ea93bb9e',
                   crid: 'creative-id',
                   cur: 'USD',
                   price: 2,

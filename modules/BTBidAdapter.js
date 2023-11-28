@@ -36,7 +36,11 @@ function imp(buildImp, bidRequest, context) {
 
     deepSetValue(imp, 'ext', btBidderParams);
     if (blockthrough.auctionID) {
-      deepSetValue(imp, 'id', blockthrough.auctionID);
+      deepSetValue(
+        imp,
+        'ext.prebid.blockthrough.auctionID',
+        blockthrough.auctionID
+      );
     }
   }
   if (ortb2Imp?.ext.gpid) {
