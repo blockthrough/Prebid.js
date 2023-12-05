@@ -64,6 +64,7 @@ function request(buildRequest, imps, bidderRequest, context) {
   if (config.getConfig('debug')) {
     request.test = 1;
   }
+  request.tmax = 4000;
 
   return request;
 }
