@@ -34,7 +34,7 @@ function imp(buildImp, bidRequest, context) {
   if (params) {
     deepSetValue(imp, 'ext', params);
   }
-  if (ortb2Imp?.ext.gpid) {
+  if (ortb2Imp?.ext?.gpid) {
     deepSetValue(imp, 'ext.gpid', ortb2Imp.ext.gpid);
   }
 
