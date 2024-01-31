@@ -152,6 +152,22 @@ function getUserSyncs(
   const syncUrl = new URL(SYNC_URL);
 
   if (syncOptions.iframeEnabled) {
+    const bidderCodesSet = new Set();
+    serverResponses.forEach((serverResponse) => {
+      if (serverResponse?.body?.ext?.responsetimemillis) {
+        Object.keys(serverResponse.body.ext.responsetimemillis).forEach(
+          bidderCodesSet.add,
+          bidderCodesSet
+        );
+      }
+    });
+
+    if (bidderCodesSet.size !== 0) {
+      syncUrl.searchParams.set('bidders', [...bidderCodesSet].join(','));
+    } else {
+      return [];
+    }
+
     if (gdprConsent) {
       syncUrl.searchParams.set('gdpr', Number(gdprConsent.gdprApplies));
       syncUrl.searchParams.set('gdpr_consent', gdprConsent.consentString);
