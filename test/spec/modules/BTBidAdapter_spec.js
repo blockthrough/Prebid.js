@@ -154,7 +154,7 @@ describe('BT Bid Adapter', () => {
       expect(syncs).to.deep.equal([]);
     });
 
-    it('should return an empty array if no server reponces are provided', () => {
+    it('should return an empty array if no server responses are provided', () => {
       const syncs = spec.getUserSyncs(
         { iframeEnabled: true },
         [],
