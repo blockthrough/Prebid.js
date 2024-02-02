@@ -166,7 +166,7 @@ function getUserSyncs(
     return [];
   }
 
-  let syncs = [];
+  const syncs = [];
   const syncUrl = new URL(SYNC_URL);
   syncUrl.searchParams.set('bidders', [...bidderCodes].join(','));
 
