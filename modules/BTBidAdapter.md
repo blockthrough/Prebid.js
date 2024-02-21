@@ -20,6 +20,12 @@ The BT adapter requires setup and approval from the Blockthrough team. Please re
 
 Make sure to set required ab, orgID, websiteID values received after approval using `pbjs.setBidderConfig`.
 
+| Name        | Scope    | Description                                                          | Example            | Type      |
+| ----------- | -------- | -------------------------------------------------------------------- | ------------------ | --------- |
+| `ab`        | required | Whether AdBlock is enabled.                                          | `true`             | `boolean` |
+| `orgID`     | required | A unique ID for your organization provided by the Blockthrough team. | `4829301576428910` | `string`  |
+| `websiteID` | required | A unique ID for your site provided by the Blockthrough team.         | `5654012389765432` | `string`  |
+
 ## Example
 
 ```javascript
