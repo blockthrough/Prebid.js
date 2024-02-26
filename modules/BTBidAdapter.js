@@ -55,6 +55,11 @@ function request(buildRequest, imps, bidderRequest, context) {
     name: 'pbjs',
     version: '$prebid.version$',
   });
+  deepSetValue(
+    request,
+    'site.ext.blockthrough.ab',
+    !!bidderRequest.ortb2.site.ext.blockthrough.ab
+  );
 
   if (window.location.href.includes('btServerTest=true')) {
     request.test = 1;
@@ -107,10 +112,18 @@ function buildRequests(validBidRequests, bidderRequest) {
     bidderRequest,
   });
 
+  const endpointUrl = new URL(ENDPOINT_URL);
+  const { ab, orgID, websiteID } = data.site.ext.blockthrough;
+
+  endpointUrl.searchParams.set('ab', ab);
+  endpointUrl.searchParams.set('orgID', orgID);
+  endpointUrl.searchParams.set('websiteID', websiteID);
+  endpointUrl.searchParams.set('pbjsVersion', '$prebid.version$');
+
   return [
     {
       method: 'POST',
-      url: ENDPOINT_URL,
+      url: endpointUrl.href,
       data,
       bids: validBidRequests,
     },
