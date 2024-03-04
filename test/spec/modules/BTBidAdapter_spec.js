@@ -17,6 +17,8 @@ import 'modules/schain.js';
 
 describe('BT Bid Adapter', () => {
   const ENDPOINT_URL = 'https://pbs.btloader.com/openrtb2/auction';
+  const orgID = '4829301576428910';
+  const websiteID = '5654012389765432';
   const validBidRequests = [
     {
       bidId: '2e9f38ea93bb9e',
@@ -35,6 +37,16 @@ describe('BT Bid Adapter', () => {
     bidderCode: 'blockthrough',
     bidderRequestId: 'test-bidder-request-id',
     bids: validBidRequests,
+    ortb2: {
+      site: {
+        ext: {
+          blockthrough: {
+            orgID,
+            websiteID,
+          },
+        },
+      },
+    },
   };
 
   describe('isBidRequestValid', function () {
@@ -76,11 +88,16 @@ describe('BT Bid Adapter', () => {
           pubId: '11111',
         },
       };
+      const expectedEndpointUrl = new URL(ENDPOINT_URL);
+      expectedEndpointUrl.searchParams.set('ab', 'false');
+      expectedEndpointUrl.searchParams.set('orgID', orgID);
+      expectedEndpointUrl.searchParams.set('websiteID', websiteID);
+      expectedEndpointUrl.searchParams.set('pbjsVersion', '$prebid.version$');
 
       const requests = spec.buildRequests(validBidRequests, bidderRequest);
 
       expect(requests[0].method).to.equal('POST');
-      expect(requests[0].url).to.equal(ENDPOINT_URL);
+      expect(requests[0].url).to.equal(expectedEndpointUrl.href);
       expect(requests[0].data).to.exist;
       expect(requests[0].data.ext.prebid.channel).to.deep.equal({
         name: 'pbjs',
