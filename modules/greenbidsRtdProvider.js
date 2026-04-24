@@ -1,101 +1,71 @@
-import { logError, logInfo, logWarn, logMessage, deepClone, generateUUID, deepSetValue, deepAccess, getParameterByName } from '../src/utils.js';
+import { logError } from '../src/utils.js';
 import { ajax } from '../src/ajax.js';
 import { submodule } from '../src/hook.js';
-import * as events from '../src/events.js';
-import { EVENTS } from '../src/constants.js';
 
 const MODULE_NAME = 'greenbidsRtdProvider';
-const MODULE_VERSION = '2.0.2';
+const MODULE_VERSION = '1.0.0';
 const ENDPOINT = 'https://t.greenbids.ai';
 
+const auctionInfo = {};
 const rtdOptions = {};
 
 function init(moduleConfig) {
-  const params = moduleConfig?.params;
+  let params = moduleConfig?.params;
   if (!params?.pbuid) {
     logError('Greenbids pbuid is not set!');
     return false;
   } else {
     rtdOptions.pbuid = params?.pbuid;
+    rtdOptions.targetTPR = params?.targetTPR || 0.99;
     rtdOptions.timeout = params?.timeout || 200;
     return true;
   }
 }
 
 function onAuctionInitEvent(auctionDetails) {
-  /* Emitting one billing event per auction */
-  const defaultId = 'default_id';
-  const greenbidsId = deepAccess(auctionDetails.adUnits[0], 'ortb2Imp.ext.greenbids.greenbidsId', defaultId);
-  /* greenbids was successfully called so we emit the event */
-  if (greenbidsId !== defaultId) {
-    events.emit(EVENTS.BILLABLE_EVENT, {
-      type: 'auction',
-      billingId: generateUUID(),
-      auctionId: auctionDetails.auctionId,
-      vendor: MODULE_NAME
-    });
-  }
+  auctionInfo.auctionId = auctionDetails.auctionId;
 }
 
 function getBidRequestData(reqBidsConfigObj, callback, config, userConsent) {
-  const greenbidsId = generateUUID();
-  const promise = createPromise(reqBidsConfigObj, greenbidsId);
+  let promise = createPromise(reqBidsConfigObj);
   promise.then(callback);
 }
 
-function createPromise(reqBidsConfigObj, greenbidsId) {
+function createPromise(reqBidsConfigObj) {
   return new Promise((resolve) => {
     const timeoutId = setTimeout(() => {
-      logWarn('GreenbidsRtdProvider: Greenbids API timeout, skipping shaping');
       resolve(reqBidsConfigObj);
     }, rtdOptions.timeout);
     ajax(
       ENDPOINT,
       {
         success: (response) => {
-          processSuccessResponse(response, timeoutId, reqBidsConfigObj, greenbidsId);
+          processSuccessResponse(response, timeoutId, reqBidsConfigObj);
           resolve(reqBidsConfigObj);
         },
         error: () => {
           clearTimeout(timeoutId);
-          logWarn('GreenbidsRtdProvider: Greenbids API response error, skipping shaping');
           resolve(reqBidsConfigObj);
         },
       },
-      createPayload(reqBidsConfigObj, greenbidsId),
+      createPayload(reqBidsConfigObj),
+      { contentType: 'application/json' }
     );
   });
 }
 
-function processSuccessResponse(response, timeoutId, reqBidsConfigObj, greenbidsId) {
+function processSuccessResponse(response, timeoutId, reqBidsConfigObj) {
   clearTimeout(timeoutId);
-  try {
-    const responseAdUnits = JSON.parse(response);
-    updateAdUnitsBasedOnResponse(reqBidsConfigObj.adUnits, responseAdUnits, greenbidsId);
-  } catch (e) {
-    logWarn('GreenbidsRtdProvider: Greenbids API response parsing error, skipping shaping');
-  }
+  const responseAdUnits = JSON.parse(response);
+
+  updateAdUnitsBasedOnResponse(reqBidsConfigObj.adUnits, responseAdUnits);
 }
 
-function updateAdUnitsBasedOnResponse(adUnits, responseAdUnits, greenbidsId) {
-  const isFilteringForced = getParameterByName('greenbids_force_filtering');
-  const isFilteringDisabled = getParameterByName('greenbids_disable_filtering');
+function updateAdUnitsBasedOnResponse(adUnits, responseAdUnits) {
   adUnits.forEach((adUnit) => {
     const matchingAdUnit = findMatchingAdUnit(responseAdUnits, adUnit.code);
     if (matchingAdUnit) {
-      deepSetValue(adUnit, 'ortb2Imp.ext.greenbids', {
-        greenbidsId: greenbidsId,
-        keptInAuction: matchingAdUnit.bidders,
-        isExploration: matchingAdUnit.isExploration
-      });
-      if (matchingAdUnit.isExploration || isFilteringDisabled) {
-        logMessage('Greenbids Rtd: either exploration traffic, or disabled filtering flag detected');
-      } else if (isFilteringForced) {
-        adUnit.bids = [];
-        logInfo('Greenbids Rtd: filtering flag detected, forcing filtering of Rtd module.');
-      } else {
-        removeFalseBidders(adUnit, matchingAdUnit);
-      }
+      removeFalseBidders(adUnit, matchingAdUnit);
     }
   });
 }
@@ -115,24 +85,14 @@ function getFalseBidders(bidders) {
     .map(([bidder]) => bidder);
 }
 
-function stripAdUnits(adUnits) {
-  const stripedAdUnits = deepClone(adUnits);
-  return stripedAdUnits.map(adUnit => {
-    adUnit.bids = adUnit.bids.map(bid => {
-      return { bidder: bid.bidder };
-    });
-    return adUnit;
-  });
-}
-
-function createPayload(reqBidsConfigObj, greenbidsId) {
+function createPayload(reqBidsConfigObj) {
   return JSON.stringify({
+    auctionId: auctionInfo.auctionId,
     version: MODULE_VERSION,
-    ...rtdOptions,
     referrer: window.location.href,
     prebid: '$prebid.version$',
-    greenbidsId: greenbidsId,
-    adUnits: stripAdUnits(reqBidsConfigObj.adUnits),
+    rtdOptions: rtdOptions,
+    adUnits: reqBidsConfigObj.adUnits,
   });
 }
 
@@ -145,7 +105,6 @@ export const greenbidsSubmodule = {
   findMatchingAdUnit: findMatchingAdUnit,
   removeFalseBidders: removeFalseBidders,
   getFalseBidders: getFalseBidders,
-  stripAdUnits: stripAdUnits,
 };
 
 submodule('realTimeData', greenbidsSubmodule);

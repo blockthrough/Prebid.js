@@ -1,14 +1,6 @@
 import { logMessage, logError, deepAccess, isFn, isPlainObject, isStr, isNumber, isArray, deepSetValue } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { VIDEO } from '../src/mediaTypes.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- */
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {VIDEO} from '../src/mediaTypes.js';
 
 const BIDDER_CODE = 'videobyte';
 const DEFAULT_BID_TTL = 300;
@@ -19,7 +11,6 @@ const VIDEO_ORTB_PARAMS = [
   'minduration',
   'maxduration',
   'placement',
-  'plcmt',
   'protocols',
   'startdelay',
   'skip',
@@ -60,7 +51,7 @@ export const spec = {
       return;
     }
     return bidRequests.map(bidRequest => {
-      const { params } = bidRequest;
+      const {params} = bidRequest;
       let pubId = params.pubId;
       const placementId = params.placementId;
       const nId = params.nid;
@@ -87,6 +78,7 @@ export const spec = {
    * Unpack the response from the server into a list of bids.
    *
    * @param {ServerResponse} serverResponse A successful response from the server.
+   * @param bidRequest
    * @return {Bid[]} An array of bids which were nested inside the server.
    */
   interpretResponse: function (serverResponse) {
@@ -96,7 +88,7 @@ export const spec = {
     if (response && response.seatbid && response.seatbid.length === 1 && response.seatbid[0].bid && response.seatbid[0].bid.length === 1) {
       const bid = response.seatbid[0].bid[0]
       if (bid.adm && bid.price) {
-        const bidResponse = {
+        let bidResponse = {
           requestId: response.id,
           cpm: bid.price,
           width: bid.w,
@@ -164,7 +156,7 @@ export const spec = {
 
 // BUILD REQUESTS: VIDEO
 function buildRequestData(bidRequest, bidderRequest) {
-  const { params } = bidRequest;
+  const {params} = bidRequest;
 
   const videoAdUnit = deepAccess(bidRequest, 'mediaTypes.video', {});
   const videoBidderParams = deepAccess(bidRequest, 'params.video', {});
@@ -191,6 +183,16 @@ function buildRequestData(bidRequest, bidderRequest) {
     }
   });
 
+  // Placement Inference Rules:
+  // - If no placement is defined then default to 1 (In Stream)
+  video.placement = video.placement || 2;
+
+  // - If product is instream (for instream context) then override placement to 1
+  if (params.context === 'instream') {
+    video.startdelay = video.startdelay || 0;
+    video.placement = 1;
+  }
+
   // bid floor
   const bidFloorRequest = {
     currency: bidRequest.params.cur || 'USD',
@@ -202,7 +204,7 @@ function buildRequestData(bidRequest, bidderRequest) {
     floorData = bidRequest.getFloor(bidFloorRequest);
   } else {
     if (params.bidfloor) {
-      floorData = { floor: params.bidfloor, currency: params.currency || 'USD' };
+      floorData = {floor: params.bidfloor, currency: params.currency || 'USD'};
     }
   }
 
@@ -213,8 +215,8 @@ function buildRequestData(bidRequest, bidderRequest) {
         id: '1',
         video: video,
         secure: isSecure() ? 1 : 0,
-        bidfloor: floorData?.floor,
-        bidfloorcur: floorData?.currency
+        bidfloor: floorData.floor,
+        bidfloorcur: floorData.currency
       }
     ],
     site: {
@@ -251,9 +253,8 @@ function buildRequestData(bidRequest, bidderRequest) {
   }
 
   // adding schain object
-  const schain = bidRequest?.ortb2?.source?.ext?.schain;
-  if (schain) {
-    deepSetValue(openrtbRequest, 'source.ext.schain', schain);
+  if (bidRequest.schain) {
+    deepSetValue(openrtbRequest, 'source.ext.schain', bidRequest.schain);
     openrtbRequest.source.ext.schain.nodes[0].rid = openrtbRequest.id;
   }
 

@@ -1,12 +1,6 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER } from '../src/mediaTypes.js';
-import { _each, getBidIdParameter, getValue, logError, logInfo } from '../src/utils.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- */
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER} from '../src/mediaTypes.js';
+import {_each, getBidIdParameter, getValue, logError, logInfo} from '../src/utils.js';
 
 const BIDDER_CODE = 'videonow';
 const RTB_URL = 'https://adx.videonow.ru/yhb'
@@ -18,7 +12,7 @@ export const spec = {
 
   code: BIDDER_CODE,
   url: RTB_URL,
-  supportedMediaTypes: [BANNER],
+  supportedMediaTypes: [ BANNER ],
 
   /**
    * Determines whether or not the given bid request is valid.

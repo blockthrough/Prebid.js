@@ -5,7 +5,6 @@ import * as utils from '../src/utils.js';
 
 const adpterVersion = '1.0';
 export const REQUEST_URL = 'https://spicyrtb.com/auction/prebid';
-export const DEFAULT_CURRENCY = 'USD';
 
 export const spec = {
   code: 'adfusion',
@@ -24,17 +23,6 @@ const converter = ortbConverter({
   context: {
     netRevenue: true,
     ttl: 300,
-    currency: DEFAULT_CURRENCY,
-  },
-  imp(buildImp, bidRequest, context) {
-    const imp = buildImp(bidRequest, context);
-    const floor = getBidFloor(bidRequest);
-    if (floor) {
-      imp.bidfloor = floor;
-      imp.bidfloorcur = DEFAULT_CURRENCY;
-    }
-
-    return imp;
   },
   request(buildRequest, imps, bidderRequest, context) {
     const req = buildRequest(imps, bidderRequest, context);
@@ -66,9 +54,9 @@ function isBidRequestValid(bidRequest) {
 }
 
 function buildRequests(bids, bidderRequest) {
-  const videoBids = bids.filter((bid) => isVideoBid(bid));
-  const bannerBids = bids.filter((bid) => isBannerBid(bid));
-  const requests = bannerBids.length
+  let videoBids = bids.filter((bid) => isVideoBid(bid));
+  let bannerBids = bids.filter((bid) => isBannerBid(bid));
+  let requests = bannerBids.length
     ? [createRequest(bannerBids, bidderRequest, BANNER)]
     : [];
   videoBids.forEach((bid) => {
@@ -99,22 +87,4 @@ function isBannerBid(bid) {
 
 function interpretResponse(resp, req) {
   return converter.fromORTB({ request: req.data, response: resp.body });
-}
-
-function getBidFloor(bid) {
-  if (utils.isFn(bid.getFloor)) {
-    const floor = bid.getFloor({
-      currency: DEFAULT_CURRENCY,
-      mediaType: '*',
-      size: '*',
-    });
-    if (
-      utils.isPlainObject(floor) &&
-      !isNaN(floor.floor) &&
-      floor.currency === DEFAULT_CURRENCY
-    ) {
-      return floor.floor;
-    }
-  }
-  return null;
 }

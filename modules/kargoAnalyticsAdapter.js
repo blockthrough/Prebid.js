@@ -2,7 +2,7 @@ import { logError } from '../src/utils.js';
 import { ajax } from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
-import { EVENTS } from '../src/constants.js';
+import CONSTANTS from '../src/constants.json';
 
 const EVENT_URL = 'https://krk.kargo.com/api/v1/event';
 const KARGO_BIDDER_CODE = 'kargo';
@@ -11,23 +11,23 @@ const analyticsType = 'endpoint';
 
 let _initOptions = {};
 
-const _logBidResponseData = {
+let _logBidResponseData = {
   auctionId: '',
   auctionTimeout: 0,
   responseTime: 0,
 };
 
-const _bidResponseDataLogged = [];
+let _bidResponseDataLogged = [];
 
 var kargoAnalyticsAdapter = Object.assign(
   adapter({ analyticsType }), {
     track({ eventType, args }) {
       switch (eventType) {
-        case EVENTS.AUCTION_INIT: {
+        case CONSTANTS.EVENTS.AUCTION_INIT: {
           _logBidResponseData.auctionTimeout = args.timeout;
           break;
         }
-        case EVENTS.BID_RESPONSE: {
+        case CONSTANTS.EVENTS.BID_RESPONSE: {
           handleBidResponseData(args);
           break;
         }

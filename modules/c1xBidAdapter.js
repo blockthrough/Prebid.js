@@ -2,10 +2,6 @@ import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { logInfo, logError } from '../src/utils.js';
 import { BANNER } from '../src/mediaTypes.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- */
-
 const BIDDER_CODE = 'c1x';
 const URL = 'https://hb-stg.c1exchange.com/ht';
 // const PIXEL_ENDPOINT = '//px.c1exchange.com/pubpixel/';
@@ -33,7 +29,7 @@ export const c1xAdapter = {
    */
   // check the bids sent to c1x bidder
   isBidRequestValid: function (bid) {
-    if (typeof bid.params === 'undefined') {
+    if (bid.bidder !== BIDDER_CODE || typeof bid.params === 'undefined') {
       return false;
     }
     if (typeof bid.params.placementId === 'undefined') {
@@ -51,7 +47,7 @@ export const c1xAdapter = {
   buildRequests: function (validBidRequests, bidderRequest) {
     let payload = {};
     let tagObj = {};
-    const bidRequest = [];
+    let bidRequest = [];
     const adunits = validBidRequests.length;
     const rnd = new Date().getTime();
     const c1xTags = validBidRequests.map(bidToTag);
@@ -75,7 +71,7 @@ export const c1xAdapter = {
     }
 
     Object.assign(payload, tagObj);
-    const payloadString = stringifyPayload(payload);
+    let payloadString = stringifyPayload(payload);
     // ServerRequest object
     bidRequest.push({
       method: 'GET',
@@ -94,7 +90,7 @@ export const c1xAdapter = {
     let netRevenue = false;
 
     if (!serverResponse || serverResponse.error) {
-      const errorMessage = serverResponse.error;
+      let errorMessage = serverResponse.error;
       logError(LOG_MSG.invalidBid + errorMessage);
       return bidResponses;
     } else {
@@ -184,8 +180,8 @@ function getBidFloor(bidRequest) {
     });
   }
 
-  const floor =
-    floorInfo?.floor ||
+  let floor =
+    floorInfo.floor ||
     bidRequest.params.bidfloor ||
     bidRequest.params.floorPriceMap ||
     0;
@@ -201,7 +197,7 @@ function bidToShortTag(bid) {
 }
 
 function stringifyPayload(payload) {
-  const payloadString = [];
+  let payloadString = [];
   for (var key in payload) {
     if (payload.hasOwnProperty(key)) {
       payloadString.push(key + '=' + payload[key]);

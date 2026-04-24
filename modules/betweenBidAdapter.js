@@ -1,25 +1,14 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { parseSizesInput } from '../src/utils.js';
-
-import { getAdUnitSizes } from '../libraries/sizeUtils/sizeUtils.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- */
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {parseSizesInput} from '../src/utils.js';
+import {includes} from '../src/polyfill.js';
+import {getAdUnitSizes} from '../libraries/sizeUtils/sizeUtils.js';
 
 const BIDDER_CODE = 'between';
-const GVLID = 724;
-const ENDPOINT = 'https://ads.betweendigital.com/adjson?t=prebid';
+let ENDPOINT = 'https://ads.betweendigital.com/adjson?t=prebid';
 const CODE_TYPES = ['inpage', 'preroll', 'midroll', 'postroll'];
 
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
   aliases: ['btw'],
   supportedMediaTypes: ['banner', 'video'],
   /**
@@ -34,18 +23,18 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests} validBidRequests an array of bids
+   * @param {validBidRequest?pbjs_debug=trues[]} - an array of bids
    * @return ServerRequest Info describing the request to the server.
    */
   buildRequests: function(validBidRequests, bidderRequest) {
-    const requests = [];
+    let requests = [];
     const gdprConsent = bidderRequest && bidderRequest.gdprConsent;
     const refInfo = bidderRequest?.refererInfo;
 
     validBidRequests.forEach((i) => {
       const video = i.mediaTypes && i.mediaTypes.video;
 
-      const params = {
+      let params = {
         eids: getUsersIds(i),
         sizes: parseSizesInput(getAdUnitSizes(i)),
         jst: 'hb',
@@ -66,7 +55,7 @@ export const spec = {
         params.mind = video.mind;
         params.pos = 'atf';
         params.jst = 'pvc';
-        params.codeType = CODE_TYPES.includes(video.codeType) ? video.codeType : 'inpage';
+        params.codeType = includes(CODE_TYPES, video.codeType) ? video.codeType : 'inpage';
       }
 
       if (i.params.itu !== undefined) {
@@ -82,14 +71,13 @@ export const spec = {
         params.click3rd = i.params.click3rd;
       }
       if (i.params.pubdata !== undefined) {
-        for (const key in i.params.pubdata) {
+        for (let key in i.params.pubdata) {
           params['pubside_macro[' + key + ']'] = encodeURIComponent(i.params.pubdata[key]);
         }
       }
 
-      const schain = i?.ortb2?.source?.ext?.schain;
-      if (schain) {
-        params.schain = encodeToBase64WebSafe(JSON.stringify(schain));
+      if (i.schain) {
+        params.schain = encodeToBase64WebSafe(JSON.stringify(i.schain));
       }
 
       // TODO: is 'page' the right value here?
@@ -104,7 +92,7 @@ export const spec = {
         }
       }
 
-      requests.push({ data: params });
+      requests.push({data: params});
     })
     return {
       method: 'POST',
@@ -123,7 +111,7 @@ export const spec = {
     const bidResponses = [];
 
     for (var i = 0; i < serverResponse.body.length; i++) {
-      const bidResponse = {
+      let bidResponse = {
         requestId: serverResponse.body[i].bidid,
         cpm: serverResponse.body[i].cpm || 0,
         width: serverResponse.body[i].w,
@@ -153,7 +141,7 @@ export const spec = {
    * @return {UserSync[]} The user syncs which should be dropped.
    */
   getUserSyncs: function(syncOptions, serverResponses) {
-    const syncs = []
+    let syncs = []
     /* console.log(syncOptions,serverResponses)
      if (syncOptions.iframeEnabled) {
       syncs.push({
@@ -196,9 +184,9 @@ function getRr() {
     var rr = td.referrer;
   } catch (err) { return false }
 
-  if (typeof rr !== 'undefined' && rr.length > 0) {
+  if (typeof rr != 'undefined' && rr.length > 0) {
     return encodeURIComponent(rr);
-  } else if (typeof rr !== 'undefined' && rr === '') {
+  } else if (typeof rr != 'undefined' && rr == '') {
     return 'direct';
   }
 }
@@ -232,7 +220,7 @@ function get_pubdata(adds) {
     let index = 0;
     let url = '';
     for(var key in adds.pubdata) {
-      if (index === 0) {
+      if (index == 0) {
         url = url + encodeURIComponent('pubside_macro[' + key + ']') + '=' + encodeURIComponent(adds.pubdata[key]);
         index++;
       } else {

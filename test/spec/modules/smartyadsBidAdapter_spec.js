@@ -1,10 +1,10 @@
-import { expect } from 'chai';
-import { spec } from '../../../modules/smartyadsBidAdapter.js';
+import {expect} from 'chai';
+import {spec} from '../../../modules/smartyadsBidAdapter.js';
 import { config } from '../../../src/config.js';
-import { server } from '../../mocks/xhr.js';
+import {server} from '../../mocks/xhr';
 
 describe('SmartyadsAdapter', function () {
-  const bid = {
+  let bid = {
     bidId: '23fhj33i987f',
     bidder: 'smartyads',
     params: {
@@ -15,7 +15,7 @@ describe('SmartyadsAdapter', function () {
     }
   };
 
-  const bidResponse = {
+  let bidResponse = {
     width: 300,
     height: 250,
     mediaType: 'banner',
@@ -52,22 +52,20 @@ describe('SmartyadsAdapter', function () {
       expect(serverRequest.method).to.equal('POST');
     });
     it('Returns valid URL', function () {
-      expect(serverRequest.url).to.be.oneOf([
-        'https://n1.smartyads.com/?c=o&m=prebid&secret_key=prebid_js',
-        'https://n2.smartyads.com/?c=o&m=prebid&secret_key=prebid_js',
-        'https://n6.smartyads.com/?c=o&m=prebid&secret_key=prebid_js'
-      ]);
+      expect(serverRequest.url).to.equal('https://n1.smartyads.com/?c=o&m=prebid&secret_key=prebid_js');
     });
     it('Returns valid data if array of bids is valid', function () {
-      const data = serverRequest.data;
+      let data = serverRequest.data;
       expect(data).to.be.an('object');
-      expect(data).to.have.all.keys('deviceWidth', 'deviceHeight', 'host', 'page', 'placements', 'coppa', 'eeid', 'ifa');
+      expect(data).to.have.all.keys('deviceWidth', 'deviceHeight', 'language', 'secure', 'host', 'page', 'placements', 'coppa');
       expect(data.deviceWidth).to.be.a('number');
       expect(data.deviceHeight).to.be.a('number');
       expect(data.coppa).to.be.a('number');
+      expect(data.language).to.be.a('string');
+      expect(data.secure).to.be.within(0, 1);
       expect(data.host).to.be.a('string');
       expect(data.page).to.be.a('string');
-      const placement = data['placements'][0];
+      let placement = data['placements'][0];
       expect(placement).to.have.keys('placementId', 'bidId', 'traffic', 'sizes', 'publisherId');
       expect(placement.placementId).to.equal('0');
       expect(placement.bidId).to.equal('23fhj33i987f');
@@ -75,7 +73,7 @@ describe('SmartyadsAdapter', function () {
     });
     it('Returns empty data if no valid requests are passed', function () {
       serverRequest = spec.buildRequests([]);
-      const data = serverRequest.data;
+      let data = serverRequest.data;
       expect(data.placements).to.be.an('array').that.is.empty;
     });
   });
@@ -91,7 +89,7 @@ describe('SmartyadsAdapter', function () {
     });
 
     it('should send the Coppa "required" flag set to "1" in the request', function () {
-      const serverRequest = spec.buildRequests([bid]);
+      let serverRequest = spec.buildRequests([bid]);
       expect(serverRequest.data.coppa).to.equal(1);
     });
   });
@@ -111,12 +109,12 @@ describe('SmartyadsAdapter', function () {
           netRevenue: true,
           currency: 'USD',
           dealId: '1',
-          meta: { advertiserDomains: ['example.com'] }
+          meta: {advertiserDomains: ['example.com']}
         }]
       };
-      const bannerResponses = spec.interpretResponse(banner);
+      let bannerResponses = spec.interpretResponse(banner);
       expect(bannerResponses).to.be.an('array').that.is.not.empty;
-      const dataItem = bannerResponses[0];
+      let dataItem = bannerResponses[0];
       expect(dataItem).to.have.all.keys('requestId', 'cpm', 'width', 'height', 'ad', 'ttl', 'creativeId',
         'netRevenue', 'currency', 'dealId', 'mediaType', 'meta');
       expect(dataItem.requestId).to.equal('23fhj33i987f');
@@ -124,8 +122,8 @@ describe('SmartyadsAdapter', function () {
       expect(dataItem.width).to.equal(300);
       expect(dataItem.height).to.equal(250);
       expect(dataItem.ad).to.equal('Test');
-      expect(dataItem.meta).to.have.property('advertiserDomains');
-      expect(dataItem.meta.advertiserDomains).to.be.an('array');
+      expect(dataItem.meta).to.have.property('advertiserDomains')
+      expect(dataItem.meta.advertiserDomains).to.deep.equal(['example.com']);
       expect(dataItem.ttl).to.equal(120);
       expect(dataItem.creativeId).to.equal('2');
       expect(dataItem.netRevenue).to.be.true;
@@ -145,12 +143,12 @@ describe('SmartyadsAdapter', function () {
           dealId: '1'
         }]
       };
-      const videoResponses = spec.interpretResponse(video);
+      let videoResponses = spec.interpretResponse(video);
       expect(videoResponses).to.be.an('array').that.is.not.empty;
 
-      const dataItem = videoResponses[0];
+      let dataItem = videoResponses[0];
       expect(dataItem).to.have.all.keys('requestId', 'cpm', 'vastUrl', 'ttl', 'creativeId',
-        'netRevenue', 'currency', 'dealId', 'mediaType', 'meta');
+        'netRevenue', 'currency', 'dealId', 'mediaType');
       expect(dataItem.requestId).to.equal('23fhj33i987f');
       expect(dataItem.cpm).to.equal(0.5);
       expect(dataItem.vastUrl).to.equal('test.com');
@@ -177,11 +175,11 @@ describe('SmartyadsAdapter', function () {
           currency: 'USD',
         }]
       };
-      const nativeResponses = spec.interpretResponse(native);
+      let nativeResponses = spec.interpretResponse(native);
       expect(nativeResponses).to.be.an('array').that.is.not.empty;
 
-      const dataItem = nativeResponses[0];
-      expect(dataItem).to.have.keys('requestId', 'cpm', 'ttl', 'creativeId', 'netRevenue', 'currency', 'mediaType', 'native', 'meta');
+      let dataItem = nativeResponses[0];
+      expect(dataItem).to.have.keys('requestId', 'cpm', 'ttl', 'creativeId', 'netRevenue', 'currency', 'mediaType', 'native');
       expect(dataItem.native).to.have.keys('clickUrl', 'impressionTrackers', 'title', 'image')
       expect(dataItem.requestId).to.equal('23fhj33i987f');
       expect(dataItem.cpm).to.equal(0.4);
@@ -210,7 +208,7 @@ describe('SmartyadsAdapter', function () {
         }]
       };
 
-      const serverResponses = spec.interpretResponse(invBanner);
+      let serverResponses = spec.interpretResponse(invBanner);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
     it('Should return an empty array if invalid video response is passed', function () {
@@ -226,7 +224,7 @@ describe('SmartyadsAdapter', function () {
           dealId: '1'
         }]
       };
-      const serverResponses = spec.interpretResponse(invVideo);
+      let serverResponses = spec.interpretResponse(invVideo);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
     it('Should return an empty array if invalid native response is passed', function () {
@@ -243,7 +241,7 @@ describe('SmartyadsAdapter', function () {
           currency: 'USD',
         }]
       };
-      const serverResponses = spec.interpretResponse(invNative);
+      let serverResponses = spec.interpretResponse(invNative);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
     it('Should return an empty array if invalid response is passed', function () {
@@ -256,16 +254,16 @@ describe('SmartyadsAdapter', function () {
           dealId: '1'
         }]
       };
-      const serverResponses = spec.interpretResponse(invalid);
+      let serverResponses = spec.interpretResponse(invalid);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
   });
   describe('getUserSyncs', function () {
-    const syncUrl = 'https://as.ck-ie.com/prebidjs?p=7c47322e527cf8bdeb7facc1bb03387a/iframe?pbjs=1&coppa=0';
+    const syncUrl = 'https://as.ck-ie.com/prebidjs?p=7c47322e527cf8bdeb7facc1bb03387a&gdpr=0&gdpr_consent=&type=iframe&us_privacy=&gpp=';
     const syncOptions = {
       iframeEnabled: true
     };
-    const userSync = spec.getUserSyncs(syncOptions);
+    let userSync = spec.getUserSyncs(syncOptions);
     it('Returns valid URL and type', function () {
       expect(userSync).to.be.an('array').with.lengthOf(1);
       expect(userSync[0].type).to.exist;
@@ -273,6 +271,81 @@ describe('SmartyadsAdapter', function () {
       expect(userSync).to.deep.equal([
         { type: 'iframe', url: syncUrl }
       ]);
+    });
+  });
+
+  describe('onBidWon', function () {
+    it('should exists', function () {
+      expect(spec.onBidWon).to.exist.and.to.be.a('function');
+    });
+
+    it('should send a valid bid won notice', function () {
+      const bid = {
+        'c': 'o',
+        'm': 'prebid',
+        'secret_key': 'prebid_js',
+        'winTest': '1',
+        'postData': [{
+          'bidder': 'smartyads',
+          'params': [
+            {'host': 'prebid',
+              'accountid': '123',
+              'sourceid': '12345'
+            }]
+        }]
+      };
+      spec.onBidWon(bid);
+      expect(server.requests.length).to.equal(1);
+    });
+  });
+
+  describe('onTimeout', function () {
+    it('should exists', function () {
+      expect(spec.onTimeout).to.exist.and.to.be.a('function');
+    });
+
+    it('should send a valid bid timeout notice', function () {
+      const bid = {
+        'c': 'o',
+        'm': 'prebid',
+        'secret_key': 'prebid_js',
+        'bidTimeout': '1',
+        'postData': [{
+          'bidder': 'smartyads',
+          'params': [
+            {'host': 'prebid',
+              'accountid': '123',
+              'sourceid': '12345'
+            }]
+        }]
+      };
+      spec.onTimeout(bid);
+      expect(server.requests.length).to.equal(1);
+    });
+  });
+
+  describe('onBidderError', function () {
+    it('should exists', function () {
+      expect(spec.onBidderError).to.exist.and.to.be.a('function');
+    });
+
+    it('should send a valid bidder error notice', function () {
+      const bid = {
+        'c': 'o',
+        'm': 'prebid',
+        'secret_key': 'prebid_js',
+        'bidderError': '1',
+        'postData': [{
+          'bidder': 'smartyads',
+          'params': [
+            {'host': 'prebid',
+              'accountid': '123',
+              'sourceid': '12345'
+            }]
+        }]
+      };
+      spec.onBidderError(bid);
+      expect(server.requests.length).to.equal(1);
     });
   });
 });

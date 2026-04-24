@@ -1,12 +1,7 @@
-import { BANNER, VIDEO } from '../src/mediaTypes.js';
-import { config } from '../src/config.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { spec as baseAdapter } from './appnexusBidAdapter.js'; // eslint-disable-line prebid/validate-imports
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
+import {BANNER, VIDEO} from '../src/mediaTypes.js';
+import {config} from '../src/config.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {spec as baseAdapter} from './appnexusBidAdapter.js'; // eslint-disable-line prebid/validate-imports
 
 const BIDDER_CODE = 'big-richmedia';
 
@@ -16,7 +11,7 @@ export const spec = {
   version: '1.5.1',
   code: BIDDER_CODE,
   gvlid: baseAdapter.GVLID, // use base adapter gvlid
-  supportedMediaTypes: [BANNER, VIDEO],
+  supportedMediaTypes: [ BANNER, VIDEO ],
 
   /**
    * Determines whether or not the given bid request is valid.
@@ -110,6 +105,11 @@ export const spec = {
   getUserSyncs: function (syncOptions, responses, gdprConsent) {
     if (!baseAdapter.getUserSyncs) { return []; }
     return baseAdapter.getUserSyncs(syncOptions, responses, gdprConsent);
+  },
+
+  transformBidParams: function (params, isOpenRtb) {
+    if (!baseAdapter.transformBidParams) { return params; }
+    return baseAdapter.transformBidParams(params, isOpenRtb);
   },
 
   /**

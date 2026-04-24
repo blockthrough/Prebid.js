@@ -1,6 +1,6 @@
-import { bidderSettings, ScopedSettings } from '../../../../src/bidderSettings.js';
-import { expect } from 'chai';
-import * as prebidGlobal from '../../../../src/prebidGlobal.js';
+import {bidderSettings, ScopedSettings} from '../../../../src/bidderSettings.js';
+import {expect} from 'chai';
+import * as prebidGlobal from '../../../../src/prebidGlobal';
 import sinon from 'sinon';
 
 describe('ScopedSettings', () => {
@@ -14,17 +14,10 @@ describe('ScopedSettings', () => {
   describe('get', () => {
     it('should retrieve setting from scope', () => {
       data = {
-        scope: { key: 'value' }
+        scope: {key: 'value'}
       };
       expect(settings.get('scope', 'key')).to.equal('value');
     });
-
-    it('can retrieve nested settings', () => {
-      data = {
-        scope: { outer: { key: 'value' } }
-      }
-      expect(settings.get('scope', 'outer.key')).to.equal('value');
-    })
 
     it('should fallback to fallback scope', () => {
       data = {
@@ -110,7 +103,7 @@ describe('ScopedSettings', () => {
 describe('bidderSettings', () => {
   let sandbox;
   beforeEach(() => {
-    sandbox = sinon.createSandbox();
+    sandbox = sinon.sandbox.create();
     sandbox.stub(prebidGlobal, 'getGlobal').returns({
       bidderSettings: {
         scope: {

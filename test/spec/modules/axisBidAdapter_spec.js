@@ -3,19 +3,9 @@ import { spec } from '../../../modules/axisBidAdapter.js';
 import { BANNER, VIDEO, NATIVE } from '../../../src/mediaTypes.js';
 import { getUniqueIdentifierStr } from '../../../src/utils.js';
 
-const bidder = 'axis';
+const bidder = 'axis'
 
 describe('AxisBidAdapter', function () {
-  const userIdAsEids = [{
-    source: 'test.org',
-    uids: [{
-      id: '01**********',
-      atype: 1,
-      ext: {
-        third: '01***********'
-      }
-    }]
-  }];
   const bids = [
     {
       bidId: getUniqueIdentifierStr(),
@@ -23,15 +13,13 @@ describe('AxisBidAdapter', function () {
       mediaTypes: {
         [BANNER]: {
           sizes: [[300, 250]],
-          pos: 1,
-          battr: [1, 3]
+          pos: 1
         }
       },
       params: {
         integration: '000000',
         token: '000000'
-      },
-      userIdAsEids
+      }
     },
     {
       bidId: getUniqueIdentifierStr(),
@@ -41,15 +29,13 @@ describe('AxisBidAdapter', function () {
           playerSize: [[300, 300]],
           minduration: 5,
           maxduration: 60,
-          pos: 1,
-          battr: [1, 3]
+          pos: 1
         }
       },
       params: {
         integration: '000000',
         token: '000000'
-      },
-      userIdAsEids
+      }
     },
     {
       bidId: getUniqueIdentifierStr(),
@@ -73,8 +59,7 @@ describe('AxisBidAdapter', function () {
       params: {
         integration: '000000',
         token: '000000'
-      },
-      userIdAsEids
+      }
     }
   ];
 
@@ -93,25 +78,15 @@ describe('AxisBidAdapter', function () {
 
   const bidderRequest = {
     uspConsent: '1---',
-    gdprConsent: {
-      consentString: 'COvFyGBOvFyGBAbAAAENAPCAAOAAAAAAAAAAAEEUACCKAAA.IFoEUQQgAIQwgIwQABAEAAAAOIAACAIAAAAQAIAgEAACEAAAAAgAQBAAAAAAAGBAAgAAAAAAAFAAECAAAgAAQARAEQAAAAAJAAIAAgAAAYQEAAAQmAgBC3ZAYzUw',
-      vendorData: {}
-    },
+    gdprConsent: 'COvFyGBOvFyGBAbAAAENAPCAAOAAAAAAAAAAAEEUACCKAAA.IFoEUQQgAIQwgIwQABAEAAAAOIAACAIAAAAQAIAgEAACEAAAAAgAQBAAAAAAAGBAAgAAAAAAAFAAECAAAgAAQARAEQAAAAAJAAIAAgAAAYQEAAAQmAgBC3ZAYzUw',
     refererInfo: {
-      referer: 'https://test.com',
-      page: 'https://test.com'
+      referer: 'https://test.com'
     },
     ortb2: {
       site: {
         cat: ['IAB24']
-      },
-      device: {
-        w: 1512,
-        h: 982,
-        language: 'en-UK'
       }
-    },
-    timeout: 500
+    }
   };
 
   describe('isBidRequestValid', function () {
@@ -142,11 +117,10 @@ describe('AxisBidAdapter', function () {
     });
 
     it('Returns general data valid', function () {
-      const data = serverRequest.data;
+      let data = serverRequest.data;
       expect(data).to.be.an('object');
       expect(data).to.have.all.keys('deviceWidth',
         'deviceHeight',
-        'device',
         'language',
         'secure',
         'host',
@@ -156,10 +130,7 @@ describe('AxisBidAdapter', function () {
         'coppa',
         'ccpa',
         'gdpr',
-        'tmax',
-        'bcat',
-        'badv',
-        'bapp'
+        'tmax'
       );
       expect(data.deviceWidth).to.be.a('number');
       expect(data.deviceHeight).to.be.a('number');
@@ -168,7 +139,7 @@ describe('AxisBidAdapter', function () {
       expect(data.host).to.be.a('string');
       expect(data.page).to.be.a('string');
       expect(data.coppa).to.be.a('number');
-      expect(data.gdpr).to.be.a('object');
+      expect(data.gdpr).to.be.a('string');
       expect(data.ccpa).to.be.a('string');
       expect(data.tmax).to.be.a('number');
       expect(data.iabCat).to.have.lengthOf(1);
@@ -185,12 +156,13 @@ describe('AxisBidAdapter', function () {
         expect(placement.token).to.be.a('string');
         expect(placement.schain).to.be.an('object');
         expect(placement.bidfloor).to.exist.and.to.equal(0);
-        expect(placement.eids).to.exist.and.to.be.deep.equal(userIdAsEids);
 
+        if (placement.adFormat === BANNER) {
+          expect(placement.sizes).to.be.an('array');
+        }
         switch (placement.adFormat) {
           case BANNER:
             expect(placement.sizes).to.be.an('array');
-            expect(placement.battr).to.deep.equal([1, 3]);
             expect(placement.pos).to.be.within(0, 7);
             break;
           case VIDEO:
@@ -198,7 +170,6 @@ describe('AxisBidAdapter', function () {
             expect(placement.minduration).to.be.an('number');
             expect(placement.maxduration).to.be.an('number');
             expect(placement.pos).to.be.within(0, 7);
-            expect(placement.battr).to.deep.equal([1, 3]);
             break;
           case NATIVE:
             expect(placement.native).to.be.an('object');
@@ -210,12 +181,10 @@ describe('AxisBidAdapter', function () {
     it('Returns data with gdprConsent and without uspConsent', function () {
       delete bidderRequest.uspConsent;
       serverRequest = spec.buildRequests(bids, bidderRequest);
-      const data = serverRequest.data;
+      let data = serverRequest.data;
       expect(data.gdpr).to.exist;
-      expect(data.gdpr).to.be.a('object');
-      expect(data.gdpr).to.have.property('consentString');
-      expect(data.gdpr).to.not.have.property('vendorData');
-      expect(data.gdpr.consentString).to.equal(bidderRequest.gdprConsent.consentString);
+      expect(data.gdpr).to.be.a('string');
+      expect(data.gdpr).to.equal(bidderRequest.gdprConsent);
       expect(data.ccpa).to.not.exist;
       delete bidderRequest.gdprConsent;
     });
@@ -224,42 +193,18 @@ describe('AxisBidAdapter', function () {
       bidderRequest.uspConsent = '1---';
       delete bidderRequest.gdprConsent;
       serverRequest = spec.buildRequests(bids, bidderRequest);
-      const data = serverRequest.data;
+      let data = serverRequest.data;
       expect(data.ccpa).to.exist;
       expect(data.ccpa).to.be.a('string');
       expect(data.ccpa).to.equal(bidderRequest.uspConsent);
       expect(data.gdpr).to.not.exist;
     });
-  });
 
-  describe('gpp consent', function () {
-    it('bidderRequest.gppConsent', () => {
-      bidderRequest.gppConsent = {
-        gppString: 'abc123',
-        applicableSections: [8]
-      };
-
-      const serverRequest = spec.buildRequests(bids, bidderRequest);
-      const data = serverRequest.data;
-      expect(data).to.be.an('object');
-      expect(data).to.have.property('gpp');
-      expect(data).to.have.property('gpp_sid');
-
-      delete bidderRequest.gppConsent;
-    })
-
-    it('bidderRequest.ortb2.regs.gpp', () => {
-      bidderRequest.ortb2 = bidderRequest.ortb2 || {};
-      bidderRequest.ortb2.regs = bidderRequest.ortb2.regs || {};
-      bidderRequest.ortb2.regs.gpp = 'abc123';
-      bidderRequest.ortb2.regs.gpp_sid = [8];
-
-      const serverRequest = spec.buildRequests(bids, bidderRequest);
-      const data = serverRequest.data;
-      expect(data).to.be.an('object');
-      expect(data).to.have.property('gpp');
-      expect(data).to.have.property('gpp_sid');
-    })
+    it('Returns empty data if no valid requests are passed', function () {
+      serverRequest = spec.buildRequests([], bidderRequest);
+      let data = serverRequest.data;
+      expect(data.placements).to.be.an('array').that.is.empty;
+    });
   });
 
   describe('interpretResponse', function () {
@@ -283,9 +228,9 @@ describe('AxisBidAdapter', function () {
           }
         }]
       };
-      const bannerResponses = spec.interpretResponse(banner);
+      let bannerResponses = spec.interpretResponse(banner);
       expect(bannerResponses).to.be.an('array').that.is.not.empty;
-      const dataItem = bannerResponses[0];
+      let dataItem = bannerResponses[0];
       expect(dataItem).to.have.all.keys('requestId', 'cpm', 'width', 'height', 'ad', 'ttl', 'creativeId',
         'netRevenue', 'currency', 'dealId', 'mediaType', 'meta');
       expect(dataItem.requestId).to.equal(banner.body[0].requestId);
@@ -319,10 +264,10 @@ describe('AxisBidAdapter', function () {
           }
         }]
       };
-      const videoResponses = spec.interpretResponse(video);
+      let videoResponses = spec.interpretResponse(video);
       expect(videoResponses).to.be.an('array').that.is.not.empty;
 
-      const dataItem = videoResponses[0];
+      let dataItem = videoResponses[0];
       expect(dataItem).to.have.all.keys('requestId', 'cpm', 'vastUrl', 'ttl', 'creativeId',
         'netRevenue', 'currency', 'dealId', 'mediaType', 'meta', 'width', 'height');
       expect(dataItem.requestId).to.equal('23fhj33i987f');
@@ -356,10 +301,10 @@ describe('AxisBidAdapter', function () {
           }
         }]
       };
-      const nativeResponses = spec.interpretResponse(native);
+      let nativeResponses = spec.interpretResponse(native);
       expect(nativeResponses).to.be.an('array').that.is.not.empty;
 
-      const dataItem = nativeResponses[0];
+      let dataItem = nativeResponses[0];
       expect(dataItem).to.have.keys('requestId', 'cpm', 'ttl', 'creativeId', 'netRevenue', 'currency', 'mediaType', 'native', 'meta');
       expect(dataItem.native).to.have.keys('clickUrl', 'impressionTrackers', 'title', 'image')
       expect(dataItem.requestId).to.equal('23fhj33i987f');
@@ -390,7 +335,7 @@ describe('AxisBidAdapter', function () {
         }]
       };
 
-      const serverResponses = spec.interpretResponse(invBanner);
+      let serverResponses = spec.interpretResponse(invBanner);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
     it('Should return an empty array if invalid video response is passed', function () {
@@ -406,7 +351,7 @@ describe('AxisBidAdapter', function () {
           dealId: '1'
         }]
       };
-      const serverResponses = spec.interpretResponse(invVideo);
+      let serverResponses = spec.interpretResponse(invVideo);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
     it('Should return an empty array if invalid native response is passed', function () {
@@ -423,7 +368,7 @@ describe('AxisBidAdapter', function () {
           currency: 'USD',
         }]
       };
-      const serverResponses = spec.interpretResponse(invNative);
+      let serverResponses = spec.interpretResponse(invNative);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
     it('Should return an empty array if invalid response is passed', function () {
@@ -436,14 +381,14 @@ describe('AxisBidAdapter', function () {
           dealId: '1'
         }]
       };
-      const serverResponses = spec.interpretResponse(invalid);
+      let serverResponses = spec.interpretResponse(invalid);
       expect(serverResponses).to.be.an('array').that.is.empty;
     });
   });
 
   describe('getUserSyncs', function() {
     it('Should return array of objects with proper sync config , include GDPR', function() {
-      const syncData = spec.getUserSyncs({ pixelEnabled: true }, {}, {
+      const syncData = spec.getUserSyncs({}, {}, {
         consentString: 'ALL',
         gdprApplies: true,
       }, {});
@@ -455,7 +400,7 @@ describe('AxisBidAdapter', function () {
       expect(syncData[0].url).to.equal('https://cs.axis-marketplace.com/image?pbjs=1&gdpr=1&gdpr_consent=ALL&coppa=0')
     });
     it('Should return array of objects with proper sync config , include CCPA', function() {
-      const syncData = spec.getUserSyncs({ pixelEnabled: true }, {}, {}, {
+      const syncData = spec.getUserSyncs({}, {}, {}, {
         consentString: '1---'
       });
       expect(syncData).to.be.an('array').which.is.not.empty;
@@ -464,18 +409,6 @@ describe('AxisBidAdapter', function () {
       expect(syncData[0].type).to.equal('image')
       expect(syncData[0].url).to.be.a('string')
       expect(syncData[0].url).to.equal('https://cs.axis-marketplace.com/image?pbjs=1&ccpa=1---&coppa=0')
-    });
-    it('Should return array of objects with proper sync config , include GPP', function() {
-      const syncData = spec.getUserSyncs({ pixelEnabled: true }, {}, {}, {}, {
-        gppString: 'abc123',
-        applicableSections: [8]
-      });
-      expect(syncData).to.be.an('array').which.is.not.empty;
-      expect(syncData[0]).to.be.an('object')
-      expect(syncData[0].type).to.be.a('string')
-      expect(syncData[0].type).to.equal('image')
-      expect(syncData[0].url).to.be.a('string')
-      expect(syncData[0].url).to.equal('https://cs.axis-marketplace.com/image?pbjs=1&gpp=abc123&gpp_sid=8&coppa=0')
     });
   });
 });

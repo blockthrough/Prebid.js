@@ -3,7 +3,7 @@
 ```
 Module Name:  Waardex Bid Adapter
 Module Type:  Bidder Adapter
-Maintainer: 
+Maintainer: info@prebid.org
 ```
 
 # Description

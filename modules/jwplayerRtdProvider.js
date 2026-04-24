@@ -9,58 +9,45 @@
  * @requires module:modules/realTimeData
  */
 
-import { submodule } from '../src/hook.js';
-import { config } from '../src/config.js';
-import { ajaxBuilder } from '../src/ajax.js';
-import { deepAccess, logError, logWarn } from '../src/utils.js'
-import { getGlobal } from '../src/prebidGlobal.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- * @typedef {import('../modules/rtdModule/index.js').adUnit} adUnit
- */
+import {submodule} from '../src/hook.js';
+import {config} from '../src/config.js';
+import {ajaxBuilder} from '../src/ajax.js';
+import {deepAccess, logError} from '../src/utils.js';
+import {find} from '../src/polyfill.js';
+import {getGlobal} from '../src/prebidGlobal.js';
 
 const SUBMODULE_NAME = 'jwplayer';
 const JWPLAYER_DOMAIN = SUBMODULE_NAME + '.com';
-const ENRICH_ALWAYS = 'always';
-const ENRICH_WHEN_EMPTY = 'whenEmpty';
-const ENRICH_NEVER = 'never';
-const overrideValidationRegex = /^(always|never|whenEmpty)$/;
-const playlistItemCache = {};
+const segCache = {};
 const pendingRequests = {};
 let activeRequestCount = 0;
 let resumeBidRequest;
-let overrideContentId = ENRICH_WHEN_EMPTY;
-let overrideContentUrl = ENRICH_WHEN_EMPTY;
-let overrideContentTitle = ENRICH_WHEN_EMPTY;
-let overrideContentDescription = ENRICH_WHEN_EMPTY;
 
 /** @type {RtdSubmodule} */
 export const jwplayerSubmodule = {
   /**
-   * used to link submodule with realTimeData
-   * @type {string}
-   */
+     * used to link submodule with realTimeData
+     * @type {string}
+     */
   name: SUBMODULE_NAME,
   /**
-   * add targeting data to bids and signal completion to realTimeData module
-   * @function
-   * @param {object} bidReqConfig
-   * @param {function} onDone
-   */
+     * add targeting data to bids and signal completion to realTimeData module
+     * @function
+     * @param {Obj} bidReqConfig
+     * @param {function} onDone
+     */
   getBidRequestData: enrichBidRequest,
   init
 };
 
-config.getConfig('realTimeData', ({ realTimeData }) => {
+config.getConfig('realTimeData', ({realTimeData}) => {
   const providers = realTimeData.dataProviders;
-  const jwplayerProvider = providers && ((providers) || []).find(pr => pr.name && pr.name.toLowerCase() === SUBMODULE_NAME);
+  const jwplayerProvider = providers && find(providers, pr => pr.name && pr.name.toLowerCase() === SUBMODULE_NAME);
   const params = jwplayerProvider && jwplayerProvider.params;
   if (!params) {
     return;
   }
   fetchTargetingInformation(params);
-  setOverrides(params);
 });
 
 submodule('realTimeData', jwplayerSubmodule);
@@ -79,30 +66,15 @@ export function fetchTargetingInformation(jwTargeting) {
   });
 }
 
-export function setOverrides(params) {
-  overrideContentId = sanitizeOverrideParam(params.overrideContentId, ENRICH_WHEN_EMPTY);
-  overrideContentUrl = sanitizeOverrideParam(params.overrideContentUrl, ENRICH_WHEN_EMPTY);
-  overrideContentTitle = sanitizeOverrideParam(params.overrideContentTitle, ENRICH_WHEN_EMPTY);
-  overrideContentDescription = sanitizeOverrideParam(params.overrideContentDescription, ENRICH_WHEN_EMPTY);
-}
-
-function sanitizeOverrideParam(overrideParam, defaultValue) {
-  if (overrideValidationRegex.test(overrideParam)) {
-    return overrideParam;
-  }
-
-  return defaultValue;
-}
-
 export function fetchTargetingForMediaId(mediaId) {
   const ajax = ajaxBuilder();
   // TODO: Avoid checking undefined vs null by setting a callback to pendingRequests.
   pendingRequests[mediaId] = null;
   ajax(`https://cdn.${JWPLAYER_DOMAIN}/v2/media/${mediaId}`, {
     success: function (response) {
-      const item = parsePlaylistItem(response);
-      cachePlaylistItem(item, mediaId);
-      onRequestCompleted(mediaId, !!item);
+      const segment = parseSegment(response);
+      cacheSegments(segment, mediaId);
+      onRequestCompleted(mediaId, !!segment);
     },
     error: function () {
       logError('failed to retrieve targeting information');
@@ -111,33 +83,29 @@ export function fetchTargetingForMediaId(mediaId) {
   });
 }
 
-function parsePlaylistItem(response) {
-  let item;
+function parseSegment(response) {
+  let segment;
   try {
     const data = JSON.parse(response);
     if (!data) {
-      const msg = 'Empty response';
-      logError(msg);
-      return item;
+      throw ('Empty response');
     }
 
     const playlist = data.playlist;
     if (!playlist || !playlist.length) {
-      const msg = 'Empty playlist';
-      logError(msg);
-      return item;
+      throw ('Empty playlist');
     }
 
-    item = playlist[0];
+    segment = playlist[0].jwpseg;
   } catch (err) {
     logError(err);
   }
-  return item;
+  return segment;
 }
 
-function cachePlaylistItem(playlistItem, mediaId) {
-  if (playlistItem && mediaId) {
-    playlistItemCache[mediaId] = playlistItem;
+function cacheSegments(jwpseg, mediaId) {
+  if (jwpseg && mediaId) {
+    segCache[mediaId] = jwpseg;
   }
 }
 
@@ -194,7 +162,7 @@ export function enrichAdUnits(adUnits, ortb2Fragments = {}) {
       const contentData = getContentData(mediaId, contentSegments);
       const targeting = formatTargetingResponse(vat);
       enrichBids(adUnit.bids, targeting, contentId, contentData);
-      addOrtbSiteContent(ortb2Fragments.global, contentId, contentData, vat.title, vat.description, vat.mediaUrl);
+      addOrtbSiteContent(ortb2Fragments.global, contentId, contentData);
     };
     loadVat(jwTargeting, onVatResponse);
   });
@@ -219,22 +187,18 @@ export function extractPublisherParams(adUnit, fallback) {
 }
 
 function loadVat(params, onCompletion) {
-  let { playerID, playerDivId, mediaID } = params;
-  if (!playerDivId) {
-    playerDivId = playerID;
-  }
-
+  const { playerID, mediaID } = params;
   if (pendingRequests[mediaID] !== undefined) {
-    loadVatForPendingRequest(playerDivId, mediaID, onCompletion);
+    loadVatForPendingRequest(playerID, mediaID, onCompletion);
     return;
   }
 
-  const vat = getVatFromCache(mediaID) || getVatFromPlayer(playerDivId, mediaID) || { mediaID };
+  const vat = getVatFromCache(mediaID) || getVatFromPlayer(playerID, mediaID) || { mediaID };
   onCompletion(vat);
 }
 
-function loadVatForPendingRequest(playerDivId, mediaID, callback) {
-  const vat = getVatFromPlayer(playerDivId, mediaID);
+function loadVatForPendingRequest(playerID, mediaID, callback) {
+  const vat = getVatFromPlayer(playerID, mediaID);
   if (vat) {
     callback(vat);
   } else {
@@ -244,51 +208,36 @@ function loadVatForPendingRequest(playerDivId, mediaID, callback) {
 }
 
 export function getVatFromCache(mediaID) {
-  const item = playlistItemCache[mediaID];
+  const segments = segCache[mediaID];
 
-  if (!item) {
+  if (!segments) {
     return null;
   }
 
-  const mediaUrl = item.file ?? getFileFromSources(item);
-
   return {
-    segments: item.jwpseg,
-    title: item.title,
-    description: item.description,
-    mediaUrl,
+    segments,
     mediaID
   };
 }
 
-function getFileFromSources(playlistItem) {
-  return playlistItem.sources?.find?.(source => !!source.file)?.file;
-}
-
-export function getVatFromPlayer(playerDivId, mediaID) {
-  const player = getPlayer(playerDivId);
+export function getVatFromPlayer(playerID, mediaID) {
+  const player = getPlayer(playerID);
   if (!player) {
     return null;
   }
 
-  const item = mediaID ? ((player.getPlaylist()) || []).find(item => item.mediaid === mediaID) : player.getPlaylistItem();
+  const item = mediaID ? find(player.getPlaylist(), item => item.mediaid === mediaID) : player.getPlaylistItem();
   if (!item) {
     return null;
   }
 
   mediaID = mediaID || item.mediaid;
-  const title = item.title;
-  const description = item.description;
-  const mediaUrl = item.file;
   const segments = item.jwpseg;
-  cachePlaylistItem(item, mediaID)
+  cacheSegments(segments, mediaID)
 
   return {
     segments,
-    mediaID,
-    title,
-    mediaUrl,
-    description
+    mediaID
   };
 }
 
@@ -344,7 +293,7 @@ export function getContentData(mediaId, segments) {
   };
 
   if (mediaId) {
-    contentData.ext.cids = contentData.cids = [mediaId];
+    contentData.ext.cids = [mediaId];
   }
 
   if (segments) {
@@ -355,32 +304,23 @@ export function getContentData(mediaId, segments) {
   return contentData;
 }
 
-export function addOrtbSiteContent(ortb2, contentId, contentData, contentTitle, contentDescription, contentUrl) {
+export function addOrtbSiteContent(ortb2, contentId, contentData) {
+  if (!contentId && !contentData) {
+    return;
+  }
+
   if (ortb2 == null) {
     ortb2 = {};
   }
 
-  const site = ortb2.site = ortb2.site || {};
-  const content = site.content = site.content || {};
+  let site = ortb2.site = ortb2.site || {};
+  let content = site.content = site.content || {};
 
-  if (shouldOverride(content.id, contentId, overrideContentId)) {
+  if (contentId) {
     content.id = contentId;
   }
 
-  if (shouldOverride(content.url, contentUrl, overrideContentUrl)) {
-    content.url = contentUrl;
-  }
-
-  if (shouldOverride(content.title, contentTitle, overrideContentTitle)) {
-    content.title = contentTitle;
-  }
-
-  if (shouldOverride(content.ext && content.ext.description, contentDescription, overrideContentDescription)) {
-    content.ext = content.ext || {};
-    content.ext.description = contentDescription;
-  }
-
-  const currentData = content.data || [];
+  const currentData = content.data = content.data || [];
   // remove old jwplayer data
   const data = currentData.filter(datum => datum.name !== JWPLAYER_DOMAIN);
 
@@ -388,24 +328,9 @@ export function addOrtbSiteContent(ortb2, contentId, contentData, contentTitle, 
     data.push(contentData);
   }
 
-  if (data.length) {
-    content.data = data;
-  }
+  content.data = data;
 
   return ortb2;
-}
-
-function shouldOverride(currentValue, newValue, configValue) {
-  switch (configValue) {
-    case ENRICH_ALWAYS:
-      return !!newValue;
-    case ENRICH_NEVER:
-      return false;
-    case ENRICH_WHEN_EMPTY:
-      return !!newValue && currentValue === undefined;
-    default:
-      return false;
-  }
 }
 
 function enrichBids(bids, targeting, contentId, contentData) {
@@ -432,37 +357,17 @@ export function addTargetingToBid(bid, targeting) {
   bid.rtd = Object.assign({}, rtd, jwRtd);
 }
 
-export function getPlayer(playerDivId) {
+function getPlayer(playerID) {
   const jwplayer = window.jwplayer;
   if (!jwplayer) {
     logError(SUBMODULE_NAME + '.js was not found on page');
     return;
   }
 
-  let player = jwplayer(playerDivId);
-  if (player && player.getPlaylist) {
-    return player;
-  }
-
-  const playerOnPageCount = document.getElementsByClassName('jwplayer').length;
-  if (playerOnPageCount === 0) {
-    logError('No JWPlayer instances have been detected on the page');
+  const player = jwplayer(playerID);
+  if (!player || !player.getPlaylist) {
+    logError('player ID did not match any players');
     return;
   }
-
-  const errorMessage = `player Div ID ${playerDivId} did not match any players.`;
-
-  // If there are multiple instances on the page, we cannot guess which one should be targeted.
-  if (playerOnPageCount > 1) {
-    logError(errorMessage);
-    return;
-  }
-
-  player = jwplayer();
-  if (player && player.getPlaylist) {
-    logWarn(`${errorMessage} Targeting player Div ID ${player.id} instead`);
-    return player;
-  }
-
-  logError(errorMessage);
+  return player;
 }

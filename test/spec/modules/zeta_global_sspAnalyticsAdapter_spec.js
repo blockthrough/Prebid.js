@@ -1,14 +1,15 @@
 import zetaAnalyticsAdapter from 'modules/zeta_global_sspAnalyticsAdapter.js';
-import { config } from 'src/config';
-import { EVENTS } from 'src/constants.js';
-import { server } from '../../mocks/xhr.js';
+import {config} from 'src/config';
+import CONSTANTS from 'src/constants.json';
+import {server} from '../../mocks/xhr.js';
+import {logError} from '../../../src/utils';
 
-const utils = require('src/utils');
-const events = require('src/events');
+let utils = require('src/utils');
+let events = require('src/events');
 
-const SAMPLE_EVENTS = {
+const EVENTS = {
   AUCTION_END: {
-    'auctionId': '75e394d9',
+    'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
     'timestamp': 1638441234544,
     'auctionEnd': 1638441234784,
     'auctionStatus': 'completed',
@@ -60,7 +61,7 @@ const SAMPLE_EVENTS = {
             600
           ]
         ],
-        'transactionId': '6b29369c'
+        'transactionId': '6b29369c-0c2e-414e-be1f-5867aec18d83'
       }
     ],
     'adUnitCodes': [
@@ -69,7 +70,7 @@ const SAMPLE_EVENTS = {
     'bidderRequests': [
       {
         'bidderCode': 'zeta_global_ssp',
-        'auctionId': '75e394d9',
+        'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
         'bidderRequestId': '1207cb49191887',
         'bids': [
           {
@@ -89,7 +90,7 @@ const SAMPLE_EVENTS = {
               }
             },
             'adUnitCode': '/19968336/header-bid-tag-0',
-            'transactionId': '6b29369c',
+            'transactionId': '6b29369c-0c2e-414e-be1f-5867aec18d83',
             'sizes': [
               [
                 300,
@@ -102,26 +103,16 @@ const SAMPLE_EVENTS = {
             ],
             'bidId': '206be9a13236af',
             'bidderRequestId': '1207cb49191887',
-            'auctionId': '75e394d9',
+            'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
             'src': 'client',
             'bidRequestsCount': 1,
             'bidderRequestsCount': 1,
-            'bidderWinsCount': 0,
-            'ortb2': {
-              'device': {
-                'mobile': 1
-              }
-            },
-            'getFloor': function() {
-              return { floor: 1.5, currency: 'USD' };
-            }
+            'bidderWinsCount': 0
           }
         ],
         'auctionStart': 1638441234544,
         'timeout': 400,
         'refererInfo': {
-          'page': 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
-          'domain': 'test-zeta-ssp.net:63342',
           'referer': 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
           'reachedTop': true,
           'isAmp': false,
@@ -135,7 +126,7 @@ const SAMPLE_EVENTS = {
       },
       {
         'bidderCode': 'appnexus',
-        'auctionId': '75e394d9',
+        'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
         'bidderRequestId': '32b97f0a935422',
         'bids': [
           {
@@ -158,7 +149,7 @@ const SAMPLE_EVENTS = {
               }
             },
             'adUnitCode': '/19968336/header-bid-tag-0',
-            'transactionId': '6b29369c',
+            'transactionId': '6b29369c-0c2e-414e-be1f-5867aec18d83',
             'sizes': [
               [
                 300,
@@ -171,26 +162,16 @@ const SAMPLE_EVENTS = {
             ],
             'bidId': '41badc0e164c758',
             'bidderRequestId': '32b97f0a935422',
-            'auctionId': '75e394d9',
+            'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
             'src': 'client',
             'bidRequestsCount': 1,
             'bidderRequestsCount': 1,
-            'bidderWinsCount': 0,
-            'ortb2': {
-              'device': {
-                'mobile': 1
-              }
-            },
-            'getFloor': function() {
-              return { floor: 1.5, currency: 'USD' };
-            }
+            'bidderWinsCount': 0
           }
         ],
         'auctionStart': 1638441234544,
         'timeout': 400,
         'refererInfo': {
-          'page': 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
-          'domain': 'test-zeta-ssp.net:63342',
           'referer': 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
           'reachedTop': true,
           'isAmp': false,
@@ -224,7 +205,7 @@ const SAMPLE_EVENTS = {
           }
         },
         'adUnitCode': '/19968336/header-bid-tag-0',
-        'transactionId': '6b29369c',
+        'transactionId': '6b29369c-0c2e-414e-be1f-5867aec18d83',
         'sizes': [
           [
             300,
@@ -237,7 +218,7 @@ const SAMPLE_EVENTS = {
         ],
         'bidId': '41badc0e164c758',
         'bidderRequestId': '32b97f0a935422',
-        'auctionId': '75e394d9',
+        'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
         'src': 'client',
         'bidRequestsCount': 1,
         'bidderRequestsCount': 1,
@@ -249,6 +230,7 @@ const SAMPLE_EVENTS = {
         'bidderCode': 'zeta_global_ssp',
         'width': 480,
         'height': 320,
+        'statusMessage': 'Bid available',
         'adId': '5759bb3ef7be1e8',
         'requestId': '206be9a13236af',
         'mediaType': 'banner',
@@ -261,12 +243,12 @@ const SAMPLE_EVENTS = {
         'netRevenue': true,
         'meta': {
           'advertiserDomains': [
-            'example.adomain'
+            'viaplay.fi'
           ]
         },
         'originalCpm': 2.258302852806723,
         'originalCurrency': 'USD',
-        'auctionId': '75e394d9',
+        'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
         'responseTimestamp': 1638441234670,
         'requestTimestamp': 1638441234547,
         'bidder': 'zeta_global_ssp',
@@ -279,7 +261,6 @@ const SAMPLE_EVENTS = {
         'pbDg': '2.25',
         'pbCg': '',
         'size': '480x320',
-        'dspId': 'test-dsp-id-123',
         'adserverTargeting': {
           'hb_bidder': 'zeta_global_ssp',
           'hb_adid': '5759bb3ef7be1e8',
@@ -287,7 +268,7 @@ const SAMPLE_EVENTS = {
           'hb_size': '480x320',
           'hb_source': 'client',
           'hb_format': 'banner',
-          'hb_adomain': 'example.adomain'
+          'hb_adomain': 'viaplay.fi'
         }
       }
     ],
@@ -299,7 +280,7 @@ const SAMPLE_EVENTS = {
       'location': {
         'href': 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
         'protocol': 'http:',
-        'host': 'test-zeta-ssp.net',
+        'host': 'localhost:63342',
         'hostname': 'localhost',
         'port': '63342',
         'pathname': '/zeta-ssp/ssp/_dev/examples/page_banner.html',
@@ -314,6 +295,7 @@ const SAMPLE_EVENTS = {
       'bidderCode': 'zeta_global_ssp',
       'width': 480,
       'height': 320,
+      'statusMessage': 'Bid available',
       'adId': '5759bb3ef7be1e8',
       'requestId': '206be9a13236af',
       'mediaType': 'banner',
@@ -329,19 +311,24 @@ const SAMPLE_EVENTS = {
       'netRevenue': true,
       'meta': {
         'advertiserDomains': [
-          'example.adomain'
+          'viaplay.fi'
         ]
       },
       'originalCpm': 2.258302852806723,
       'originalCurrency': 'USD',
-      'auctionId': '75e394d9',
+      'auctionId': '75e394d9-ccce-4978-9238-91e6a1ac88a1',
       'responseTimestamp': 1638441234670,
       'requestTimestamp': 1638441234547,
       'bidder': 'zeta_global_ssp',
       'adUnitCode': '/19968336/header-bid-tag-0',
       'timeToRespond': 123,
+      'pbLg': '2.00',
+      'pbMg': '2.20',
+      'pbHg': '2.25',
+      'pbAg': '2.25',
+      'pbDg': '2.25',
+      'pbCg': '',
       'size': '480x320',
-      'dspId': 'test-dsp-id-123',
       'adserverTargeting': {
         'hb_bidder': 'zeta_global_ssp',
         'hb_adid': '5759bb3ef7be1e8',
@@ -349,203 +336,27 @@ const SAMPLE_EVENTS = {
         'hb_size': '480x320',
         'hb_source': 'client',
         'hb_format': 'banner',
-        'hb_adomain': 'example.adomain'
+        'hb_adomain': 'viaplay.fi'
       },
       'status': 'rendered',
       'params': [
         {
           'nonZetaParam': 'nonZetaValue'
         }
-      ],
-      'floorData': {
-        'floorValue': 1.5,
-        'floorCurrency': 'USD',
-        'floorRule': 'test-rule'
-      }
+      ]
     },
     'adId': '5759bb3ef7be1e8'
-  },
-  BID_TIMEOUT: [
-    {
-      'bidder': 'zeta_global_ssp',
-      'params': [
-        {
-          'tags': {
-            'position': 'top',
-            'shortname': 'someShortName',
-          },
-          'sid': 100
-        }
-      ],
-      'mediaTypes': {
-        'banner': {
-          'sizes': [
-            [
-              300,
-              250
-            ]
-          ]
-        }
-      },
-      'adUnitCode': 'ad-1',
-      'transactionId': '6d2c4757-d34b-4538-b812-c6e638f05eac',
-      'adUnitId': '9dc8cbf6-9b2d-48c7-b424-be9ae4be3dfc',
-      'sizes': [
-        [
-          300,
-          250
-        ]
-      ],
-      'bidId': '27c8c05823e2f',
-      'bidderRequestId': '1e8e895de1708',
-      'auctionId': 'fa9ef841-bcb9-401f-96ad-03a94ac64e63',
-      'bidRequestsCount': 1,
-      'bidderRequestsCount': 1,
-      'bidderWinsCount': 0,
-      'ortb2': {
-        'site': {
-          'domain': 'zetaglobal.com',
-          'publisher': {
-            'domain': 'zetaglobal.com'
-          },
-          'page': 'https://zetaglobal.com/page'
-        },
-        'device': {
-          'w': 807,
-          'h': 847,
-          'dnt': 0,
-          'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-          'language': 'en',
-          'sua': {
-            'source': 1,
-            'platform': {
-              'brand': 'macOS'
-            },
-            'browsers': [
-              {
-                'brand': 'Google Chrome',
-                'version': [
-                  '123'
-                ]
-              },
-              {
-                'brand': 'Not:A-Brand',
-                'version': [
-                  '8'
-                ]
-              },
-              {
-                'brand': 'Chromium',
-                'version': [
-                  '123'
-                ]
-              }
-            ],
-            'mobile': 0
-          }
-        }
-      },
-      'timeout': 3,
-      'getFloor': function() {
-        return { floor: 0.75, currency: 'USD' };
-      }
-    },
-    {
-      'bidder': 'zeta_global_ssp',
-      'params': [
-        {
-          'tags': {
-            'position': 'top',
-            'shortname': 'someShortName',
-          },
-          'sid': 100
-        }
-      ],
-      'mediaTypes': {
-        'banner': {
-          'sizes': [
-            [
-              300,
-              250
-            ]
-          ]
-        }
-      },
-      'adUnitCode': 'ad-2',
-      'transactionId': '11eaa59f-221d-4027-a0a8-7841e0ffc4ee',
-      'adUnitId': '4397b4bc-6368-40b8-91f1-987a31076886',
-      'sizes': [
-        [
-          300,
-          250
-        ]
-      ],
-      'bidId': '31a3b551cbf1ed',
-      'bidderRequestId': '1e8e895de1708',
-      'auctionId': 'fa9ef841-bcb9-401f-96ad-03a94ac64e63',
-      'bidRequestsCount': 1,
-      'bidderRequestsCount': 1,
-      'bidderWinsCount': 0,
-      'ortb2': {
-        'site': {
-          'domain': 'zetaglobal.com',
-          'publisher': {
-            'domain': 'zetaglobal.com'
-          },
-          'page': 'https://zetaglobal.com/page'
-        },
-        'device': {
-          'w': 807,
-          'h': 847,
-          'dnt': 0,
-          'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-          'language': 'en',
-          'sua': {
-            'source': 1,
-            'platform': {
-              'brand': 'macOS'
-            },
-            'browsers': [
-              {
-                'brand': 'Google Chrome',
-                'version': [
-                  '123'
-                ]
-              },
-              {
-                'brand': 'Not:A-Brand',
-                'version': [
-                  '8'
-                ]
-              },
-              {
-                'brand': 'Chromium',
-                'version': [
-                  '123'
-                ]
-              }
-            ],
-            'mobile': 0
-          }
-        }
-      },
-      'timeout': 3,
-      'getFloor': function() {
-        return { floor: 0.75, currency: 'USD' };
-      }
-    }
-  ]
+  }
 }
 
-describe('Zeta Global SSP Analytics Adapter', function () {
+describe('Zeta Global SSP Analytics Adapter', function() {
   let sandbox;
   let requests;
 
-  beforeEach(function () {
-    sandbox = sinon.createSandbox();
+  beforeEach(function() {
+    sandbox = sinon.sandbox.create();
     requests = server.requests;
     sandbox.stub(events, 'getEvents').returns([]);
-    config.setConfig({ pageUrl: 'https://www.config.domain.com/index.html' })
   });
 
   afterEach(function () {
@@ -561,15 +372,11 @@ describe('Zeta Global SSP Analytics Adapter', function () {
     expect(utils.logError.called).to.equal(true);
   });
 
-  describe('handle events', function () {
-    beforeEach(function () {
+  describe('handle events', function() {
+    beforeEach(function() {
       zetaAnalyticsAdapter.enableAnalytics({
         options: {
-          sid: 111,
-          tags: {
-            position: 'top',
-            shortname: 'name'
-          }
+          sid: 111
         }
       });
     });
@@ -578,173 +385,18 @@ describe('Zeta Global SSP Analytics Adapter', function () {
       zetaAnalyticsAdapter.disableAnalytics();
     });
 
-    it('should handle AUCTION_END event', function () {
-      events.emit(EVENTS.AUCTION_END, SAMPLE_EVENTS.AUCTION_END);
+    it('Move ZetaParams through analytics events', function() {
+      this.timeout(3000);
 
-      expect(requests.length).to.equal(1);
+      events.emit(CONSTANTS.EVENTS.AUCTION_END, EVENTS.AUCTION_END);
+      events.emit(CONSTANTS.EVENTS.AD_RENDER_SUCCEEDED, EVENTS.AD_RENDER_SUCCEEDED);
+
+      expect(requests.length).to.equal(2);
       const auctionEnd = JSON.parse(requests[0].requestBody);
-      expect(auctionEnd).to.be.deep.equal({
-        zetaParams: { sid: 111, tags: { position: 'top', shortname: 'name' } },
-        bidderRequests: [{
-          bidderCode: 'zeta_global_ssp',
-          domain: 'test-zeta-ssp.net:63342',
-          page: 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
-          bids: [{
-            adUnitCode: '/19968336/header-bid-tag-0',
-            bidId: '206be9a13236af',
-            auctionId: '75e394d9',
-            bidder: 'zeta_global_ssp',
-            mediaType: 'banner',
-            sizes: [
-              [300, 250],
-              [300, 600]
-            ],
-            device: {
-              mobile: 1
-            },
-            floor: 1.5
-          }]
-        }, {
-          bidderCode: 'appnexus',
-          domain: 'test-zeta-ssp.net:63342',
-          page: 'http://test-zeta-ssp.net:63342/zeta-ssp/ssp/_dev/examples/page_banner.html',
-          bids: [{
-            adUnitCode: '/19968336/header-bid-tag-0',
-            bidId: '41badc0e164c758',
-            auctionId: '75e394d9',
-            bidder: 'appnexus',
-            mediaType: 'banner',
-            sizes: [
-              [300, 250],
-              [300, 600]
-            ],
-            device: {
-              mobile: 1
-            },
-            floor: 1.5
-          }]
-        }],
-        bidsReceived: [{
-          adUnitCode: '/19968336/header-bid-tag-0',
-          adId: '5759bb3ef7be1e8',
-          requestId: '206be9a13236af',
-          creativeId: '456456456',
-          bidder: 'zeta_global_ssp',
-          mediaType: 'banner',
-          size: '480x320',
-          adomain: 'example.adomain',
-          timeToRespond: 123,
-          cpm: 2.258302852806723,
-          dspId: 'test-dsp-id-123'
-        }]
-      });
-    });
+      const auctionSucceeded = JSON.parse(requests[1].requestBody);
 
-    it('should handle AD_RENDER_SUCCEEDED event', function () {
-      events.emit(EVENTS.AD_RENDER_SUCCEEDED, SAMPLE_EVENTS.AD_RENDER_SUCCEEDED);
-
-      expect(requests.length).to.equal(1);
-      const auctionSucceeded = JSON.parse(requests[0].requestBody);
-      expect(auctionSucceeded.zetaParams).to.be.deep.equal({
-        sid: 111,
-        tags: {
-          position: 'top',
-          shortname: 'name'
-        }
-      });
-      expect(auctionSucceeded.domain).to.eql('config.domain.com');
-      expect(auctionSucceeded.page).to.eql('https://www.config.domain.com/index.html');
-      expect(auctionSucceeded.bid).to.be.deep.equal({
-        adUnitCode: '/19968336/header-bid-tag-0',
-        adId: '5759bb3ef7be1e8',
-        requestId: '206be9a13236af',
-        auctionId: '75e394d9',
-        creativeId: '456456456',
-        bidder: 'zeta_global_ssp',
-        dspId: 'test-dsp-id-123',
-        mediaType: 'banner',
-        size: '480x320',
-        adomain: 'example.adomain',
-        timeToRespond: 123,
-        cpm: 2.258302852806723,
-        floorData: {
-          floorValue: 1.5,
-          floorCurrency: 'USD',
-          floorRule: 'test-rule'
-        }
-      });
-      expect(auctionSucceeded.device.ua).to.not.be.empty;
-    });
-
-    it('should handle BID_TIMEOUT event', function () {
-      events.emit(EVENTS.BID_TIMEOUT, SAMPLE_EVENTS.BID_TIMEOUT);
-
-      expect(requests.length).to.equal(1);
-      const bidTimeout = JSON.parse(requests[0].requestBody);
-      expect(bidTimeout.zetaParams).to.be.deep.equal({
-        sid: 111,
-        tags: {
-          position: 'top',
-          shortname: 'name'
-        }
-      });
-      expect(bidTimeout.domain).to.eql('zetaglobal.com');
-      expect(bidTimeout.page).to.eql('https://zetaglobal.com/page');
-      expect(bidTimeout.timeouts).to.be.deep.equal([{
-        'bidId': '27c8c05823e2f',
-        'auctionId': 'fa9ef841-bcb9-401f-96ad-03a94ac64e63',
-        'bidder': 'zeta_global_ssp',
-        'mediaType': 'banner',
-        'sizes': [
-          [300, 250]
-        ],
-        'timeout': 3,
-        'device': {
-          'w': 807,
-          'h': 847,
-          'dnt': 0,
-          'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-          'language': 'en',
-          'sua': {
-            'source': 1,
-            'platform': { 'brand': 'macOS' },
-            'browsers': [{ 'brand': 'Google Chrome', 'version': ['123'] }, {
-              'brand': 'Not:A-Brand',
-              'version': ['8']
-            }, { 'brand': 'Chromium', 'version': ['123'] }],
-            'mobile': 0
-          }
-        },
-        'adUnitCode': 'ad-1',
-        'floor': 0.75
-      }, {
-        'bidId': '31a3b551cbf1ed',
-        'auctionId': 'fa9ef841-bcb9-401f-96ad-03a94ac64e63',
-        'bidder': 'zeta_global_ssp',
-        'mediaType': 'banner',
-        'sizes': [
-          [300, 250]
-        ],
-        'timeout': 3,
-        'device': {
-          'w': 807,
-          'h': 847,
-          'dnt': 0,
-          'ua': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
-          'language': 'en',
-          'sua': {
-            'source': 1,
-            'platform': { 'brand': 'macOS' },
-            'browsers': [{ 'brand': 'Google Chrome', 'version': ['123'] }, {
-              'brand': 'Not:A-Brand',
-              'version': ['8']
-            }, { 'brand': 'Chromium', 'version': ['123'] }],
-            'mobile': 0
-          }
-        },
-        'adUnitCode': 'ad-2',
-        'floor': 0.75
-      }]);
+      expect(auctionSucceeded.bid.params[0]).to.be.deep.equal(EVENTS.AUCTION_END.adUnits[0].bids[0].params);
+      expect(EVENTS.AUCTION_END.adUnits[0].bids[0].bidder).to.be.equal('zeta_global_ssp');
     });
   });
 });

@@ -17,17 +17,11 @@
 
 import { submodule } from '../src/hook.js';
 import { ajax } from '../src/ajax.js';
-import { generateUUID, createInvisibleIframe, insertElement, isEmpty, logError } from '../src/utils.js';
+import { generateUUID, insertElement, isEmpty, logError } from '../src/utils.js';
 import * as events from '../src/events.js';
-import { EVENTS } from '../src/constants.js';
+import CONSTANTS from '../src/constants.json';
 import { loadExternalScript } from '../src/adloader.js';
 import { auctionManager } from '../src/auctionManager.js';
-import { getRefererInfo } from '../src/refererDetection.js';
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
 
 /** @type {string} */
 const SUBMODULE_NAME = 'geoedge';
@@ -45,23 +39,19 @@ const FILE_NAME_CLIENT = 'grumi.js';
 /** @type {string} */
 const FILE_NAME_INPAGE = 'grumi-ip.js';
 /** @type {function} */
-export const getClientUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME_CLIENT}`;
+export let getClientUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME_CLIENT}`;
 /** @type {function} */
-export const getInPageUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME_INPAGE}`;
+export let getInPageUrl = (key) => `${HOST_NAME}/${key}/${FILE_NAME_INPAGE}`;
 /** @type {string} */
 export let wrapper
 /** @type {boolean} */;
 let wrapperReady;
 /** @type {boolean} */;
 let preloaded;
-/** @type {object} */;
-const refererInfo = getRefererInfo();
-/** @type {object} */;
-const overrides = window.grumi?.overrides;
 
 /**
  * fetches the creative wrapper
- * @param {function} success - success callback
+ * @param {function} sucess - success callback
  */
 export function fetchWrapper(success) {
   if (wrapperReady) {
@@ -79,37 +69,17 @@ export function setWrapper(responseText) {
   wrapper = responseText;
 }
 
-export function getInitialParams(key) {
-  const params = {
-    wver: '1.1.1',
-    wtype: 'pbjs-module',
-    key,
-    meta: {
-      topUrl: refererInfo.page
-    },
-    site: refererInfo.domain,
-    pimp: PV_ID,
-    fsRan: true,
-    frameApi: true
-  };
-  return params;
-}
-
-export function markAsLoaded() {
-  preloaded = true;
-}
-
 /**
  * preloads the client
- * @param {string} key
+  * @param {string} key
  */
 export function preloadClient(key) {
-  const iframe = createInvisibleIframe();
-  iframe.id = 'grumiFrame';
-  insertElement(iframe);
-  iframe.contentWindow.grumi = getInitialParams(key);
-  const url = getClientUrl(key);
-  loadExternalScript(url, MODULE_TYPE_RTD, SUBMODULE_NAME, markAsLoaded, iframe.contentDocument);
+  let link = document.createElement('link');
+  link.rel = 'preload';
+  link.as = 'script';
+  link.href = getClientUrl(key);
+  link.onload = () => { preloaded = true };
+  insertElement(link);
 }
 
 /**
@@ -133,7 +103,7 @@ export function wrapHtml(wrapper, html) {
  * @param {string} key
  * @return {Object}
  */
-export function getMacros(bid, key) {
+function getMacros(bid, key) {
   return {
     '${key}': key,
     '%%ADUNIT%%': bid.adUnitCode,
@@ -145,10 +115,8 @@ export function getMacros(bid, key) {
     '%_hbcid!': bid.creativeId || '',
     '%_hbadomains': bid.meta && bid.meta.advertiserDomains,
     '%%PATTERN:hb_pb%%': bid.pbHg,
-    '%%SITE%%': overrides?.site || refererInfo.domain,
-    '%_pimp%': PV_ID,
-    '%_hbCpm!': bid.cpm,
-    '%_hbCurrency!': bid.currency
+    '%%SITE%%': location.hostname,
+    '%_pimp%': PV_ID
   };
 }
 
@@ -174,7 +142,7 @@ function replaceMacros(wrapper, macros) {
  * @return {string}
  */
 function buildHtml(bid, wrapper, html, key) {
-  const macros = getMacros(bid, key);
+  let macros = getMacros(bid, key);
   wrapper = replaceMacros(wrapper, macros);
   return wrapHtml(wrapper, html);
 }
@@ -194,7 +162,7 @@ function mutateBid(bid, ad) {
  * @param {string} key
  */
 export function wrapBidResponse(bid, key) {
-  const wrapped = buildHtml(bid, wrapper, bid.ad, key);
+  let wrapped = buildHtml(bid, wrapper, bid.ad, key);
   mutateBid(bid, wrapped);
 }
 
@@ -213,14 +181,14 @@ function isSupportedBidder(bidder, paramsBidders) {
  * @return {boolean}
  */
 function shouldWrap(bid, params) {
-  const supportedBidder = isSupportedBidder(bid.bidderCode, params.bidders);
-  const donePreload = params.wap ? preloaded : true;
-  const isGPT = params.gpt;
+  let supportedBidder = isSupportedBidder(bid.bidderCode, params.bidders);
+  let donePreload = params.wap ? preloaded : true;
+  let isGPT = params.gpt;
   return wrapperReady && supportedBidder && donePreload && !isGPT;
 }
 
 function conditionallyWrap(bidResponse, config, userConsent) {
-  const params = config.params;
+  let params = config.params;
   if (shouldWrap(bidResponse, params)) {
     wrapBidResponse(bidResponse, params.key);
   }
@@ -238,10 +206,10 @@ function isBillingMessage(data, params) {
  */
 function fireBillableEventsForApplicableBids(params) {
   window.addEventListener('message', function (message) {
-    const data = message.data;
+    let data = message.data;
     if (isBillingMessage(data, params)) {
-      const winningBid = auctionManager.findBidByAdId(data.adId);
-      events.emit(EVENTS.BILLABLE_EVENT, {
+      let winningBid = auctionManager.findBidByAdId(data.adId);
+      events.emit(CONSTANTS.EVENTS.BILLABLE_EVENT, {
         vendor: SUBMODULE_NAME,
         billingId: data.impressionId,
         type: winningBid ? 'impression' : data.type,
@@ -260,11 +228,11 @@ function fireBillableEventsForApplicableBids(params) {
 function setupInPage(params) {
   window.grumi = params;
   window.grumi.fromPrebid = true;
-  loadExternalScript(getInPageUrl(params.key), MODULE_TYPE_RTD, SUBMODULE_NAME);
+  loadExternalScript(getInPageUrl(params.key), SUBMODULE_NAME);
 }
 
 function init(config, userConsent) {
-  const params = config.params;
+  let params = config.params;
   if (!params || !params.key) {
     logError('missing key for geoedge RTD module provider');
     return false;
@@ -282,9 +250,9 @@ function init(config, userConsent) {
 /** @type {RtdSubmodule} */
 export const geoedgeSubmodule = {
   /**
-   * used to link submodule with realTimeData
-   * @type {string}
-   */
+     * used to link submodule with realTimeData
+     * @type {string}
+     */
   name: SUBMODULE_NAME,
   init,
   onBidResponseEvent: conditionallyWrap

@@ -3,14 +3,12 @@ import { assert } from 'chai';
 import { spec } from 'modules/carodaBidAdapter.js';
 import { config } from 'src/config.js';
 import { createEidsArray } from 'modules/userId/eids.js';
-import { setConfig as setCurrencyConfig } from '../../../modules/currency.js';
-import { addFPDToBidderRequest } from '../../helpers/fpd.js';
 
 describe('Caroda adapter', function () {
   let bids = [];
 
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidder': 'caroda',
       'params': {
         'ctok': 'adf232eef344'
@@ -109,21 +107,15 @@ describe('Caroda adapter', function () {
       const validBidRequests = [{
         bid_id: 'bidId',
         params: {},
-        ortb2: {
-          source: {
-            ext: {
-              schain: {
-                validation: 'strict',
-                config: {
-                  ver: '1.0'
-                }
-              }
-            }
+        schain: {
+          validation: 'strict',
+          config: {
+            ver: '1.0'
           }
         }
       }];
 
-      const data = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
+      let data = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
       assert.deepEqual(data.schain, {
         validation: 'strict',
         config: {
@@ -137,12 +129,12 @@ describe('Caroda adapter', function () {
         app: { id: 'appid' },
       });
       const ortb2 = { app: { name: 'appname' } };
-      const validBidRequests = [{
+      let validBidRequests = [{
         bid_id: 'bidId',
         params: { mid: '1000' },
         ortb2
       }];
-      const request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' }, ortb2 })[0].data);
+      let request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' }, ortb2 })[0].data);
       assert.equal(request.app.id, 'appid');
       assert.equal(request.app.name, 'appname');
       assert.equal(request.site, undefined);
@@ -164,13 +156,13 @@ describe('Caroda adapter', function () {
           }
         }
       };
-      const validBidRequests = [{
+      let validBidRequests = [{
         bid_id: 'bidId',
         params: { mid: '1000' },
         ortb2
       }];
-      const refererInfo = { page: 'page' };
-      const request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo, ortb2 })[0].data);
+      let refererInfo = { page: 'page' };
+      let request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo, ortb2 })[0].data);
 
       assert.deepEqual(request.site, {
         page: refererInfo.page,
@@ -183,45 +175,46 @@ describe('Caroda adapter', function () {
     });
 
     it('should send correct priceType value', function () {
-      const validBidRequests = [{
+      let validBidRequests = [{
         bid_id: 'bidId',
         params: { priceType: 'gross' }
       }];
-      const request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
+      let request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
 
       assert.equal(request.price_type, 'gross');
     });
 
     it('should send currency if defined', function () {
-      setCurrencyConfig({ adServerCurrency: 'EUR' });
-      const validBidRequests = [{ params: {} }];
-      const bidderRequest = { refererInfo: { page: 'page' } };
-      return addFPDToBidderRequest(bidderRequest).then(res => {
-        const request = JSON.parse(spec.buildRequests(validBidRequests, res)[0].data);
-        assert.deepEqual(request.currency, 'EUR');
-        setCurrencyConfig({});
-      });
+      config.setConfig({ currency: { adServerCurrency: 'EUR' } });
+      let validBidRequests = [{ params: {} }];
+      let refererInfo = { page: 'page' };
+      let request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo })[0].data);
+
+      assert.deepEqual(request.currency, 'EUR');
     });
 
     it('should pass extended ids', function () {
-      const validBidRequests = [{
+      let validBidRequests = [{
         bid_id: 'bidId',
         params: {},
-        userIdAsEids: [
-          { source: 'adserver.org', uids: [{ id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: { rtiPartner: 'TDID' } }] },
-          { source: 'pubcid.org', uids: [{ id: 'pubCommonId_FROM_USER_ID_MODULE', atype: 1 }] }
-        ]
+        userIdAsEids: createEidsArray({
+          tdid: 'TTD_ID_FROM_USER_ID_MODULE',
+          pubcid: 'pubCommonId_FROM_USER_ID_MODULE'
+        })
       }];
 
-      const request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
-      assert.deepEqual(request.user.eids, validBidRequests[0].userIdAsEids);
+      let request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
+      assert.deepEqual(request.user.eids, [
+        { source: 'adserver.org', uids: [ { id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: { rtiPartner: 'TDID' } } ] },
+        { source: 'pubcid.org', uids: [ { id: 'pubCommonId_FROM_USER_ID_MODULE', atype: 1 } ] }
+      ]);
     });
 
     describe('user privacy', function () {
       it('should send GDPR Consent data to adform if gdprApplies', function () {
-        const validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
-        const bidderRequest = { gdprConsent: { gdprApplies: true, consentString: 'consentDataString' }, refererInfo: { page: 'page' } };
-        const request = JSON.parse(spec.buildRequests(validBidRequests, bidderRequest)[0].data);
+        let validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
+        let bidderRequest = { gdprConsent: { gdprApplies: true, consentString: 'consentDataString' }, refererInfo: { page: 'page' } };
+        let request = JSON.parse(spec.buildRequests(validBidRequests, bidderRequest)[0].data);
 
         assert.equal(request.privacy.gdpr_consent, bidderRequest.gdprConsent.consentString);
         assert.equal(request.privacy.gdpr, bidderRequest.gdprConsent.gdprApplies);
@@ -229,16 +222,16 @@ describe('Caroda adapter', function () {
       });
 
       it('should send gdpr as number', function () {
-        const validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
-        const bidderRequest = { gdprConsent: { gdprApplies: true, consentString: 'consentDataString' }, refererInfo: { page: 'page' } };
-        const request = JSON.parse(spec.buildRequests(validBidRequests, bidderRequest)[0].data);
+        let validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
+        let bidderRequest = { gdprConsent: { gdprApplies: true, consentString: 'consentDataString' }, refererInfo: { page: 'page' } };
+        let request = JSON.parse(spec.buildRequests(validBidRequests, bidderRequest)[0].data);
 
         assert.equal(typeof request.privacy.gdpr, 'number');
         assert.equal(request.privacy.gdpr, 1);
       });
 
       it('should send CCPA Consent data', function () {
-        const validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
+        let validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
         let bidderRequest = { uspConsent: '1YA-', refererInfo: { page: 'page' } };
         let request = JSON.parse(spec.buildRequests(validBidRequests, bidderRequest)[0].data);
 
@@ -255,8 +248,8 @@ describe('Caroda adapter', function () {
       it('should not set coppa when coppa is not provided or is set to false', function () {
         config.setConfig({
         });
-        const validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
-        const bidderRequest = { gdprConsent: { gdprApplies: true, consentString: 'consentDataString' }, refererInfo: { page: 'page' } };
+        let validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
+        let bidderRequest = { gdprConsent: { gdprApplies: true, consentString: 'consentDataString' }, refererInfo: { page: 'page' } };
         let request = JSON.parse(spec.buildRequests(validBidRequests, bidderRequest)[0].data);
 
         assert.equal(request.privacy.coppa, undefined);
@@ -272,8 +265,8 @@ describe('Caroda adapter', function () {
         config.setConfig({
           coppa: true
         });
-        const validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
-        const request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
+        let validBidRequests = [{ bid_id: 'bidId', params: { test: 1 } }];
+        let request = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
 
         assert.equal(request.privacy.coppa, 1);
       });
@@ -297,33 +290,29 @@ describe('Caroda adapter', function () {
 
       describe('price floors', function () {
         it('should not add if floors module not configured', function () {
-          const validBidRequests = [{ bid_id: 'bidId', params: { ctok: 'ctok1' }, mediaTypes: { video: {} } }];
+          const validBidRequests = [{ bid_id: 'bidId', params: {ctok: 'ctok1'}, mediaTypes: {video: {}} }];
           const imp = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
           assert.equal(imp.bidfloor, undefined);
           assert.equal(imp.bidfloorcur, undefined);
         });
 
         it('should not add if floor price not defined', function () {
-          const validBidRequests = [getBidWithFloor()];
+          const validBidRequests = [ getBidWithFloor() ];
           const imp = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
           assert.equal(imp.bidfloor, undefined);
           assert.equal(imp.bidfloorcur, 'EUR');
         });
 
         it('should request floor price in adserver currency', function () {
-          const validBidRequests = [getBidWithFloor()];
-          setCurrencyConfig({ adServerCurrency: 'DKK' });
-          const bidderRequest = { refererInfo: { page: 'page' } };
-          return addFPDToBidderRequest(bidderRequest).then(res => {
-            const imp = JSON.parse(spec.buildRequests(validBidRequests, res)[0].data);
-            assert.equal(imp.bidfloor, undefined);
-            assert.equal(imp.bidfloorcur, 'DKK');
-            setCurrencyConfig({});
-          });
+          config.setConfig({ currency: { adServerCurrency: 'DKK' } });
+          const validBidRequests = [ getBidWithFloor() ];
+          const imp = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
+          assert.equal(imp.bidfloor, undefined);
+          assert.equal(imp.bidfloorcur, 'DKK');
         });
 
         it('should add correct floor values', function () {
-          const expectedFloors = [1, 1.3, 0.5];
+          const expectedFloors = [ 1, 1.3, 0.5 ];
           const validBidRequests = expectedFloors.map(getBidWithFloor);
           const imps = spec
             .buildRequests(validBidRequests, { refererInfo: { page: 'page' } })
@@ -367,7 +356,7 @@ describe('Caroda adapter', function () {
               native: {}
             }
           }];
-          const [first, second] = spec
+          const [ first, second ] = spec
             .buildRequests(validBidRequests, { refererInfo: { page: 'page' } })
             .map(r => JSON.parse(r.data));
 
@@ -392,7 +381,7 @@ describe('Caroda adapter', function () {
           }];
           const { banner } = JSON.parse(spec.buildRequests(validBidRequests, { refererInfo: { page: 'page' } })[0].data);
           assert.deepEqual(banner, {
-            format: [{ w: 100, h: 100 }, { w: 200, h: 300 }]
+            format: [ { w: 100, h: 100 }, { w: 200, h: 300 } ]
           });
         });
       });

@@ -5,22 +5,16 @@
  * @requires module:modules/userId
  */
 
-import { ajax } from '../src/ajax.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { submodule } from '../src/hook.js';
-import { isFn, isPlainObject, isStr, logError, logInfo, logMessage } from '../src/utils.js';
-import { MODULE_TYPE_UID } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
- */
+import {ajax} from '../src/ajax.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {submodule} from '../src/hook.js';
+import {isFn, isPlainObject, isStr, logError, logInfo} from '../src/utils.js';
+import {MODULE_TYPE_UID} from '../src/activities/modules.js';
 
 const MODULE_NAME = 'qid';
 const AU_GVLID = 902;
 
-export const storage = getStorageManager({ moduleType: MODULE_TYPE_UID, moduleName: 'qid' });
+export const storage = getStorageManager({moduleType: MODULE_TYPE_UID, moduleName: 'qid'});
 
 /**
  * Param or default.
@@ -57,7 +51,7 @@ export const adqueryIdSubmodule = {
    * @returns {{qid:Object}}
    */
   decode(value) {
-    return { qid: value }
+    return {qid: value}
   },
   /**
    * performs action to obtain id and return a value in the callback's response argument
@@ -66,18 +60,7 @@ export const adqueryIdSubmodule = {
    * @returns {IdResponse|undefined}
    */
   getId(config) {
-    logMessage('adqueryIdSubmodule getId');
-
-    const qid = storage.getDataFromLocalStorage('qid');
-
-    if (qid) {
-      return {
-        callback: function (callback) {
-          callback(qid);
-        }
-      }
-    }
-
+    logInfo('adqueryIdSubmodule getId');
     if (!isPlainObject(config.params)) {
       config.params = {};
     }
@@ -110,7 +93,7 @@ export const adqueryIdSubmodule = {
             }
           }
           if (responseObj.qid) {
-            const myQid = responseObj.qid;
+            let myQid = responseObj.qid;
             storage.setDataInLocalStorage('qid', myQid);
             return callback(myQid);
           }
@@ -121,9 +104,9 @@ export const adqueryIdSubmodule = {
           callback();
         }
       };
-      ajax(url + '?qid=' + qid, callbacks, undefined, { method: 'GET' });
+      ajax(url + '?qid=' + qid, callbacks, undefined, {method: 'GET'});
     };
-    return { callback: resp };
+    return {callback: resp};
   },
   eids: {
     'qid': {

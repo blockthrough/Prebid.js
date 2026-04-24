@@ -7,8 +7,7 @@ import {
   mergeDeep,
   logWarn,
   isNumber,
-  isStr,
-  isPlainObject
+  isStr
 } from '../src/utils.js';
 import { ajax } from '../src/ajax.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
@@ -16,17 +15,10 @@ import { Renderer } from '../src/Renderer.js';
 import { VIDEO, BANNER } from '../src/mediaTypes.js';
 import { config } from '../src/config.js';
 import { getStorageManager } from '../src/storageManager.js';
-import { getBidFromResponse } from '../libraries/processResponse/index.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerRequest} ServerRequest
- */
 
 const BIDDER_CODE = 'grid';
 const ENDPOINT_URL = 'https://grid.bidswitch.net/hbjson';
-const USP_DELETE_DATA_HANDLER = 'https://media.grid.bidswitch.net/uspapi_delete_c2s'
+const USP_DELETE_DATA_HANDLER = 'https://media.grid.bidswitch.net/uspapi_delete'
 
 const SYNC_URL = 'https://x.bidswitch.net/sync?ssp=themediagrid';
 const TIME_TO_LIVE = 360;
@@ -47,6 +39,13 @@ const LOG_ERROR_MESS = {
 };
 
 const ALIAS_CONFIG = {
+  'trustx': {
+    endpoint: 'https://grid.bidswitch.net/hbjson?sp=trustx',
+    syncurl: 'https://x.bidswitch.net/sync?ssp=themediagrid',
+    bidResponseExternal: {
+      netRevenue: false
+    }
+  },
   'gridNM': {
     defaultParams: {
       multiRequest: true
@@ -59,8 +58,8 @@ let hasSynced = false;
 export const spec = {
   code: BIDDER_CODE,
   gvlid: GVLID,
-  aliases: ['playwire', 'adlivetech', 'gridNM'],
-  supportedMediaTypes: [BANNER, VIDEO],
+  aliases: ['playwire', 'adlivetech', 'gridNM', { code: 'trustx', skipPbsAliasing: true }],
+  supportedMediaTypes: [ BANNER, VIDEO ],
   /**
    * Determines whether or not the given bid request is valid.
    *
@@ -89,7 +88,7 @@ export const spec = {
     let userExt = null;
     let endpoint = null;
     let forceBidderName = false;
-    let { bidderRequestId, gdprConsent, uspConsent, timeout, refererInfo, gppConsent } = bidderRequest || {};
+    let {bidderRequestId, gdprConsent, uspConsent, timeout, refererInfo, gppConsent} = bidderRequest || {};
 
     const referer = refererInfo ? encodeURIComponent(refererInfo.page) : '';
     const tmax = parseInt(timeout) || null;
@@ -108,7 +107,7 @@ export const spec = {
         bidderRequestId = bid.bidderRequestId;
       }
       if (!schain) {
-        schain = bid?.ortb2?.source?.ext?.schain;
+        schain = bid.schain;
       }
       if (!userIdAsEids) {
         userIdAsEids = bid.userIdAsEids;
@@ -125,7 +124,7 @@ export const spec = {
         content = jwTargeting.content;
       }
 
-      const impObj = {
+      let impObj = {
         id: bidId.toString(),
         tagid: (secid || uid).toString(),
         ext: {
@@ -138,7 +137,7 @@ export const spec = {
         }
 
         if (ortb2Imp.ext) {
-          impObj.ext.gpid = ortb2Imp.ext.gpid?.toString() || ortb2Imp.ext.data?.adserver?.adslot?.toString();
+          impObj.ext.gpid = ortb2Imp.ext.gpid?.toString() || ortb2Imp.ext.data?.pbadslot?.toString() || ortb2Imp.ext.data?.adserver?.adslot?.toString();
           if (ortb2Imp.ext.data) {
             impObj.ext.data = ortb2Imp.ext.data;
           }
@@ -177,10 +176,8 @@ export const spec = {
               wrapper_version: '$prebid.version$'
             }
           };
-          // Check for schain in the new location
-          const schain = bid?.ortb2?.source?.ext?.schain;
-          if (schain) {
-            reqSource.ext.schain = schain;
+          if (bid.schain) {
+            reqSource.ext.schain = bid.schain;
           }
           const request = {
             id: bid.bidderRequestId && bid.bidderRequestId.toString(),
@@ -262,18 +259,13 @@ export const spec = {
       }
 
       if (gdprConsent && gdprConsent.consentString) {
-        userExt = { consent: gdprConsent.consentString };
+        userExt = {consent: gdprConsent.consentString};
       }
 
       const ortb2UserExtDevice = deepAccess(bidderRequest, 'ortb2.user.ext.device');
       if (ortb2UserExtDevice) {
         userExt = userExt || {};
         userExt.device = { ...ortb2UserExtDevice };
-      }
-
-      // if present, add device data object from ortb2 to the request
-      if (bidderRequest?.ortb2?.device) {
-        request.device = bidderRequest.ortb2.device;
       }
 
       if (userIdAsEids && userIdAsEids.length) {
@@ -348,7 +340,7 @@ export const spec = {
 
       if (uspConsent) {
         if (!request.regs) {
-          request.regs = { ext: {} };
+          request.regs = {ext: {}};
         }
         if (!request.regs.ext) {
           request.regs.ext = {};
@@ -363,16 +355,6 @@ export const spec = {
         request.regs.coppa = 1;
       }
 
-      if (ortb2Regs?.ext?.dsa) {
-        if (!request.regs) {
-          request.regs = { ext: {} };
-        }
-        if (!request.regs.ext) {
-          request.regs.ext = {};
-        }
-        request.regs.ext.dsa = ortb2Regs.ext.dsa;
-      }
-
       const site = deepAccess(bidderRequest, 'ortb2.site');
       if (site) {
         const pageCategory = [...(site.cat || []), ...(site.pagecat || [])].filter((category) => {
@@ -383,7 +365,7 @@ export const spec = {
         }
         const genre = deepAccess(site, 'content.genre');
         if (genre && typeof genre === 'string') {
-          request.site.content = { ...request.site.content, genre };
+          request.site.content = {...request.site.content, genre};
         }
         const data = deepAccess(site, 'content.data');
         if (data && data.length) {
@@ -392,7 +374,7 @@ export const spec = {
         }
         const id = deepAccess(site, 'content.id');
         if (id) {
-          request.site.content = { ...request.site.content, id };
+          request.site.content = {...request.site.content, id};
         }
       }
     });
@@ -405,7 +387,7 @@ export const spec = {
         }
         return '';
       });
-      const currentSource = sources[i] || sp;
+      let currentSource = sources[i] || sp;
       const urlWithParams = url + (url.indexOf('?') > -1 ? '&' : '?') + 'no_mapping=1' + (currentSource ? `&sp=${currentSource}` : '');
       return {
         method: 'POST',
@@ -443,7 +425,7 @@ export const spec = {
 
     if (!errorMessage && serverResponse.seatbid) {
       serverResponse.seatbid.forEach(respItem => {
-        _addBidResponse(getBidFromResponse(respItem, LOG_ERROR_MESS), bidRequest, bidResponses, RendererConst, bidderCode);
+        _addBidResponse(_getBidFromResponse(respItem), bidRequest, bidResponses, RendererConst, bidderCode);
       });
     }
     if (errorMessage) logError(errorMessage);
@@ -478,12 +460,20 @@ export const spec = {
   },
 
   ajaxCall: function(url, cb, data, options) {
-    options.browsingTopics = false;
     return ajax(url, cb, data, options);
   },
 
   onDataDeletionRequest: function(data) {
-    spec.ajaxCall(USP_DELETE_DATA_HANDLER, null, null, { method: 'GET' });
+    const uids = [];
+    const aliases = [spec.code, ...spec.aliases.map((alias) => alias.code || alias)];
+    data.forEach(({ bids }) => bids && bids.forEach(({ bidder, params }) => {
+      if (aliases.includes(bidder) && params && params.uid) {
+        uids.push(params.uid);
+      }
+    }));
+    if (uids.length) {
+      spec.ajaxCall(USP_DELETE_DATA_HANDLER, () => {}, JSON.stringify({ uids }), {contentType: 'application/json', method: 'POST'});
+    }
   }
 };
 
@@ -501,10 +491,10 @@ function _getFloor (mediaTypes, bid) {
     const floorInfo = bid.getFloor({
       currency: 'USD',
       mediaType: curMediaType,
-      size: bid.sizes.map(([w, h]) => ({ w, h }))
+      size: bid.sizes.map(([w, h]) => ({w, h}))
     });
 
-    if (isPlainObject(floorInfo) &&
+    if (typeof floorInfo === 'object' &&
       floorInfo.currency === 'USD' &&
       !isNaN(parseFloat(floorInfo.floor))) {
       floor = Math.max(floor, parseFloat(floorInfo.floor));
@@ -512,6 +502,17 @@ function _getFloor (mediaTypes, bid) {
   }
 
   return floor;
+}
+
+function _getBidFromResponse(respItem) {
+  if (!respItem) {
+    logError(LOG_ERROR_MESS.emptySeatbid);
+  } else if (!respItem.bid) {
+    logError(LOG_ERROR_MESS.hasNoArrayOfBids + JSON.stringify(respItem));
+  } else if (!respItem.bid[0]) {
+    logError(LOG_ERROR_MESS.noBid);
+  }
+  return respItem && respItem.bid && respItem.bid[0];
 }
 
 function _addBidResponse(serverBid, bidRequest, bidResponses, RendererConst, bidderCode) {
@@ -533,7 +534,7 @@ function _addBidResponse(serverBid, bidRequest, bidResponses, RendererConst, bid
         netRevenue: true,
         ttl: TIME_TO_LIVE,
         meta: {
-          advertiserDomains: serverBid.adomain ? serverBid.adomain : [],
+          advertiserDomains: serverBid.adomain ? serverBid.adomain : []
         },
         dealId: serverBid.dealid
       };
@@ -543,10 +544,6 @@ function _addBidResponse(serverBid, bidRequest, bidResponses, RendererConst, bid
       if (serverBid.ext && serverBid.ext.bidder && serverBid.ext.bidder.grid && serverBid.ext.bidder.grid.demandSource) {
         bidResponse.adserverTargeting = { 'hb_ds': serverBid.ext.bidder.grid.demandSource };
         bidResponse.meta.demandSource = serverBid.ext.bidder.grid.demandSource;
-      }
-
-      if (serverBid.ext && serverBid.ext.dsa) {
-        bidResponse.meta.dsa = serverBid.ext.dsa;
       }
 
       if (serverBid.content_type === 'video') {
@@ -619,8 +616,8 @@ function createBannerRequest(bid, mediaType) {
   const sizes = mediaType.sizes || bid.sizes;
   if (!sizes || !sizes.length) return;
 
-  const format = sizes.map((size) => parseGPTSingleSizeArrayToRtbSize(size));
-  const result = parseGPTSingleSizeArrayToRtbSize(sizes[0]);
+  let format = sizes.map((size) => parseGPTSingleSizeArrayToRtbSize(size));
+  let result = parseGPTSingleSizeArrayToRtbSize(sizes[0]);
 
   if (format.length) {
     result.format = format

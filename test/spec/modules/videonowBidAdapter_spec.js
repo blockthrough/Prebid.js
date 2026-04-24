@@ -1,5 +1,5 @@
-import { expect } from 'chai';
-import { spec } from 'modules/videonowBidAdapter';
+import {expect} from 'chai';
+import {spec} from 'modules/videonowBidAdapter';
 
 describe('videonowBidAdapter', function () {
   it('minimal params', function () {
@@ -7,8 +7,7 @@ describe('videonowBidAdapter', function () {
       bidder: 'videonow',
       params: {
         pId: 'advDesktopBillboard'
-      }
-    })).to.equal(true)
+      }})).to.equal(true)
   })
 
   it('minimal params no placementId', function () {
@@ -16,8 +15,7 @@ describe('videonowBidAdapter', function () {
       bidder: 'videonow',
       params: {
         currency: `GBP`
-      }
-    })).to.equal(false)
+      }})).to.equal(false)
   })
 
   it('generated_params common case', function () {

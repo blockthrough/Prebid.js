@@ -2,6 +2,7 @@ import {
   logError,
   deepAccess,
   isArray,
+  getDNT,
   generateUUID,
   isEmpty,
   _each,
@@ -20,13 +21,6 @@ import {
 import {
   VIDEO
 } from '../src/mediaTypes.js';
-import { getDNT } from '../libraries/dnt/index.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
-
 const BIDDER_CODE = 'smartx';
 const URL = 'https://bid.sxp.smartclip.net/bid/1000';
 const GVLID = 115;
@@ -119,8 +113,14 @@ export const spec = {
       const pos = getBidIdParameter('pos', bid.params) || 1;
       const api = getBidIdParameter('api', bid.params) || [2];
       const protocols = getBidIdParameter('protocols', bid.params) || [2, 3, 5, 6];
+      var contextcustom = deepAccess(bid, 'mediaTypes.video.context');
+      var placement = 1;
 
-      const smartxReq = [{
+      if (contextcustom === 'outstream') {
+        placement = 3;
+      }
+
+      let smartxReq = [{
         id: bid.bidId,
         secure: secure,
         bidfloor: bidfloor,
@@ -138,6 +138,7 @@ export const spec = {
           maxbitrate: maxbitrate,
           delivery: delivery,
           pos: pos,
+          placement: placement,
           api: api,
           ext: ext
         },
@@ -216,12 +217,11 @@ export const spec = {
         userExt.fpc = pubcid;
       }
 
-      // Add schain object if available from the new location
-      const schain = bid?.ortb2?.source?.ext?.schain;
-      if (bid && schain) {
+      // Add schain object if available
+      if (bid && bid.schain) {
         requestPayload['source'] = {
           ext: {
-            schain: schain
+            schain: bid.schain
           }
         };
       }
@@ -287,8 +287,8 @@ export const spec = {
       _each(serverResponseBody.seatbid, function (bids) {
         _each(bids.bid, function (smartxBid) {
           let currentBidRequest = {};
-          for (const i in bidderRequest.bidRequest.bids) {
-            if (smartxBid.impid === bidderRequest.bidRequest.bids[i].bidId) {
+          for (let i in bidderRequest.bidRequest.bids) {
+            if (smartxBid.impid == bidderRequest.bidRequest.bids[i].bidId) {
               currentBidRequest = bidderRequest.bidRequest.bids[i];
             }
           }
@@ -296,7 +296,7 @@ export const spec = {
            * Make sure currency and price are the right ones
            */
           _each(currentBidRequest.params.pre_market_bids, function (pmb) {
-            if (pmb.deal_id === smartxBid.id) {
+            if (pmb.deal_id == smartxBid.id) {
               smartxBid.price = pmb.price;
               serverResponseBody.cur = pmb.currency;
             }
@@ -328,7 +328,6 @@ export const spec = {
             const renderer = Renderer.install({
               id: 0,
               url: 'https://dco.smartclip.net/?plc=7777779',
-              adUnitCode: currentBidRequest.adUnitCode,
               config: {
                 adText: 'SmartX Outstream Video Ad via Prebid.js',
                 player_width: playersize[0][0],
@@ -366,15 +365,15 @@ export const spec = {
 }
 
 function createOutstreamConfig(bid) {
-  const confMinAdWidth = getBidIdParameter('minAdWidth', bid.renderer.config.outstream_options) || 290;
-  const confMaxAdWidth = getBidIdParameter('maxAdWidth', bid.renderer.config.outstream_options) || 900;
-  const confStartOpen = getBidIdParameter('startOpen', bid.renderer.config.outstream_options)
-  const confEndingScreen = getBidIdParameter('endingScreen', bid.renderer.config.outstream_options)
-  const confTitle = getBidIdParameter('title', bid.renderer.config.outstream_options);
-  const confSkipOffset = getBidIdParameter('skipOffset', bid.renderer.config.outstream_options);
-  const confDesiredBitrate = getBidIdParameter('desiredBitrate', bid.renderer.config.outstream_options);
-  const confVisibilityThreshold = getBidIdParameter('visibilityThreshold', bid.renderer.config.outstream_options);
-  const elementId = getBidIdParameter('slot', bid.renderer.config.outstream_options) || bid.adUnitCode;
+  let confMinAdWidth = getBidIdParameter('minAdWidth', bid.renderer.config.outstream_options) || 290;
+  let confMaxAdWidth = getBidIdParameter('maxAdWidth', bid.renderer.config.outstream_options) || 900;
+  let confStartOpen = getBidIdParameter('startOpen', bid.renderer.config.outstream_options)
+  let confEndingScreen = getBidIdParameter('endingScreen', bid.renderer.config.outstream_options)
+  let confTitle = getBidIdParameter('title', bid.renderer.config.outstream_options);
+  let confSkipOffset = getBidIdParameter('skipOffset', bid.renderer.config.outstream_options);
+  let confDesiredBitrate = getBidIdParameter('desiredBitrate', bid.renderer.config.outstream_options);
+  let confVisibilityThreshold = getBidIdParameter('visibilityThreshold', bid.renderer.config.outstream_options);
+  let elementId = getBidIdParameter('slot', bid.renderer.config.outstream_options) || bid.adUnitCode;
 
   logMessage('[SMARTX][renderer] Handle SmartX outstream renderer');
 
@@ -390,19 +389,19 @@ function createOutstreamConfig(bid) {
     },
   };
 
-  if (confStartOpen === 'true') {
+  if (confStartOpen == 'true') {
     playerConfig.startOpen = true;
-  } else if (confStartOpen === 'false') {
+  } else if (confStartOpen == 'false') {
     playerConfig.startOpen = false;
   }
 
-  if (confEndingScreen === 'true') {
+  if (confEndingScreen == 'true') {
     playerConfig.endingScreen = true;
-  } else if (confEndingScreen === 'false') {
+  } else if (confEndingScreen == 'false') {
     playerConfig.endingScreen = false;
   }
 
-  if (confTitle || bid.renderer.config.outstream_options.title === '') {
+  if (confTitle || (typeof bid.renderer.config.outstream_options.title == 'string' && bid.renderer.config.outstream_options.title == '')) {
     playerConfig.layoutSettings.advertisingLabel = confTitle;
   }
 
@@ -424,12 +423,6 @@ function createOutstreamConfig(bid) {
 
   var playerListener = function callback(event) {
     switch (event) {
-      case 'AdError':
-        try {
-          window.sc_smartIntxtError();
-        } catch (f) {}
-        break;
-
       case 'AdSlotStarted':
         try {
           window.sc_smartIntxtStart();
@@ -461,7 +454,7 @@ function createOutstreamConfig(bid) {
  */
 function getBidFloor(bid) {
   let floor = getBidIdParameter('bidfloor', bid.params);
-  const floorcur = getBidIdParameter('bidfloorcur', bid.params) || 'EUR';
+  let floorcur = getBidIdParameter('bidfloorcur', bid.params) || 'EUR';
 
   if (!floor && isFn(bid.getFloor)) {
     const floorObj = bid.getFloor({

@@ -1,21 +1,16 @@
 import { expect } from 'chai';
 import { config } from 'src/config.js';
-import { spec } from 'modules/xeBidAdapter.js';
+import { spec, getBidFloor } from 'modules/xeBidAdapter.js';
 import { deepClone } from 'src/utils';
-import { getBidFloor } from '../../../libraries/xeUtils/bidderUtils.js';
+import { createEidsArray } from 'modules/userId/eids.js';
 
 const ENDPOINT = 'https://pbjs.xe.works/bid';
 
 const defaultRequest = {
-  tmax: 0,
   adUnitCode: 'test',
   bidId: '1',
   requestId: 'qwerty',
-  ortb2: {
-    source: {
-      tid: 'auctionId'
-    }
-  },
+  auctionId: 'auctionId',
   ortb2Imp: {
     ext: {
       tid: 'tr1',
@@ -32,7 +27,7 @@ const defaultRequest = {
   bidder: 'xe',
   params: {
     env: 'xe',
-    pid: '40',
+    placement: 'test-banner',
     ext: {}
   },
   bidRequestsCount: 1
@@ -46,17 +41,6 @@ defaultRequestVideo.mediaTypes = {
     skipppable: true
   }
 };
-
-const videoBidderRequest = {
-  bidderCode: 'xe',
-  bids: [{ mediaTypes: { video: {} }, bidId: 'qwerty' }]
-};
-
-const displayBidderRequest = {
-  bidderCode: 'xe',
-  bids: [{ bidId: 'qwerty' }]
-};
-
 describe('xeBidAdapter', () => {
   describe('isBidRequestValid', function () {
     it('should return false when request params is missing', function () {
@@ -71,9 +55,9 @@ describe('xeBidAdapter', () => {
       expect(spec.isBidRequestValid(invalidRequest)).to.equal(false);
     });
 
-    it('should return false when required pid param is missing', function () {
+    it('should return false when required placement param is missing', function () {
       const invalidRequest = deepClone(defaultRequest);
-      delete invalidRequest.params.pid;
+      delete invalidRequest.params.placement;
       expect(spec.isBidRequestValid(invalidRequest)).to.equal(false);
     });
 
@@ -96,29 +80,30 @@ describe('xeBidAdapter', () => {
     it('should send request with correct structure', function () {
       const request = spec.buildRequests([defaultRequest], {});
       expect(request.method).to.equal('POST');
-      expect(request.url).to.equal(ENDPOINT + '/bid');
+      expect(request.url).to.equal(ENDPOINT);
       expect(request.options).to.have.property('contentType').and.to.equal('application/json');
       expect(request).to.have.property('data');
     });
 
     it('should build basic request structure', function () {
       const request = JSON.parse(spec.buildRequests([defaultRequest], {}).data)[0];
-      expect(request).to.have.property('tmax').and.to.equal(defaultRequest.tmax);
       expect(request).to.have.property('bidId').and.to.equal(defaultRequest.bidId);
-      expect(request).to.have.property('auctionId').and.to.equal(defaultRequest.ortb2.source.tid);
+      expect(request).to.have.property('auctionId').and.to.equal(defaultRequest.auctionId);
       expect(request).to.have.property('transactionId').and.to.equal(defaultRequest.ortb2Imp.ext.tid);
       expect(request).to.have.property('tz').and.to.equal(new Date().getTimezoneOffset());
       expect(request).to.have.property('bc').and.to.equal(1);
       expect(request).to.have.property('floor').and.to.equal(null);
       expect(request).to.have.property('banner').and.to.deep.equal({ sizes: [[300, 250], [300, 200]] });
-      expect(request).to.have.property('gdprConsent').and.to.deep.equal({});
+      expect(request).to.have.property('gdprApplies').and.to.equal(0);
+      expect(request).to.have.property('consentString').and.to.equal('');
       expect(request).to.have.property('userEids').and.to.deep.equal([]);
       expect(request).to.have.property('usPrivacy').and.to.equal('');
+      expect(request).to.have.property('coppa').and.to.equal(0);
       expect(request).to.have.property('sizes').and.to.deep.equal(['300x250', '300x200']);
       expect(request).to.have.property('ext').and.to.deep.equal({});
       expect(request).to.have.property('env').and.to.deep.equal({
         env: 'xe',
-        pid: '40'
+        placement: 'test-banner'
       });
       expect(request).to.have.property('device').and.to.deep.equal({
         ua: navigator.userAgent,
@@ -128,20 +113,18 @@ describe('xeBidAdapter', () => {
 
     it('should build request with schain', function () {
       const schainRequest = deepClone(defaultRequest);
-      const bidderRequest = {
-        ortb2: {
-          source: {
-            ext: {
-              schain: {
-                ver: '1.0'
-              }
-            }
-          }
+      schainRequest.schain = {
+        validation: 'strict',
+        config: {
+          ver: '1.0'
         }
       };
-      const request = JSON.parse(spec.buildRequests([schainRequest], bidderRequest).data)[0];
+      const request = JSON.parse(spec.buildRequests([schainRequest], {}).data)[0];
       expect(request).to.have.property('schain').and.to.deep.equal({
-        ver: '1.0'
+        validation: 'strict',
+        config: {
+          ver: '1.0'
+        }
       });
     });
 
@@ -208,6 +191,18 @@ describe('xeBidAdapter', () => {
       expect(request).to.have.property('floor').and.to.equal(5);
     });
 
+    it('should build request with gdpr consent data if applies', function () {
+      const bidderRequest = {
+        gdprConsent: {
+          gdprApplies: true,
+          consentString: 'qwerty'
+        }
+      };
+      const request = JSON.parse(spec.buildRequests([defaultRequest], bidderRequest).data)[0];
+      expect(request).to.have.property('gdprApplies').and.equals(1);
+      expect(request).to.have.property('consentString').and.equals('qwerty');
+    });
+
     it('should build request with usp consent data if applies', function () {
       const bidderRequest = {
         uspConsent: '1YA-'
@@ -216,11 +211,19 @@ describe('xeBidAdapter', () => {
       expect(request).to.have.property('usPrivacy').and.equals('1YA-');
     });
 
+    it('should build request with coppa 1', function () {
+      config.setConfig({
+        coppa: true
+      });
+      const request = JSON.parse(spec.buildRequests([defaultRequest], {}).data)[0];
+      expect(request).to.have.property('coppa').and.equals(1);
+    });
+
     it('should build request with extended ids', function () {
       const idRequest = deepClone(defaultRequest);
       idRequest.userIdAsEids = [
-        { source: 'adserver.org', uids: [{ id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: { rtiPartner: 'TDID' } }] },
-        { source: 'pubcid.org', uids: [{ id: 'pubCommonId_FROM_USER_ID_MODULE', atype: 1 }] }
+        { source: 'adserver.org', uids: [ { id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: { rtiPartner: 'TDID' } } ] },
+        { source: 'pubcid.org', uids: [ { id: 'pubCommonId_FROM_USER_ID_MODULE', atype: 1 } ] }
       ];
       const request = JSON.parse(spec.buildRequests([idRequest], {}).data)[0];
       expect(request).to.have.property('userEids').and.deep.equal(idRequest.userIdAsEids);
@@ -260,19 +263,19 @@ describe('xeBidAdapter', () => {
             height: 250,
             ttl: 600,
             meta: {
-              advertiserDomains: ['xe']
+              advertiserDomains: ['xe.works']
             },
             ext: {
               pixels: [
-                ['iframe', 'surl1'],
-                ['image', 'surl2'],
+                [ 'iframe', 'surl1' ],
+                [ 'image', 'surl2' ],
               ]
             }
           }]
         }
       };
 
-      const validResponse = spec.interpretResponse(serverResponse, { bidderRequest: displayBidderRequest });
+      const validResponse = spec.interpretResponse(serverResponse, { bidderRequest: defaultRequest });
       const bid = validResponse[0];
       expect(validResponse).to.be.an('array').that.is.not.empty;
       expect(bid.requestId).to.equal('qwerty');
@@ -281,7 +284,7 @@ describe('xeBidAdapter', () => {
       expect(bid.width).to.equal(300);
       expect(bid.height).to.equal(250);
       expect(bid.ttl).to.equal(600);
-      expect(bid.meta).to.deep.equal({ advertiserDomains: ['xe'] });
+      expect(bid.meta).to.deep.equal({ advertiserDomains: ['xe.works'] });
     });
 
     it('should interpret valid banner response', function () {
@@ -302,7 +305,7 @@ describe('xeBidAdapter', () => {
         }
       };
 
-      const validResponseBanner = spec.interpretResponse(serverResponse, { bidderRequest: displayBidderRequest });
+      const validResponseBanner = spec.interpretResponse(serverResponse, { bidderRequest: defaultRequest });
       const bid = validResponseBanner[0];
       expect(validResponseBanner).to.be.an('array').that.is.not.empty;
       expect(bid.mediaType).to.equal('banner');
@@ -328,7 +331,7 @@ describe('xeBidAdapter', () => {
         }
       };
 
-      const validResponseBanner = spec.interpretResponse(serverResponse, { bidderRequest: videoBidderRequest });
+      const validResponseBanner = spec.interpretResponse(serverResponse, { bidderRequest: defaultRequestVideo });
       const bid = validResponseBanner[0];
       expect(validResponseBanner).to.be.an('array').that.is.not.empty;
       expect(bid.mediaType).to.equal('video');
@@ -344,19 +347,19 @@ describe('xeBidAdapter', () => {
     });
 
     it('should return empty if sync is not allowed', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: false, pixelEnabled: false });
+      const opts = spec.getUserSyncs({iframeEnabled: false, pixelEnabled: false});
       expect(opts).to.be.an('array').that.is.empty;
     });
 
     it('should allow iframe sync', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: true, pixelEnabled: false }, [{
+      const opts = spec.getUserSyncs({iframeEnabled: true, pixelEnabled: false}, [{
         body: {
           data: [{
             requestId: 'qwerty',
             ext: {
               pixels: [
-                ['iframe', 'surl1?a=b'],
-                ['image', 'surl2?a=b'],
+                [ 'iframe', 'surl1?a=b' ],
+                [ 'image', 'surl2?a=b' ],
               ]
             }
           }]
@@ -368,14 +371,14 @@ describe('xeBidAdapter', () => {
     });
 
     it('should allow pixel sync', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: false, pixelEnabled: true }, [{
+      const opts = spec.getUserSyncs({iframeEnabled: false, pixelEnabled: true}, [{
         body: {
           data: [{
             requestId: 'qwerty',
             ext: {
               pixels: [
-                ['iframe', 'surl1?a=b'],
-                ['image', 'surl2?a=b'],
+                [ 'iframe', 'surl1?a=b' ],
+                [ 'image', 'surl2?a=b' ],
               ]
             }
           }]
@@ -387,14 +390,14 @@ describe('xeBidAdapter', () => {
     });
 
     it('should allow pixel sync and parse consent params', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: false, pixelEnabled: true }, [{
+      const opts = spec.getUserSyncs({iframeEnabled: false, pixelEnabled: true}, [{
         body: {
           data: [{
             requestId: 'qwerty',
             ext: {
               pixels: [
-                ['iframe', 'surl1?a=b'],
-                ['image', 'surl2?a=b'],
+                [ 'iframe', 'surl1?a=b' ],
+                [ 'image', 'surl2?a=b' ],
               ]
             }
           }]
@@ -446,4 +449,4 @@ describe('xeBidAdapter', () => {
       expect(result).to.equal(5);
     });
   });
-});
+})

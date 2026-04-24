@@ -1,17 +1,17 @@
 // jscs:disable
-import { TARGETING_KEYS } from 'src/constants.js';
-import { createBid } from '../../src/bidfactory.js';
+import CONSTANTS from 'src/constants.json';
+import {createBid} from '../../src/bidfactory.js';
 const utils = require('src/utils.js');
 
 function convertTargetingsFromOldToNew(targetings) {
   var mapOfOldToNew = {
-    'hb_bidder': TARGETING_KEYS.BIDDER,
-    'hb_adid': TARGETING_KEYS.AD_ID,
-    'hb_pb': TARGETING_KEYS.PRICE_BUCKET,
-    'hb_size': TARGETING_KEYS.SIZE,
-    'hb_deal': TARGETING_KEYS.DEAL,
-    'hb_source': TARGETING_KEYS.SOURCE,
-    'hb_format': TARGETING_KEYS.FORMAT
+    'hb_bidder': CONSTANTS.TARGETING_KEYS.BIDDER,
+    'hb_adid': CONSTANTS.TARGETING_KEYS.AD_ID,
+    'hb_pb': CONSTANTS.TARGETING_KEYS.PRICE_BUCKET,
+    'hb_size': CONSTANTS.TARGETING_KEYS.SIZE,
+    'hb_deal': CONSTANTS.TARGETING_KEYS.DEAL,
+    'hb_source': CONSTANTS.TARGETING_KEYS.SOURCE,
+    'hb_format': CONSTANTS.TARGETING_KEYS.FORMAT
   };
   var newTargetings = {};
   utils._each(targetings, function(value, currentKey) {
@@ -362,6 +362,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 0,
       'height': 0,
+      'statusMessage': 'Bid available',
       'adId': '222bb26f9e8bd',
       'cpm': 0.112256,
       'ad': "<script>document.createElement('IMG').src=\"https://tlx.3lift.com/header/notify?cp=0.112256&px=1&aid=7732622907770006001&n=CAAR9ihcj8L12D8agQRodHRwOi8vYjEtdXMtd2VzdC0xLnplbWFudGEuY29tL2FwaS9iaWRkZXIvdHJpcGxlbGlmdC93aW4vP2VuYz1QWjRXU0NPT0hBN0IyVzVEUlU3Nlc1Vk1GNzdGUFREWFhNRkFWUk9QRFVSQlhPM0VaQ1k1N0s3NjRYVERHQVpPRVc3TVhKN1U0U1dTR0hFTDZFTlEyT1gzUVBBU0Q3TDdPUlFaNE5VWVJWSjVVUEJVVUpIUTVTRU1RTjU0VzZJREZVVVM1Q1FERkNHTVNCVEJFVzczM0hLSUtJNE1IRFNMSUJWTEpXU0pHRVVDQVJNV1pFT0xRQUNSNEFaVUtUQ0dEWlNRS0NGM0FYVEtUUlhUVUNYR0pTWjZIN0NFRUNDMlgyTUpBQTZLTkY0RDQ3RFFSS1RMSkRPQkI3UDJBSUpOWE5TMkFDVVUzM05aRjYzQUU2U0c1SVVCVEVZVVJKWDVJVVJJUEk1TU1MUUlWWEpMVVlKT0FNRzRRQktCWkpLR0wyWDVLM0w2WU9SVE5GS0NKNFZaRjRZR1hRRVVXRUtHTEpaWDQ3WDM1R09SQzNHRVYyVlMyNDdBTkFTTU5CWlgmcHJpY2U9JHtBVUNUSU9OX1BSSUNFfSZyenVpZD01YjMxZWU0OC0xNmZlLTExZTYtYTNlNC01YWMzYjhiNzJiNmQgjMoLKAAw250LOAFAAEgBUAGQAQCgAZwTqAGjILAB%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2F%2FAboBa2h0dHA6Ly9pbWFnZXMyLnplbWFudGEuY29tLzMxMTk4NDVmLTM4YzEtNDQzYi1hYjU3LWM0ZjU1ZGY4YmFmMS5qcGc%2Fdz0xMDAwJmg9NzA1JmZpdD1jcm9wJmNyb3A9ZmFjZXMmZm09anBnwAEAyAEA0AEA\";window.tl_auction_response_522756=\"dynamicCreativeRender({\\\"settings\\\":{\\\"advertiser_name\\\":\\\"BuildDirect\\\",\\\"impression_pixels\\\":[\\\"https:\\/\\/sp.analytics.yahoo.com\\/spp.pl?a=1000157933821&.yp=436986\\\"],\\\"type\\\":\\\"image\\\",\\\"additional_data\\\":{\\\"bmid\\\":\\\"2460\\\",\\\"ts\\\":\\\"1462919239\\\",\\\"brid\\\":\\\"4131\\\",\\\"aid\\\":\\\"7732622907770006001\\\"},\\\"client_side_render\\\":true,\\\"format_id\\\":1,\\\"render_options_bm\\\":0},\\\"assets\\\":[{\\\"image_id\\\":-1,\\\"image_url\\\":\\\"http:\\/\\/images2.zemanta.com\\/3119845f-38c1-443b-ab57-c4f55df8baf1.jpg?w=1000&h=705&fit=crop&crop=faces&fm=jpg\\\",\\\"image_width\\\":1000,\\\"image_height\\\":705,\\\"heading\\\":\\\"Remove These 8 Things From Your Kitchen NOW\\\",\\\"caption\\\":\\\"BuildDirect Blog: Life At Home\\\",\\\"clickthrough_url\\\":\\\"http:\\/\\/r1.zemanta.com\\/r\\/u1bxdm8opi4g\\/b1_triplelift\\/701\\/30230\\/?_b_rzuid=5b31ee48-16fe-11e6-a3e4-5ac3b8b72b6d&_b_bzuid=5b31ee48-16fe-11e6-a3e4-cedd9baee96d&_r_publisherdomain=prebid.org&_b_ab=chubby_fox_floor&_b_ctrl=1\\\"}]});\";</script><script src=\"//ib.3lift.com/ttj?inv_code=sortable_all_right_sports\" data-auction-response-id=\"522756\"></script>",
@@ -393,6 +394,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 300,
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '233bcbee889d46d',
       'creative_id': 29681110,
       'cpm': 10,
@@ -426,6 +428,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 728,
       'height': 90,
+      'statusMessage': 'Bid available',
       'adId': '24bd938435ec3fc',
       'creative_id': 33989846,
       'cpm': 10,
@@ -459,6 +462,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 300,
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '25bedd4813632d7',
       'creative_id': 29681110,
       'cpm': 0.5,
@@ -491,6 +495,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 300,
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '26e0795ab963896',
       'cpm': 0.17,
       'ad': "<script type=\"text/javascript\">document.write('<scr'+'ipt src=\"//trk.diamondminebubble.com/h.html?e=hb_before_creative_renders&ho=2140340&ty=j&si=300x250&ta=16577&cd=cdn.marphezis.com&raid=15f3d12e77c1e5a&rimid=14fe662ee0a3506&rbid=235894352&cb=' + Math.floor((Math.random()*100000000000)+1) + '&ref=\"></scr' + 'ipt>');</script><script type=\"text/javascript\">var compassSmartTag={h:\"2140340\",t:\"16577\",d:\"2\",referral:\"\",y_b:{y:\"j\",s:\"300x250\"},hb:{raid:\"15f3d12e77c1e5a\",rimid:\"14fe662ee0a3506\",rbid:\"235894352\"}};</script><script src=\"//cdn.marphezis.com/cmps/cst.min.js\"></script><img src=\"http://notifications.iselephant.com/hb/awin?byid=400&imid=14fe662ee0a3506&auid=15f3d12e77c1e5a&bdid=235894352\" width=\"1\" height=\"1\" style=\"display:none\" />",
@@ -522,6 +527,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 300,
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '275bd666f5a5a5d',
       'creative_id': 29681110,
       'cpm': 0.5,
@@ -554,6 +560,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': '300',
       'height': '250',
+      'statusMessage': 'Bid available',
       'adId': '28f4039c636b6a7',
       'adSlot': '39620189@300x250',
       'cpm': 5.9396,
@@ -587,6 +594,7 @@ export function getBidResponses() {
       'mediaType': 'banner',
       'width': 300,
       'height': 600,
+      'statusMessage': 'Bid available',
       'adId': '29019e2ab586a5a',
       'cpm': 2.74,
       'ad': '<script type="text/javascript">;(function (rt, fe) { rt.renderCreative(fe, "/19968336/header-bid-tag-0", "10"); }((parent.window.rubicontag || window.top.rubicontag), (document.body || document.documentElement)));</script>',
@@ -652,7 +660,6 @@ export function getAdUnits() {
   return [
     {
       'code': '/19968336/header-bid-tag1',
-      transactionId: 'au1',
       'mediaTypes': {
         'banner': {
           'sizes': [[728, 90], [970, 90]]
@@ -682,7 +689,6 @@ export function getAdUnits() {
       ]
     },
     {
-      transactionId: 'au2',
       'code': '/19968336/header-bid-tag-0',
       'mediaTypes': {
         'banner': {
@@ -816,68 +822,6 @@ export function getAdUnits() {
   ];
 };
 
-export function getTwinAdUnits() {
-  return [
-    {
-      'code': '/19968336/header-bid-tag1',
-      'mediaTypes': {
-        'banner': {
-          'sizes': [
-            [
-              728,
-              90
-            ]
-          ]
-        }
-      },
-      'bids': [
-        {
-          'bidder': 'pubmatic',
-          'params': {
-            'publisherId': 1234567,
-            'adSlot': '1234567@728x90'
-          }
-        },
-        {
-          'bidder': 'medianet',
-          'params': {
-            'cid': '8CUWQS47C',
-            'crid': '241882766'
-          },
-        },
-      ]
-    },
-    {
-      'code': '/19968336/header-bid-tag1',
-      'mediaTypes': {
-        'banner': {
-          'sizes': [
-            [
-              970,
-              90
-            ]
-          ]
-        }
-      },
-      'bids': [
-        {
-          'bidder': 'appnexus',
-          'params': {
-            'placementId': '543221'
-          }
-        },
-        {
-          'bidder': 'medianet',
-          'params': {
-            'cid': '8CUWQS47C',
-            'crid': '241882764'
-          },
-        },
-      ]
-    }
-  ]
-}
-
 export function getBidResponsesFromAPI() {
   return {
     '/19968336/header-bid-tag-0': {
@@ -887,6 +831,7 @@ export function getBidResponsesFromAPI() {
           'width': 300,
           'height': 250,
           'mediaType': 'banner',
+          'statusMessage': 'Bid available',
           'adId': '26e0795ab963896',
           'cpm': 0.17,
           'ad': "<script type=\"text/javascript\">document.write('<scr'+'ipt src=\"//trk.diamondminebubble.com/h.html?e=hb_before_creative_renders&ho=2140340&ty=j&si=300x250&ta=16577&cd=cdn.marphezis.com&raid=15f3d12e77c1e5a&rimid=14fe662ee0a3506&rbid=235894352&cb=' + Math.floor((Math.random()*100000000000)+1) + '&ref=\"></scr' + 'ipt>');</script><script type=\"text/javascript\">var compassSmartTag={h:\"2140340\",t:\"16577\",d:\"2\",referral:\"\",y_b:{y:\"j\",s:\"300x250\"},hb:{raid:\"15f3d12e77c1e5a\",rimid:\"14fe662ee0a3506\",rbid:\"235894352\"}};</script><script src=\"//cdn.marphezis.com/cmps/cst.min.js\"></script><img src=\"http://notifications.iselephant.com/hb/awin?byid=400&imid=14fe662ee0a3506&auid=15f3d12e77c1e5a&bdid=235894352\" width=\"1\" height=\"1\" style=\"display:none\" />",
@@ -918,6 +863,7 @@ export function getBidResponsesFromAPI() {
           'width': 300,
           'height': 250,
           'mediaType': 'banner',
+          'statusMessage': 'Bid available',
           'adId': '275bd666f5a5a5d',
           'creative_id': 29681110,
           'cpm': 0.5,
@@ -950,6 +896,7 @@ export function getBidResponsesFromAPI() {
           'width': '300',
           'height': '250',
           'mediaType': 'banner',
+          'statusMessage': 'Bid available',
           'adId': '28f4039c636b6a7',
           'adSlot': '39620189@300x250',
           'cpm': 5.9396,
@@ -983,6 +930,7 @@ export function getBidResponsesFromAPI() {
           'width': 300,
           'height': 600,
           'mediaType': 'banner',
+          'statusMessage': 'Bid available',
           'adId': '29019e2ab586a5a',
           'cpm': 2.74,
           'ad': '<script type="text/javascript">;(function (rt, fe) { rt.renderCreative(fe, "/19968336/header-bid-tag-0", "10"); }((parent.window.rubicontag || window.top.rubicontag), (document.body || document.documentElement)));</script>',
@@ -1018,7 +966,7 @@ export function getBidResponsesFromAPI() {
 export function getAdServerTargeting() {
   return {
     '/19968336/header-bid-tag-0': convertTargetingsFromOldToNew({
-      'foobar': '300x250,300x600,0x0',
+      'foobar': '0x0,300x250,300x600',
       'hb_size': '300x250',
       'hb_pb': '10.00',
       'hb_adid': '233bcbee889d46d',
@@ -1070,24 +1018,24 @@ export function getAdServerTargeting() {
 export function getTargetingKeys() {
   return [
     [
-      TARGETING_KEYS.BIDDER,
+      CONSTANTS.TARGETING_KEYS.BIDDER,
       'appnexus'
     ],
     [
-      TARGETING_KEYS.AD_ID,
+      CONSTANTS.TARGETING_KEYS.AD_ID,
       '233bcbee889d46d'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET,
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET,
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE,
+      CONSTANTS.TARGETING_KEYS.SIZE,
       '300x250'
     ],
     [
       'foobar',
-      ['300x250', '300x600', '0x0']
+      ['0x0', '300x250', '300x600']
     ]
   ];
 }
@@ -1097,131 +1045,131 @@ export function getTargetingKeys() {
 export function getTargetingKeysBidLandscape() {
   return [
     [
-      TARGETING_KEYS.BIDDER,
+      CONSTANTS.TARGETING_KEYS.BIDDER,
       'appnexus'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_appnexus',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_appnexus',
       '233bcbee889d46d'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET,
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET,
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE,
+      CONSTANTS.TARGETING_KEYS.SIZE,
       '300x250'
     ],
     [
       'foobar',
-      ['300x250', '300x600', '0x0']
+      ['0x0', '300x250', '300x600']
     ],
     [
-      TARGETING_KEYS.BIDDER + '_triplelift',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_triplelift',
       'triplelift'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_triplelift',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_triplelift',
       '222bb26f9e8bd'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_triplelift',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_triplelift',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_triplelift',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_triplelift',
       '0x0'
     ],
     [
-      TARGETING_KEYS.BIDDER + '_appnexus',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_appnexus',
       'appnexus'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_appnexus',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_appnexus',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_appnexus',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_appnexus',
       '300x250'
     ],
     [
-      TARGETING_KEYS.BIDDER + '_pagescienc',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_pagescienc',
       'pagescience'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_pagescience',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_pagescience',
       '25bedd4813632d7'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_pagescience',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_pagescience',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_pagescience',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_pagescience',
       '300x250'
     ],
     [
-      TARGETING_KEYS.BIDDER + '_brightcom',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_brightcom',
       'brightcom'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_brightcom',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_brightcom',
       '26e0795ab963896'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_brightcom',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_brightcom',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_brightcom',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_brightcom',
       '300x250'
     ],
     [
-      TARGETING_KEYS.BIDDER + '_brealtime',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_brealtime',
       'brealtime'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_brealtime',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_brealtime',
       '275bd666f5a5a5d'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_brealtime',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_brealtime',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_brealtime',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_brealtime',
       '300x250'
     ],
     [
-      TARGETING_KEYS.BIDDER + '_pubmatic',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_pubmatic',
       'pubmatic'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_pubmatic',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_pubmatic',
       '28f4039c636b6a7'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_pubmatic',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_pubmatic',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_pubmatic',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_pubmatic',
       '300x250'
     ],
     [
-      TARGETING_KEYS.BIDDER + '_rubicon',
+      CONSTANTS.TARGETING_KEYS.BIDDER + '_rubicon',
       'rubicon'
     ],
     [
-      TARGETING_KEYS.AD_ID + '_rubicon',
+      CONSTANTS.TARGETING_KEYS.AD_ID + '_rubicon',
       '29019e2ab586a5a'
     ],
     [
-      TARGETING_KEYS.PRICE_BUCKET + '_rubicon',
+      CONSTANTS.TARGETING_KEYS.PRICE_BUCKET + '_rubicon',
       '10.00'
     ],
     [
-      TARGETING_KEYS.SIZE + '_rubicon',
+      CONSTANTS.TARGETING_KEYS.SIZE + '_rubicon',
       '300x600'
     ]
   ];
@@ -1277,11 +1225,12 @@ export function getCurrencyRates() {
   };
 }
 
-export function createBidReceived({ bidder, cpm, auctionId, responseTimestamp, adUnitCode, adId, status, ttl, requestId, mediaType }) {
-  const bid = {
+export function createBidReceived({bidder, cpm, auctionId, responseTimestamp, adUnitCode, adId, status, ttl, requestId, mediaType}) {
+  let bid = {
     'bidderCode': bidder,
     'width': '300',
     'height': '250',
+    'statusMessage': 'Bid available',
     'adId': adId,
     'cpm': cpm,
     'ad': 'markup',
@@ -1313,7 +1262,7 @@ export function createBidReceived({ bidder, cpm, auctionId, responseTimestamp, a
   if (typeof status !== 'undefined') {
     bid.status = status;
   }
-  return Object.assign(createBid(), bid);
+  return Object.assign(createBid(CONSTANTS.STATUS.GOOD), bid);
 }
 
 export function getServerTestingsAds() {

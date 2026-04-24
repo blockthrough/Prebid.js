@@ -1,6 +1,6 @@
-import { deepClone, isNumber, logWarn } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER } from '../src/mediaTypes.js';
+import {isNumber, logWarn} from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER} from '../src/mediaTypes.js';
 
 const BIDDER_CODE = 'interactiveOffers';
 const ENDPOINT = 'https://prebid.ioadx.com/bidRequest/?partnerId=';
@@ -49,8 +49,8 @@ export const spec = {
     return ret;
   },
   buildRequests: function(validBidRequests, bidderRequest) {
-    const aux = parseRequestPrebidjsToOpenRTB(bidderRequest, bidderRequest);
-    const payload = aux.payload;
+    let aux = parseRequestPrebidjsToOpenRTB(bidderRequest, bidderRequest);
+    let payload = aux.payload;
     return {
       method: 'POST',
       url: ENDPOINT + aux.partnerId,
@@ -72,14 +72,15 @@ export const spec = {
 };
 
 function parseRequestPrebidjsToOpenRTB(prebidRequest, bidderRequest) {
-  const ret = {
+  let ret = {
     payload: {},
     partnerId: null
   };
   // TODO: these should probably look at refererInfo
-  const pageURL = window.location.href;
-  const domain = window.location.hostname;
-  const openRTBRequest = deepClone(DEFAULT['OpenRTBBidRequest']);
+  let pageURL = window.location.href;
+  let domain = window.location.hostname;
+  let secure = (window.location.protocol == 'https:' ? 1 : 0);
+  let openRTBRequest = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequest']));
   openRTBRequest.id = bidderRequest.bidderRequestId;
   openRTBRequest.ext = {
     // TODO: please do not send internal data structures over the network
@@ -88,38 +89,38 @@ function parseRequestPrebidjsToOpenRTB(prebidRequest, bidderRequest) {
     auctionId: prebidRequest.auctionId
   };
 
-  openRTBRequest.site = deepClone(DEFAULT['OpenRTBBidRequestSite']);
+  openRTBRequest.site = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestSite']));
   openRTBRequest.site.id = domain;
   openRTBRequest.site.name = domain;
   openRTBRequest.site.domain = domain;
   openRTBRequest.site.page = pageURL;
   openRTBRequest.site.ref = prebidRequest.refererInfo.ref;
 
-  openRTBRequest.site.publisher = deepClone(DEFAULT['OpenRTBBidRequestSitePublisher']);
+  openRTBRequest.site.publisher = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestSitePublisher']));
   openRTBRequest.site.publisher.id = 0;
   openRTBRequest.site.publisher.name = prebidRequest.refererInfo.domain;
   openRTBRequest.site.publisher.domain = domain;
   openRTBRequest.site.publisher.domain = domain;
 
-  openRTBRequest.site.content = deepClone(DEFAULT['OpenRTBBidRequestSiteContent']);
+  openRTBRequest.site.content = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestSiteContent']));
 
-  openRTBRequest.source = deepClone(DEFAULT['OpenRTBBidRequestSource']);
+  openRTBRequest.source = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestSource']));
   openRTBRequest.source.fd = 0;
   openRTBRequest.source.tid = prebidRequest.ortb2?.source?.tid;
   openRTBRequest.source.pchain = '';
 
-  openRTBRequest.device = deepClone(DEFAULT['OpenRTBBidRequestDevice']);
+  openRTBRequest.device = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestDevice']));
 
-  openRTBRequest.user = deepClone(DEFAULT['OpenRTBBidRequestUser']);
+  openRTBRequest.user = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestUser']));
 
   openRTBRequest.imp = [];
   prebidRequest.bids.forEach(function(bid) {
     if (!ret.partnerId) {
       ret.partnerId = bid.params.partnerId;
     }
-    const imp = deepClone(DEFAULT['OpenRTBBidRequestImp']);
+    let imp = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestImp']));
     imp.id = bid.bidId;
-    imp.secure = bid.ortb2Imp?.secure ?? 1;
+    imp.secure = secure;
     imp.tagid = bid.adUnitCode;
     imp.ext = {
       rawdata: bid
@@ -129,8 +130,8 @@ function parseRequestPrebidjsToOpenRTB(prebidRequest, bidderRequest) {
     openRTBRequest.tmax = openRTBRequest.tmax || bid.params.tmax || 0;
 
     Object.keys(bid.mediaTypes).forEach(function(mediaType) {
-      if (mediaType === 'banner') {
-        imp.banner = deepClone(DEFAULT['OpenRTBBidRequestImpBanner']);
+      if (mediaType == 'banner') {
+        imp.banner = JSON.parse(JSON.stringify(DEFAULT['OpenRTBBidRequestImpBanner']));
         imp.banner.w = 0;
         imp.banner.h = 0;
         imp.banner.format = [];
@@ -139,7 +140,7 @@ function parseRequestPrebidjsToOpenRTB(prebidRequest, bidderRequest) {
             imp.banner.w = adSize[0];
             imp.banner.h = adSize[1];
           }
-          imp.banner.format.push({ w: adSize[0], h: adSize[1] });
+          imp.banner.format.push({w: adSize[0], h: adSize[1]});
         });
       }
     });
@@ -149,13 +150,13 @@ function parseRequestPrebidjsToOpenRTB(prebidRequest, bidderRequest) {
   return ret;
 }
 function parseResponseOpenRTBToPrebidjs(openRTBResponse) {
-  const prebidResponse = [];
+  let prebidResponse = [];
   openRTBResponse.forEach(function(response) {
     if (response.seatbid && response.seatbid.forEach) {
       response.seatbid.forEach(function(seatbid) {
         if (seatbid.bid && seatbid.bid.forEach) {
           seatbid.bid.forEach(function(bid) {
-            const prebid = deepClone(DEFAULT['PrebidBid']);
+            let prebid = JSON.parse(JSON.stringify(DEFAULT['PrebidBid']));
             prebid.requestId = bid.impid;
             prebid.ad = bid.adm;
             prebid.creativeId = bid.crid;

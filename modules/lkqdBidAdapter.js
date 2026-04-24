@@ -27,7 +27,7 @@ export const spec = {
   aliases: [],
   supportedMediaTypes: [VIDEO],
   isBidRequestValid: function(bid) {
-    return bid.params && Object.keys(bid.params).length > 0 &&
+    return bid.bidder === BIDDER_CODE && bid.params && Object.keys(bid.params).length > 0 &&
       ((isSet(bid.params.publisherId) && parseInt(bid.params.publisherId) > 0) || (isSet(bid.params.placementId) && parseInt(bid.params.placementId) > 0)) &&
       bid.params.siteId != null;
   },
@@ -46,7 +46,8 @@ export const spec = {
       const DOMAIN = bid.params.pageurl || REFERER;
       const GDPR = BIDDER_GDPR || bid.params.gdpr || null;
       const GDPRS = BIDDER_GDPRS || bid.params.gdprs || null;
-      const BID_FLOOR = 0;
+      const DNT = bid.params.dnt || null;
+      const BID_FLOOR = bid.params.flrd > bid.params.flrmp ? bid.params.flrd : bid.params.flrmp;
       const VIDEO_BID = bid.video ? bid.video : {};
 
       const requestData = {
@@ -66,7 +67,7 @@ export const spec = {
         },
         test: 0,
         at: 2,
-        tmax: bidderRequest.timeout,
+        tmax: bid.params.timeout || config.getConfig('bidderTimeout') || 100,
         cur: ['USD'],
         regs: {
           ext: {
@@ -74,6 +75,10 @@ export const spec = {
           }
         }
       };
+
+      if (isSet(DNT)) {
+        requestData.device.dnt = DNT;
+      }
 
       if (isSet(config.getConfig('coppa'))) {
         requestData.regs.coppa = config.getConfig('coppa') === true ? 1 : 0;
@@ -105,11 +110,10 @@ export const spec = {
         requestData.device.ifa = bid.params.idfa || bid.params.aid;
       }
 
-      const schain = bid?.ortb2?.source?.ext?.schain;
-      if (schain) {
+      if (bid.schain) {
         requestData.source = {
           ext: {
-            schain: schain
+            schain: bid.schain
           }
         };
       } else if (bid.params.schain) {
@@ -153,6 +157,7 @@ export const spec = {
             h: sizes[1],
             skip: VIDEO_BID.skip || 0,
             playbackmethod: VIDEO_BID.playbackmethod || [1],
+            placement: (bid.params.execution === 'outstream' || VIDEO_BID.context === 'outstream') ? 5 : 1,
             ext: {
               lkqdcustomparameters: {}
             },

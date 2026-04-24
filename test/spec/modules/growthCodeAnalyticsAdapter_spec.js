@@ -2,7 +2,7 @@ import adapterManager from '../../../src/adapterManager.js';
 import growthCodeAnalyticsAdapter from '../../../modules/growthCodeAnalyticsAdapter.js';
 import { expect } from 'chai';
 import * as events from '../../../src/events.js';
-import { EVENTS } from '../../../src/constants.js';
+import constants from '../../../src/constants.json';
 import { generateUUID } from '../../../src/utils.js';
 import { server } from 'test/mocks/xhr.js';
 
@@ -22,6 +22,7 @@ describe('growthCode analytics adapter', () => {
           'bidResponse',
           'setTargeting',
           'requestBids',
+          'addAdUnits',
           'noBid',
           'bidWon',
           'bidderDone']
@@ -57,7 +58,7 @@ describe('growthCode analytics adapter', () => {
         adUnitCodes: ['usr1234']
       }],
     };
-    events.emit(EVENTS.AUCTION_END, auction);
+    events.emit(constants.EVENTS.AUCTION_END, auction);
     assert(server.requests.length > 0)
     const body = JSON.parse(server.requests[0].requestBody);
     var eventTypes = [];

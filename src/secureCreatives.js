@@ -3,65 +3,54 @@
    access to a publisher page from creative payloads.
  */
 
-import { getAllAssetsMessage, getAssetMessage } from './native.js';
-import { BID_STATUS, MESSAGES } from './constants.js';
-import { isApnGetTagDefined, isGptPubadsDefined, logError, logWarn } from './utils.js';
-import {
-  deferRendering,
-  handleCreativeEvent,
-  handleNativeMessage,
-  handleRender,
-  markWinner
-} from './adRendering.js';
-import { getCreativeRendererSource, PUC_MIN_VERSION } from './creativeRenderers.js';
-import { PbPromise } from './utils/promise.js';
-import { getAdUnitElement } from './utils/adUnits.js';
-import { auctionManager } from './auctionManager.js';
+import * as events from './events.js';
+import {fireNativeTrackers, getAllAssetsMessage, getAssetMessage} from './native.js';
+import constants from './constants.json';
+import {deepAccess, isApnGetTagDefined, isGptPubadsDefined, logError, logWarn, replaceAuctionPrice} from './utils.js';
+import {auctionManager} from './auctionManager.js';
+import {find, includes} from './polyfill.js';
+import {executeRenderer, isRendererRequired} from './Renderer.js';
+import {config} from './config.js';
+import {emitAdRenderFail, emitAdRenderSucceeded} from './adRendering.js';
 
-const { REQUEST, RESPONSE, NATIVE, EVENT } = MESSAGES;
+const BID_WON = constants.EVENTS.BID_WON;
+const STALE_RENDER = constants.EVENTS.STALE_RENDER;
+const WON_AD_IDS = new WeakSet();
 
 const HANDLER_MAP = {
-  [REQUEST]: handleRenderRequest,
-  [EVENT]: handleEventRequest,
-};
+  'Prebid Request': handleRenderRequest,
+  'Prebid Event': handleEventRequest,
+}
 
 if (FEATURES.NATIVE) {
   Object.assign(HANDLER_MAP, {
-    [NATIVE]: handleNativeRequest,
-  });
+    'Prebid Native': handleNativeRequest,
+  })
 }
 
 export function listenMessagesFromCreative() {
-  window.addEventListener('message', function (ev) {
-    receiveMessage(ev);
-  }, false);
+  window.addEventListener('message', receiveMessage, false);
 }
 
 export function getReplier(ev) {
   if (ev.origin == null && ev.ports.length === 0) {
     return function () {
-      const msg = 'Cannot post message to a frame with null origin. Please update creatives to use MessageChannel, see https://github.com/prebid/Prebid.js/issues/7870';
-      logError(msg);
+      const msg = 'Cannot post message to a frame with null origin. Please update creatives to use MessageChannel, see https://github.com/prebid/Prebid.js/issues/7870'
+      logError(msg)
       throw new Error(msg);
-    };
+    }
   } else if (ev.ports.length > 0) {
     return function (message) {
       ev.ports[0].postMessage(JSON.stringify(message));
-    };
+    }
   } else {
     return function (message) {
       ev.source.postMessage(JSON.stringify(message), ev.origin);
-    };
+    }
   }
 }
 
-function ensureAdId(adId, reply) {
-  return function (data, ...args) {
-    return reply(Object.assign({}, data, { adId }), ...args);
-  }
-}
-
-export function receiveMessage(ev, cb) {
+export function receiveMessage(ev) {
   var key = ev.message ? 'message' : 'data';
   var data = {};
   try {
@@ -70,34 +59,49 @@ export function receiveMessage(ev, cb) {
     return;
   }
 
-  if (data && data.adId && data.message && HANDLER_MAP.hasOwnProperty(data.message)) {
-    HANDLER_MAP[data.message](ensureAdId(data.adId, getReplier(ev)), data, auctionManager.findBidByAdId(data.adId));
-    cb && cb();
+  if (data && data.adId && data.message) {
+    const adObject = find(auctionManager.getBidsReceived(), function (bid) {
+      return bid.adId === data.adId;
+    });
+    if (HANDLER_MAP.hasOwnProperty(data.message)) {
+      HANDLER_MAP[data.message](getReplier(ev), data, adObject);
+    }
   }
 }
 
-function getResizer(adId, bidResponse) {
-  // in some situations adId !== bidResponse.adId
-  // the first is the one that was requested and is tied to the element
-  // the second is the one that is being rendered (sometimes different, e.g. in some paapi setups)
-  return function (width, height) {
-    resizeRemoteCreative({ ...bidResponse, width, height, adId });
+function handleRenderRequest(reply, data, adObject) {
+  if (adObject == null) {
+    emitAdRenderFail({
+      reason: constants.AD_RENDER_FAILED_REASON.CANNOT_FIND_AD,
+      message: `Cannot find ad for cross-origin render request: '${data.adId}'`,
+      id: data.adId
+    });
+    return;
   }
-}
-function handleRenderRequest(reply, message, bidResponse) {
-  handleRender({
-    renderFn(adData) {
-      reply(Object.assign({
-        message: RESPONSE,
-        renderer: getCreativeRendererSource(bidResponse),
-        rendererVersion: PUC_MIN_VERSION
-      }, adData));
-    },
-    resizeFn: getResizer(message.adId, bidResponse),
-    options: message.options,
-    adId: message.adId,
-    bidResponse
-  });
+  if (adObject.status === constants.BID_STATUS.RENDERED) {
+    logWarn(`Ad id ${adObject.adId} has been rendered before`);
+    events.emit(STALE_RENDER, adObject);
+    if (deepAccess(config.getConfig('auctionOptions'), 'suppressStaleRender')) {
+      return;
+    }
+  }
+
+  try {
+    _sendAdToCreative(adObject, reply);
+  } catch (e) {
+    emitAdRenderFail({
+      reason: constants.AD_RENDER_FAILED_REASON.EXCEPTION,
+      message: e.message,
+      id: data.adId,
+      bid: adObject
+    });
+    return;
+  }
+
+  // save winning bids
+  auctionManager.addWinningBid(adObject);
+
+  events.emit(BID_WON, adObject);
 }
 
 function handleNativeRequest(reply, data, adObject) {
@@ -110,16 +114,27 @@ function handleNativeRequest(reply, data, adObject) {
     logError(`Cannot find ad for x-origin event request: '${data.adId}'`);
     return;
   }
+
+  if (!WON_AD_IDS.has(adObject)) {
+    WON_AD_IDS.add(adObject);
+    auctionManager.addWinningBid(adObject);
+    events.emit(BID_WON, adObject);
+  }
+
   switch (data.action) {
     case 'assetRequest':
-      deferRendering(adObject, () => reply(getAssetMessage(data, adObject)));
+      reply(getAssetMessage(data, adObject));
       break;
     case 'allAssetRequest':
-      deferRendering(adObject, () => reply(getAllAssetsMessage(data, adObject)));
+      reply(getAllAssetsMessage(data, adObject));
+      break;
+    case 'resizeNativeHeight':
+      adObject.height = data.height;
+      adObject.width = data.width;
+      resizeRemoteCreative(adObject);
       break;
     default:
-      handleNativeMessage(data, adObject, { resizeFn: getResizer(data.adId, adObject) });
-      markWinner(adObject);
+      fireNativeTrackers(data, adObject);
   }
 }
 
@@ -128,97 +143,90 @@ function handleEventRequest(reply, data, adObject) {
     logError(`Cannot find ad '${data.adId}' for x-origin event request`);
     return;
   }
-  if (adObject.status !== BID_STATUS.RENDERED) {
-    logWarn(`Received x-origin event request without corresponding render request for ad '${adObject.adId}'`);
+  if (adObject.status !== constants.BID_STATUS.RENDERED) {
+    logWarn(`Received x-origin event request without corresponding render request for ad '${data.adId}'`);
     return;
   }
-  return handleCreativeEvent(data, adObject);
-}
-
-function getDimension(value) {
-  return value ? value + 'px' : '100%';
-}
-
-export function resizeAnchor(ins, width, height) {
-  /**
-   * Special handling for google anchor ads
-   * For anchors, the element to resize is an <ins> element that is an ancestor of the creative iframe
-   * On desktop this is sized to the creative dimensions;
-   * on mobile one dimension is fixed to 100%.
-   */
-  return new PbPromise((resolve, reject) => {
-    let tryCounter = 10;
-    // wait until GPT has set dimensions on the ins, otherwise our changes will be overridden
-    const resizer = setInterval(() => {
-      let done = false;
-      Object.entries({ width, height })
-        .forEach(([dimension, newValue]) => {
-          if (/\d+px/.test(ins.style[dimension])) {
-            ins.style[dimension] = getDimension(newValue);
-            done = true;
-          }
-        })
-      if (done || (tryCounter-- === 0)) {
-        clearInterval(resizer);
-        done ? resolve() : reject(new Error('Could not resize anchor'))
-      }
-    }, 50)
-  })
-}
-
-export function resizeRemoteCreative({ instl, element, adId, adUnitCode, width, height }) {
-  // do not resize interstitials - the creative frame takes the full screen and sizing of the ad should
-  // be handled within it.
-  if (instl) return;
-
-  function resize(element) {
-    if (element) {
-      const elementStyle = element.style;
-      elementStyle.width = getDimension(width)
-      elementStyle.height = getDimension(height);
-    } else {
-      logError(`Unable to locate matching page element for adUnitCode ${adUnitCode}.  Can't resize it to ad's dimensions.  Please review setup.`);
-    }
+  switch (data.event) {
+    case constants.EVENTS.AD_RENDER_FAILED:
+      emitAdRenderFail({
+        bid: adObject,
+        id: data.adId,
+        reason: data.info.reason,
+        message: data.info.message
+      });
+      break;
+    case constants.EVENTS.AD_RENDER_SUCCEEDED:
+      emitAdRenderSucceeded({
+        doc: null,
+        bid: adObject,
+        id: data.adId
+      });
+      break;
+    default:
+      logError(`Received x-origin event request for unsupported event: '${data.event}' (adId: '${data.adId}')`)
   }
+}
 
-  // not select element that gets removed after dfp render
-  const iframe = getElementByAdUnit('iframe:not([style*="display: none"])');
-  resize(iframe);
-  const anchorIns = iframe?.closest('ins[data-anchor-status]');
-  anchorIns ? resizeAnchor(anchorIns, width, height) : resize(iframe?.parentElement);
+export function _sendAdToCreative(adObject, reply) {
+  const { adId, ad, adUrl, width, height, renderer, cpm, originalCpm } = adObject;
+  // rendering for outstream safeframe
+  if (isRendererRequired(renderer)) {
+    executeRenderer(renderer, adObject);
+  } else if (adId) {
+    resizeRemoteCreative(adObject);
+    reply({
+      message: 'Prebid Response',
+      ad: replaceAuctionPrice(ad, originalCpm || cpm),
+      adUrl: replaceAuctionPrice(adUrl, originalCpm || cpm),
+      adId,
+      width,
+      height
+    });
+  }
+}
+
+function resizeRemoteCreative({ adId, adUnitCode, width, height }) {
+  // resize both container div + iframe
+  ['div', 'iframe'].forEach(elmType => {
+    // not select element that gets removed after dfp render
+    let element = getElementByAdUnit(elmType + ':not([style*="display: none"])');
+    if (element) {
+      let elementStyle = element.style;
+      elementStyle.width = width ? width + 'px' : '100%';
+      elementStyle.height = height + 'px';
+    } else {
+      logWarn(`Unable to locate matching page element for adUnitCode ${adUnitCode}.  Can't resize it to ad's dimensions.  Please review setup.`);
+    }
+  });
 
   function getElementByAdUnit(elmType) {
-    const id = getElementIdBasedOnAdServer(adId, adUnitCode);
-    const parentDivEle = id == null ? getAdUnitElement({ element, adUnitCode }) : document.getElementById(id);
+    let id = getElementIdBasedOnAdServer(adId, adUnitCode);
+    let parentDivEle = document.getElementById(id);
     return parentDivEle && parentDivEle.querySelector(elmType);
   }
 
   function getElementIdBasedOnAdServer(adId, adUnitCode) {
     if (isGptPubadsDefined()) {
-      const dfpId = getDfpElementId(adId);
-      if (dfpId) {
-        return dfpId;
-      }
-    }
-    if (isApnGetTagDefined()) {
-      const apnId = getAstElementId(adUnitCode);
-      if (apnId) {
-        return apnId;
-      }
+      return getDfpElementId(adId)
+    } else if (isApnGetTagDefined()) {
+      return getAstElementId(adUnitCode)
+    } else {
+      return adUnitCode;
     }
   }
 
   function getDfpElementId(adId) {
-    const slot = window.googletag.pubads().getSlots().find(slot => {
-      return slot.getTargetingKeys().find(key => {
-        return slot.getTargeting(key).includes(adId);
+    const slot = find(window.googletag.pubads().getSlots(), slot => {
+      return find(slot.getTargetingKeys(), key => {
+        return includes(slot.getTargeting(key), adId);
       });
     });
     return slot ? slot.getSlotElementId() : null;
   }
 
   function getAstElementId(adUnitCode) {
-    const astTag = window.apntag.getTag(adUnitCode);
+    let astTag = window.apntag.getTag(adUnitCode);
     return astTag && astTag.targetId;
   }
 }

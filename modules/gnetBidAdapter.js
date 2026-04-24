@@ -2,18 +2,11 @@ import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { _each, isEmpty, parseSizesInput } from '../src/utils.js';
 import { BANNER } from '../src/mediaTypes.js';
 import { getStorageManager } from '../src/storageManager.js';
-import { ajax } from '../src/ajax.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').BidderRequest} BidderRequest
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
+import {ajax} from '../src/ajax.js';
 
 const BIDDER_CODE = 'gnet';
 const ENDPOINT = 'https://service.gnetrtb.com/api';
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 export const spec = {
   code: BIDDER_CODE,
@@ -32,8 +25,7 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests} validBidRequests an array of bids
-   * @param {BidderRequest} bidderRequest
+   * @param {validBidRequests[]} - an array of bids
    * @return ServerRequest Info describing the request to the server.
    */
   buildRequests: function (validBidRequests, bidderRequest) {

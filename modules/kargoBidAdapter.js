@@ -1,4 +1,4 @@
-import { _each, isEmpty, buildUrl, deepAccess, pick, logError, isPlainObject, generateUUID, deepClone } from '../src/utils.js';
+import { _each, isEmpty, buildUrl, deepAccess, pick, triggerPixel } from '../src/utils.js';
 import { config } from '../src/config.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { getStorageManager } from '../src/storageManager.js';
@@ -16,7 +16,7 @@ const BIDDER = Object.freeze({
   SUPPORTED_MEDIA_TYPES: [BANNER, VIDEO],
 });
 
-const STORAGE = getStorageManager({ bidderCode: BIDDER.CODE });
+const STORAGE = getStorageManager({bidderCode: BIDDER.CODE});
 
 const CURRENCY = Object.freeze({
   KEY: 'currency',
@@ -24,7 +24,6 @@ const CURRENCY = Object.freeze({
 });
 
 const REQUEST_KEYS = Object.freeze({
-  USER_DATA: 'ortb2.user.data',
   SOCIAL_CANVAS: 'params.socialCanvas',
   SUA: 'ortb2.device.sua',
   TDID_ADAPTER: 'userId.tdid',
@@ -48,7 +47,7 @@ const SUA_ATTRIBUTES = [
 
 const CERBERUS = Object.freeze({
   KEY: 'krg_crb',
-  SYNC_URL: 'https://crb.kargo.com/api/v1/initsyncrnd/{UUID}?seed={SEED}&gdpr={GDPR}&gdpr_consent={GDPR_CONSENT}&us_privacy={US_PRIVACY}&gpp={GPP_STRING}&gpp_sid={GPP_SID}',
+  SYNC_URL: 'https://crb.kargo.com/api/v1/initsyncrnd/{UUID}?seed={SEED}&idx={INDEX}&gdpr={GDPR}&gdpr_consent={GDPR_CONSENT}&us_privacy={US_PRIVACY}&gpp={GPP_STRING}&gpp_sid={GPP_SID}',
   SYNC_COUNT: 5,
   PAGE_VIEW_ID: 'pageViewId',
   PAGE_VIEW_TIMESTAMP: 'pageViewTimestamp',
@@ -96,45 +95,33 @@ function buildRequests(validBidRequests, bidderRequest) {
     },
     imp: impressions,
     user: getUserIds(tdidAdapter, bidderRequest.uspConsent, bidderRequest.gdprConsent, firstBidRequest.userIdAsEids, bidderRequest.gppConsent),
-    ext: getExtensions(firstBidRequest.ortb2, bidderRequest?.refererInfo)
   });
 
-  // Add site.cat if it exists
-  if (firstBidRequest.ortb2?.site?.cat !== null && firstBidRequest.ortb2?.site?.cat !== undefined) {
-    krakenParams.site = { cat: firstBidRequest.ortb2.site.cat };
+  if (firstBidRequest.schain && firstBidRequest.schain.nodes) {
+    krakenParams.schain = firstBidRequest.schain
   }
-
-  // Add schain - check for schain in the new location
-  const schain = firstBidRequest?.ortb2?.source?.ext?.schain;
-  if (schain && schain.nodes) {
-    krakenParams.schain = schain
-  }
-
-  // Add user data object if available
-  krakenParams.user.data = deepAccess(firstBidRequest, REQUEST_KEYS.USER_DATA) || [];
 
   const reqCount = getRequestCount()
-  if (reqCount !== null && reqCount !== undefined) {
+  if (reqCount != null) {
     krakenParams.requestCount = reqCount;
   }
 
-  // Add currency if not USD
-  if ((currency !== null && currency !== undefined) && currency !== CURRENCY.US_DOLLAR) {
+  if (currency != null && currency != CURRENCY.US_DOLLAR) {
     krakenParams.cur = currency;
   }
 
-  if (metadata.rawCRB !== null && metadata.rawCRB !== undefined) {
+  if (metadata.rawCRB != null) {
     krakenParams.rawCRB = metadata.rawCRB
   }
 
-  if (metadata.rawCRBLocalStorage !== null && metadata.rawCRBLocalStorage !== undefined) {
+  if (metadata.rawCRBLocalStorage != null) {
     krakenParams.rawCRBLocalStorage = metadata.rawCRBLocalStorage
   }
 
   // Pull Social Canvas segments and embed URL
   const socialCanvas = deepAccess(firstBidRequest, REQUEST_KEYS.SOCIAL_CANVAS);
 
-  if (socialCanvas !== null && socialCanvas !== undefined) {
+  if (socialCanvas != null) {
     krakenParams.socan = socialCanvas;
   }
 
@@ -150,7 +137,7 @@ function buildRequests(validBidRequests, bidderRequest) {
       }
 
       // Do not pass any empty strings
-      if (typeof suaValue === 'string' && suaValue.trim() === '') {
+      if (typeof suaValue == 'string' && suaValue.trim() === '') {
         return;
       }
 
@@ -166,13 +153,12 @@ function buildRequests(validBidRequests, bidderRequest) {
     krakenParams.device.sua = pick(uaClientHints, suaValidAttributes);
   }
 
-  const validPageId = getLocalStorageSafely(CERBERUS.PAGE_VIEW_ID) !== null && getLocalStorageSafely(CERBERUS.PAGE_VIEW_ID) !== undefined
-  const validPageTimestamp = getLocalStorageSafely(CERBERUS.PAGE_VIEW_TIMESTAMP) !== null && getLocalStorageSafely(CERBERUS.PAGE_VIEW_TIMESTAMP) !== undefined
-  const validPageUrl = getLocalStorageSafely(CERBERUS.PAGE_VIEW_URL) !== null && getLocalStorageSafely(CERBERUS.PAGE_VIEW_URL) !== undefined
+  const validPageId = getLocalStorageSafely(CERBERUS.PAGE_VIEW_ID) != null
+  const validPageTimestamp = getLocalStorageSafely(CERBERUS.PAGE_VIEW_TIMESTAMP) != null
+  const validPageUrl = getLocalStorageSafely(CERBERUS.PAGE_VIEW_URL) != null
 
   const page = {}
   if (validPageId) {
-    // TODO: consider using the Prebid-generated page view ID instead of generating a custom one
     page.id = getLocalStorageSafely(CERBERUS.PAGE_VIEW_ID);
   }
   if (validPageTimestamp) {
@@ -185,10 +171,6 @@ function buildRequests(validBidRequests, bidderRequest) {
     krakenParams.page = page;
   }
 
-  if (krakenParams.ext && Object.keys(krakenParams.ext).length === 0) {
-    delete krakenParams.ext;
-  }
-
   return Object.assign({}, bidderRequest, {
     method: BIDDER.REQUEST_METHOD,
     url: `https://${BIDDER.HOST}${BIDDER.REQUEST_ENDPOINT}`,
@@ -198,19 +180,25 @@ function buildRequests(validBidRequests, bidderRequest) {
 }
 
 function interpretResponse(response, bidRequest) {
-  const bids = response.body;
+  let bids = response.body;
   const bidResponses = [];
 
-  if (isEmpty(bids) || typeof bids !== 'object') {
+  if (isEmpty(bids)) {
     return bidResponses;
   }
 
-  for (const [bidID, adUnit] of Object.entries(bids)) {
-    const meta = {
+  if (typeof bids !== 'object') {
+    return bidResponses;
+  }
+
+  Object.entries(bids).forEach((entry) => {
+    const [bidID, adUnit] = entry;
+
+    let meta = {
       mediaType: adUnit.mediaType && BIDDER.SUPPORTED_MEDIA_TYPES.includes(adUnit.mediaType) ? adUnit.mediaType : BANNER
     };
 
-    if (adUnit.metadata?.landingPageDomain) {
+    if (adUnit.metadata && adUnit.metadata.landingPageDomain) {
       meta.clickUrl = adUnit.metadata.landingPageDomain[0];
       meta.advertiserDomains = adUnit.metadata.landingPageDomain;
     }
@@ -221,7 +209,7 @@ function interpretResponse(response, bidRequest) {
       width: adUnit.width,
       height: adUnit.height,
       ttl: 300,
-      creativeId: adUnit.creativeID,
+      creativeId: adUnit.id,
       dealId: adUnit.targetingCustom,
       netRevenue: true,
       currency: adUnit.currency || bidRequest.currency,
@@ -229,7 +217,7 @@ function interpretResponse(response, bidRequest) {
       meta: meta
     };
 
-    if (meta.mediaType === VIDEO) {
+    if (meta.mediaType == VIDEO) {
       if (adUnit.admUrl) {
         bidResponse.vastUrl = adUnit.admUrl;
       } else {
@@ -240,14 +228,14 @@ function interpretResponse(response, bidRequest) {
     }
 
     bidResponses.push(bidResponse);
-  }
+  })
 
   return bidResponses;
 }
 
 function getUserSyncs(syncOptions, _, gdprConsent, usPrivacy, gppConsent) {
   const syncs = [];
-  const seed = generateUUID();
+  const seed = _generateRandomUUID();
   const clientId = getClientId();
 
   var gdpr = (gdprConsent && gdprConsent.gdprApplies) ? 1 : 0;
@@ -257,26 +245,29 @@ function getUserSyncs(syncOptions, _, gdprConsent, usPrivacy, gppConsent) {
   var gppApplicableSections = (gppConsent && gppConsent.applicableSections && Array.isArray(gppConsent.applicableSections)) ? gppConsent.applicableSections.join(',') : '';
 
   // don't sync if opted out via usPrivacy
-  if (typeof usPrivacy === 'string' && usPrivacy.length === 4 && usPrivacy[0] === '1' && usPrivacy[2] === 'Y') {
+  if (typeof usPrivacy == 'string' && usPrivacy.length == 4 && usPrivacy[0] == 1 && usPrivacy[2] == 'Y') {
     return syncs;
   }
   if (syncOptions.iframeEnabled && seed && clientId) {
-    syncs.push({
-      type: 'iframe',
-      url: CERBERUS.SYNC_URL.replace('{UUID}', clientId)
-        .replace('{SEED}', seed)
-        .replace('{GDPR}', gdpr)
-        .replace('{GDPR_CONSENT}', gdprConsentString)
-        .replace('{US_PRIVACY}', usPrivacy || '')
-        .replace('{GPP_STRING}', gppString)
-        .replace('{GPP_SID}', gppApplicableSections)
-    })
+    for (let i = 0; i < CERBERUS.SYNC_COUNT; i++) {
+      syncs.push({
+        type: 'iframe',
+        url: CERBERUS.SYNC_URL.replace('{UUID}', clientId)
+          .replace('{SEED}', seed)
+          .replace('{INDEX}', i)
+          .replace('{GDPR}', gdpr)
+          .replace('{GDPR_CONSENT}', gdprConsentString)
+          .replace('{US_PRIVACY}', usPrivacy || '')
+          .replace('{GPP_STRING}', gppString)
+          .replace('{GPP_SID}', gppApplicableSections)
+      });
+    }
   }
   return syncs;
 }
 
 function onTimeout(timeoutData) {
-  if (timeoutData === null || timeoutData === undefined) {
+  if (timeoutData == null) {
     return;
   }
 
@@ -285,26 +276,24 @@ function onTimeout(timeoutData) {
   });
 }
 
-function getExtensions(ortb2, refererInfo) {
-  const ext = {};
-
-  if (ortb2) {
-    ext.ortb2 = deepClone(ortb2);
-
-    if (ext.ortb2.user && ext.ortb2.user.ext) {
-      delete ext.ortb2.user.ext.eids;
-    }
+function _generateRandomUUID() {
+  try {
+    // crypto.getRandomValues is supported everywhere but Opera Mini for years
+    var buffer = new Uint8Array(16);
+    crypto.getRandomValues(buffer);
+    buffer[6] = (buffer[6] & ~176) | 64;
+    buffer[8] = (buffer[8] & ~64) | 128;
+    var hex = Array.prototype.map.call(new Uint8Array(buffer), function(x) {
+      return ('00' + x.toString(16)).slice(-2);
+    }).join('');
+    return hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' + hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20);
+  } catch (e) {
+    return '';
   }
-
-  if (refererInfo) {
-    ext.refererInfo = refererInfo;
-  }
-
-  return ext;
 }
 
 function _getCrb() {
-  const localStorageCrb = getCrbFromLocalStorage();
+  let localStorageCrb = getCrbFromLocalStorage();
   if (Object.keys(localStorageCrb).length) {
     return localStorageCrb;
   }
@@ -313,7 +302,7 @@ function _getCrb() {
 
 function _getSessionId() {
   if (!sessionId) {
-    sessionId = generateUUID();
+    sessionId = _generateRandomUUID();
   }
   return sessionId;
 }
@@ -322,7 +311,7 @@ function getCrbFromCookie() {
   try {
     const crb = JSON.parse(STORAGE.getCookie(CERBERUS.KEY));
     if (crb && crb.v) {
-      const vParsed = JSON.parse(atob(crb.v));
+      let vParsed = JSON.parse(atob(crb.v));
       if (vParsed) {
         return vParsed;
       }
@@ -355,57 +344,56 @@ function getUserIds(tdidAdapter, usp, gdpr, eids, gpp) {
     crbIDs: crb.syncIds || {}
   };
 
-  // Pull Trade Desk ID
-  if (!tdidAdapter && crb.tdID) {
-    userIds.tdID = crb.tdID;
-  } else if (tdidAdapter) {
+  // Pull Trade Desk ID from adapter
+  if (tdidAdapter) {
     userIds.tdID = tdidAdapter;
   }
 
-  // USP
+  // Pull Trade Desk ID from our storage
+  if (!tdidAdapter && crb.tdID) {
+    userIds.tdID = crb.tdID;
+  }
+
   if (usp) {
     userIds.usp = usp;
   }
 
-  // GDPR
-  if (gdpr) {
-    userIds.gdpr = {
-      consent: gdpr.consentString || '',
-      applies: !!gdpr.gdprApplies,
-    };
+  try {
+    if (gdpr) {
+      userIds['gdpr'] = {
+        consent: gdpr.consentString || '',
+        applies: !!gdpr.gdprApplies,
+      }
+    }
+  } catch (e) {
   }
 
-  // Kargo ID
-  if (crb.lexId !== null && crb.lexId !== undefined) {
+  if (crb.lexId != null) {
     userIds.kargoID = crb.lexId;
   }
 
-  // Client ID
-  if (crb.clientId !== null && crb.clientId !== undefined) {
+  if (crb.clientId != null) {
     userIds.clientID = crb.clientId;
   }
 
-  // Opt Out
-  if (crb.optOut !== null && crb.optOut !== undefined) {
+  if (crb.optOut != null) {
     userIds.optOut = crb.optOut;
   }
 
-  // User ID Sub-Modules (userIdAsEids)
-  if (eids !== null && eids !== undefined) {
+  if (eids != null) {
     userIds.sharedIDEids = eids;
   }
 
-  // GPP
   if (gpp) {
-    const parsedGPP = {};
-    if (gpp.consentString) {
-      parsedGPP.gppString = gpp.consentString;
+    const parsedGPP = {}
+    if (gpp && gpp.consentString) {
+      parsedGPP.gppString = gpp.consentString
     }
-    if (gpp.applicableSections) {
-      parsedGPP.applicableSections = gpp.applicableSections;
+    if (gpp && gpp.applicableSections) {
+      parsedGPP.applicableSections = gpp.applicableSections
     }
     if (!isEmpty(parsedGPP)) {
-      userIds.gpp = parsedGPP;
+      userIds.gpp = parsedGPP
     }
   }
 
@@ -430,25 +418,25 @@ function getRequestCount() {
     return ++requestCounter;
   }
   lastPageUrl = window.location.pathname;
-  requestCounter = 0;
-  return requestCounter;
+  return requestCounter = 0;
 }
 
 function sendTimeoutData(auctionId, auctionTimeout) {
-  const params = { aid: auctionId, ato: auctionTimeout };
-  const timeoutRequestUrl = buildUrl({
-    protocol: 'https',
-    hostname: BIDDER.HOST,
-    pathname: BIDDER.TIMEOUT_ENDPOINT,
-    search: params,
-  });
+  let params = {
+    aid: auctionId,
+    ato: auctionTimeout
+  };
 
-  fetch(timeoutRequestUrl, {
-    method: 'GET',
-    keepalive: true,
-  }).catch((e) => {
-    logError('Kargo: sendTimeoutData/fetch threw an error: ', e);
-  });
+  try {
+    let timeoutRequestUrl = buildUrl({
+      protocol: 'https',
+      hostname: BIDDER.HOST,
+      pathname: BIDDER.TIMEOUT_ENDPOINT,
+      search: params
+    });
+
+    triggerPixel(timeoutRequestUrl);
+  } catch (e) {}
 }
 
 function getImpression(bid) {
@@ -458,6 +446,10 @@ function getImpression(bid) {
     pid: bid.params.placementId,
     code: bid.adUnitCode
   };
+
+  if (bid.floorData != null && bid.floorData.floorMin > 0) {
+    imp.floor = bid.floorData.floorMin;
+  }
 
   if (bid.bidRequestsCount > 0) {
     imp.bidRequestCount = bid.bidRequestsCount;
@@ -471,49 +463,51 @@ function getImpression(bid) {
     imp.bidderWinCount = bid.bidderWinsCount;
   }
 
-  const gpid = deepAccess(bid, 'ortb2Imp.ext.gpid');
-  if (gpid) {
+  const gpid = getGPID(bid)
+  if (gpid != null && gpid != '') {
     imp.fpd = {
       gpid: gpid
     }
   }
 
-  // Add full ortb2Imp object as backup
-  if (bid.ortb2Imp) {
-    imp.ext = { ortb2Imp: bid.ortb2Imp };
-  }
-
-  if (bid.mediaTypes) {
-    const { banner, video, native } = bid.mediaTypes;
-
-    if (banner) {
-      imp.banner = banner;
+  if (bid.mediaTypes != null) {
+    if (bid.mediaTypes.banner != null) {
+      imp.banner = bid.mediaTypes.banner;
     }
 
-    if (video) {
-      imp.video = video;
+    if (bid.mediaTypes.video != null) {
+      imp.video = bid.mediaTypes.video;
     }
 
-    if (native) {
-      imp.native = native;
-    }
-
-    if (typeof bid.getFloor === 'function') {
-      let floorInfo;
-      try {
-        floorInfo = bid.getFloor({
-          currency: 'USD',
-          mediaType: '*',
-          size: '*'
-        });
-      } catch (e) {
-        logError('Kargo: getFloor threw an error: ', e);
-      }
-      imp.floor = isPlainObject(floorInfo) && floorInfo.currency === 'USD' && !isNaN(parseInt(floorInfo.floor)) ? floorInfo.floor : undefined;
+    if (bid.mediaTypes.native != null) {
+      imp.native = bid.mediaTypes.native;
     }
   }
 
   return imp
+}
+
+function getGPID(bid) {
+  if (bid.ortb2Imp != null) {
+    if (bid.ortb2Imp.gpid != null && bid.ortb2Imp.gpid != '') {
+      return bid.ortb2Imp.gpid;
+    }
+
+    if (bid.ortb2Imp.ext != null && bid.ortb2Imp.ext.data != null) {
+      if (bid.ortb2Imp.ext.data.pbAdSlot != null && bid.ortb2Imp.ext.data.pbAdSlot != '') {
+        return bid.ortb2Imp.ext.data.pbAdSlot;
+      }
+
+      if (bid.ortb2Imp.ext.data.adServer != null && bid.ortb2Imp.ext.data.adServer.adSlot != null && bid.ortb2Imp.ext.data.adServer.adSlot != '') {
+        return bid.ortb2Imp.ext.data.adServer.adSlot;
+      }
+    }
+  }
+
+  if (bid.adUnitCode != null && bid.adUnitCode != '') {
+    return bid.adUnitCode;
+  }
+  return '';
 }
 
 export const spec = {

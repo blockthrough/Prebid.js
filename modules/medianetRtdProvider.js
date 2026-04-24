@@ -1,9 +1,8 @@
-import { isEmptyStr, isFn, isStr, logError, mergeDeep } from '../src/utils.js';
-import { loadExternalScript } from '../src/adloader.js';
-import { submodule } from '../src/hook.js';
-import { getGlobal } from '../src/prebidGlobal.js';
-
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
+import {isEmptyStr, isFn, isStr, logError, mergeDeep} from '../src/utils.js';
+import {loadExternalScript} from '../src/adloader.js';
+import {submodule} from '../src/hook.js';
+import {getGlobal} from '../src/prebidGlobal.js';
+import {includes} from '../src/polyfill.js';
 
 const MODULE_NAME = 'medianet';
 const SOURCE = MODULE_NAME + 'rtd';
@@ -26,15 +25,15 @@ function init(config) {
   executeCommand(() => window.mnjs.setData({
     module: 'iref',
     name: 'initIRefresh',
-    data: { config, prebidGlobal: getGlobal() },
+    data: {config, prebidGlobal: getGlobal()},
   }, SOURCE));
   return true;
 }
 
 function getBidRequestData(requestBidsProps, callback, config, userConsent) {
   executeCommand(() => {
-    const adUnits = getAdUnits(requestBidsProps.adUnits, requestBidsProps.adUnitCodes);
-    const request = window.mnjs.onPrebidRequestBid({ requestBidsProps, config, userConsent });
+    let adUnits = getAdUnits(requestBidsProps.adUnits, requestBidsProps.adUnitCodes);
+    const request = window.mnjs.onPrebidRequestBid({requestBidsProps, config, userConsent});
     if (!request) {
       callback();
       return;
@@ -56,7 +55,7 @@ function onAuctionInitEvent(auctionInit) {
   executeCommand(() => window.mnjs.setData({
     module: 'iref',
     name: 'auctionInit',
-    data: { auction: auctionInit },
+    data: {auction: auctionInit},
   }, SOURCE));
 }
 
@@ -85,13 +84,13 @@ function executeCommand(command) {
 
 function loadRtdScript(customerId) {
   const url = getClientUrl(customerId, window.location.hostname);
-  loadExternalScript(url, MODULE_TYPE_RTD, MODULE_NAME)
+  loadExternalScript(url, MODULE_NAME)
 }
 
 function getAdUnits(adUnits, adUnitCodes) {
   adUnits = adUnits || getGlobal().adUnits || [];
   if (adUnitCodes && adUnitCodes.length) {
-    adUnits = adUnits.filter(unit => adUnitCodes.includes(unit.code));
+    adUnits = adUnits.filter(unit => includes(adUnitCodes, unit.code));
   }
   return adUnits;
 }

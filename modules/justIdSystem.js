@@ -8,15 +8,7 @@
 import * as utils from '../src/utils.js'
 import { submodule } from '../src/hook.js'
 import { loadExternalScript } from '../src/adloader.js'
-
-import { MODULE_TYPE_UID } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- * @typedef {import('../modules/userId/index.js').ConsentData} ConsentData
- * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
- */
+import {includes} from '../src/polyfill.js';
 
 const MODULE_NAME = 'justId';
 const EXTERNAL_SCRIPT_MODULE_CODE = 'justtag';
@@ -53,7 +45,7 @@ export const justIdSubmodule = {
   decode(value) {
     utils.logInfo(LOG_PREFIX, 'decode', value);
     const justId = value && value.uid;
-    return justId && { justId: justId };
+    return justId && {justId: justId};
   },
 
   /**
@@ -80,7 +72,7 @@ export const justIdSubmodule = {
           utils.logInfo(LOG_PREFIX, 'fetching uid...');
 
           var uidProvider = configWrapper.isCombinedMode()
-            ? new CombinedUidProvider(configWrapper, consentData?.gdpr, cacheIdObj)
+            ? new CombinedUidProvider(configWrapper, consentData, cacheIdObj)
             : new BasicUidProvider(configWrapper);
 
           uidProvider.getUid(justId => {
@@ -89,7 +81,7 @@ export const justIdSubmodule = {
               cbFun();
               return;
             }
-            cbFun({ uid: justId });
+            cbFun({uid: justId});
           }, err => {
             utils.logError(LOG_PREFIX, 'error during fetching', err);
             cbFun();
@@ -141,7 +133,7 @@ export const ConfigWrapper = function(config) {
   }
 
   // validation
-  if (![MODE_BASIC, MODE_COMBINED].includes(this.getMode())) {
+  if (!includes([MODE_BASIC, MODE_COMBINED], this.getMode())) {
     throw EX_INVALID_MODE;
   }
 
@@ -155,7 +147,7 @@ const CombinedUidProvider = function(configWrapper, consentData, cacheIdObj) {
   const url = configWrapper.getUrl();
 
   this.getUid = function(idCallback, errCallback) {
-    const scriptTag = loadExternalScript(url, MODULE_TYPE_UID, EXTERNAL_SCRIPT_MODULE_CODE, () => {
+    const scriptTag = loadExternalScript(url, EXTERNAL_SCRIPT_MODULE_CODE, () => {
       utils.logInfo(LOG_PREFIX, 'script loaded', url);
 
       const eventDetails = {

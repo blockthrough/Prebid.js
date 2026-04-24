@@ -1,4 +1,5 @@
 import { deepAccess, isArray, isEmpty, isStr } from '../src/utils.js';
+import { find } from '../src/polyfill.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER } from '../src/mediaTypes.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
@@ -9,7 +10,7 @@ const ENDPOINT_URLS = {
   'production': 'https://s-rtb-pb.send.microad.jp/prebid',
   'test': 'https://rtbtest.send.microad.jp/prebid'
 };
-export const ENVIRONMENT = 'production';
+export let ENVIRONMENT = 'production';
 
 /* eslint-disable no-template-curly-in-string */
 const EXT_URL_STRING = '${COMPASS_EXT_URL}';
@@ -23,15 +24,16 @@ const NATIVE_CODE = 2;
 const VIDEO_CODE = 4;
 
 const AUDIENCE_IDS = [
-  { type: 6, bidKey: 'userId.imuid', source: 'intimatemerger.com' },
-  { type: 8, bidKey: 'userId.id5id.uid', source: 'id5-sync.com' },
-  { type: 9, bidKey: 'userId.tdid', source: 'adserver.org' },
-  { type: 10, bidKey: 'userId.novatiq.snowflake', source: 'novatiq.com' },
-  { type: 12, bidKey: 'userId.dacId.id', source: 'dac.co.jp' },
-  { type: 13, bidKey: 'userId.idl_env', source: 'liveramp.com' },
-  { type: 14, bidKey: 'userId.criteoId', source: 'criteo.com' },
-  { type: 15, bidKey: 'userId.pubcid', source: 'pubcid.org' },
-  { type: 17, bidKey: 'userId.uid2.id', source: 'uidapi.com' }
+  {type: 6, bidKey: 'userId.imuid', source: 'intimatemerger.com'},
+  {type: 8, bidKey: 'userId.id5id.uid', source: 'id5-sync.com'},
+  {type: 9, bidKey: 'userId.tdid', source: 'adserver.org'},
+  {type: 10, bidKey: 'userId.novatiq.snowflake', source: 'novatiq.com'},
+  {type: 11, bidKey: 'userId.parrableId.eid', source: 'parrable.com'},
+  {type: 12, bidKey: 'userId.dacId.id', source: 'dac.co.jp'},
+  {type: 13, bidKey: 'userId.idl_env', source: 'liveramp.com'},
+  {type: 14, bidKey: 'userId.criteoId', source: 'criteo.com'},
+  {type: 15, bidKey: 'userId.pubcid', source: 'pubcid.org'},
+  {type: 17, bidKey: 'userId.uid2.id', source: 'uidapi.com'}
 ];
 
 function createCBT() {
@@ -99,7 +101,7 @@ export const spec = {
           const aidParam = { type: audienceId.type, id: bidAudienceId };
           // Set ext
           if (isArray(userIdAsEids)) {
-            const targetEid = ((userIdAsEids) || []).find((eid) => eid.source === audienceId.source) || {};
+            const targetEid = find(userIdAsEids, (eid) => eid.source === audienceId.source) || {};
             if (!isEmpty(deepAccess(targetEid, 'uids.0.ext'))) {
               aidParam.ext = targetEid.uids[0].ext;
             }
@@ -111,26 +113,6 @@ export const spec = {
       })
       if (aidsParams.length > 0) {
         params['aids'] = JSON.stringify(aidsParams)
-      }
-
-      const pbadslot = deepAccess(bid, 'ortb2Imp.ext.data.pbadslot');
-      const gpid = deepAccess(bid, 'ortb2Imp.ext.gpid');
-      if (gpid) {
-        params['gpid'] = gpid;
-      }
-
-      if (pbadslot) {
-        params['pbadslot'] = pbadslot;
-      }
-
-      const adservname = deepAccess(bid, 'ortb2Imp.ext.data.adserver.name');
-      if (adservname) {
-        params['adservname'] = adservname;
-      }
-
-      const adservadslot = deepAccess(bid, 'ortb2Imp.ext.data.adserver.adslot');
-      if (adservadslot) {
-        params['adservadslot'] = adservadslot;
       }
 
       requests.push({

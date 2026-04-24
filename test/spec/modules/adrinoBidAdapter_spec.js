@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { spec } from 'modules/adrinoBidAdapter.js';
-import { config } from '../../../src/config.js';
-import * as utils from '../../../src/utils.js';
+import {config} from '../../../src/config.js';
+import * as utils from '../../../src/utils';
 
 describe('adrinoBidAdapter', function () {
   afterEach(() => {
@@ -66,10 +66,7 @@ describe('adrinoBidAdapter', function () {
         }
       },
       sizes: [[300, 250], [970, 250]],
-      userIdAsEids: [
-        { source: 'src1.org', uids: [{ id: '1234', atype: 1 }] },
-        { source: 'src2.org', uids: [{ id: '5678', atype: 1 }] }
-      ],
+      userId: { criteoId: '2xqi3F94aHdwWnM3', pubcid: '3ec0b202-7697' },
       adUnitCode: 'adunit-code-2',
       bidId: '12345678901234',
       bidderRequestId: '98765432109876',
@@ -78,7 +75,7 @@ describe('adrinoBidAdapter', function () {
 
     it('should build the request correctly', function () {
       const result = spec.buildRequests(
-        [bidRequest],
+        [ bidRequest ],
         { refererInfo: { page: 'http://example.com/' } }
       );
       expect(result.length).to.equal(1);
@@ -91,16 +88,9 @@ describe('adrinoBidAdapter', function () {
       expect(result[0].data[0].userAgent).to.equal(navigator.userAgent);
       expect(result[0].data[0]).to.have.property('bannerParams');
       expect(result[0].data[0].bannerParams.sizes.length).to.equal(2);
-      expect(result[0].data[0]).to.have.property('eids');
-      expect(result[0].data[0].eids).to.be.an('array').with.lengthOf(2);
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src1.org',
-        uids: [{ id: '1234', atype: 1 }]
-      });
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src2.org',
-        uids: [{ id: '5678', atype: 1 }]
-      });
+      expect(result[0].data[0]).to.have.property('userId');
+      expect(result[0].data[0].userId.criteoId).to.equal('2xqi3F94aHdwWnM3');
+      expect(result[0].data[0].userId.pubcid).to.equal('3ec0b202-7697');
     });
   });
 
@@ -130,10 +120,7 @@ describe('adrinoBidAdapter', function () {
           sizes: [[300, 150], [300, 210]]
         }
       },
-      userIdAsEids: [
-        { source: 'src1.org', uids: [{ id: '1234', atype: 1 }] },
-        { source: 'src2.org', uids: [{ id: '5678', atype: 1 }] }
-      ],
+      userId: { criteoId: '2xqi3F94aHdwWnM3', pubcid: '3ec0b202-7697' },
       adUnitCode: 'adunit-code',
       bidId: '12345678901234',
       bidderRequestId: '98765432109876',
@@ -141,9 +128,9 @@ describe('adrinoBidAdapter', function () {
     };
 
     it('should build the request correctly with custom domain', function () {
-      config.setConfig({ adrino: { host: 'https://stg-prebid-bidder.adrino.io' } });
+      config.setConfig({adrino: { host: 'https://stg-prebid-bidder.adrino.io' }});
       const result = spec.buildRequests(
-        [bidRequest],
+        [ bidRequest ],
         { refererInfo: { page: 'http://example.com/' } }
       );
       expect(result.length).to.equal(1);
@@ -156,21 +143,14 @@ describe('adrinoBidAdapter', function () {
       expect(result[0].data[0].userAgent).to.equal(navigator.userAgent);
       expect(result[0].data[0]).to.have.property('nativeParams');
       expect(result[0].data[0]).not.to.have.property('gdprConsent');
-      expect(result[0].data[0]).to.have.property('eids');
-      expect(result[0].data[0].eids).to.be.an('array').with.lengthOf(2);
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src1.org',
-        uids: [{ id: '1234', atype: 1 }]
-      });
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src2.org',
-        uids: [{ id: '5678', atype: 1 }]
-      });
+      expect(result[0].data[0]).to.have.property('userId');
+      expect(result[0].data[0].userId.criteoId).to.equal('2xqi3F94aHdwWnM3');
+      expect(result[0].data[0].userId.pubcid).to.equal('3ec0b202-7697');
     });
 
     it('should build the request correctly with gdpr', function () {
       const result = spec.buildRequests(
-        [bidRequest],
+        [ bidRequest ],
         { gdprConsent: { gdprApplies: true, consentString: 'abc123' }, refererInfo: { page: 'http://example.com/' } }
       );
       expect(result.length).to.equal(1);
@@ -183,21 +163,14 @@ describe('adrinoBidAdapter', function () {
       expect(result[0].data[0].userAgent).to.equal(navigator.userAgent);
       expect(result[0].data[0]).to.have.property('nativeParams');
       expect(result[0].data[0]).to.have.property('gdprConsent');
-      expect(result[0].data[0]).to.have.property('eids');
-      expect(result[0].data[0].eids).to.be.an('array').with.lengthOf(2);
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src1.org',
-        uids: [{ id: '1234', atype: 1 }]
-      });
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src2.org',
-        uids: [{ id: '5678', atype: 1 }]
-      });
+      expect(result[0].data[0]).to.have.property('userId');
+      expect(result[0].data[0].userId.criteoId).to.equal('2xqi3F94aHdwWnM3');
+      expect(result[0].data[0].userId.pubcid).to.equal('3ec0b202-7697');
     });
 
     it('should build the request correctly without gdpr', function () {
       const result = spec.buildRequests(
-        [bidRequest],
+        [ bidRequest ],
         { refererInfo: { page: 'http://example.com/' } }
       );
       expect(result.length).to.equal(1);
@@ -210,16 +183,9 @@ describe('adrinoBidAdapter', function () {
       expect(result[0].data[0].userAgent).to.equal(navigator.userAgent);
       expect(result[0].data[0]).to.have.property('nativeParams');
       expect(result[0].data[0]).not.to.have.property('gdprConsent');
-      expect(result[0].data[0]).to.have.property('eids');
-      expect(result[0].data[0].eids).to.be.an('array').with.lengthOf(2);
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src1.org',
-        uids: [{ id: '1234', atype: 1 }]
-      });
-      expect(result[0].data[0].eids).to.deep.include({
-        source: 'src2.org',
-        uids: [{ id: '5678', atype: 1 }]
-      });
+      expect(result[0].data[0]).to.have.property('userId');
+      expect(result[0].data[0].userId.criteoId).to.equal('2xqi3F94aHdwWnM3');
+      expect(result[0].data[0].userId.pubcid).to.equal('3ec0b202-7697');
     });
   });
 

@@ -1,9 +1,10 @@
-import { deepAccess, getBidIdParameter, isArray, logError } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER, VIDEO } from '../src/mediaTypes.js';
-import { config } from '../src/config.js';
+import {deepAccess, getBidIdParameter, isArray, logError} from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER, VIDEO} from '../src/mediaTypes.js';
+import {config} from '../src/config.js';
+import {find} from '../src/polyfill.js';
 
-const ENDPOINT = `https://hb.justbidit2.xyz:8843/prebid`;
+const ENDPOINT = `https://hb.justbidit.xyz:8843/prebid`;
 const BIDDER_CODE = 'waardex';
 
 const isBidRequestValid = bid => {
@@ -58,13 +59,13 @@ const buildRequests = (validBidRequests, bidderRequest) => {
     zoneId = +validBidRequests[0].params.zoneId;
   }
 
-  return { method: 'POST', url: `${ENDPOINT}?pubId=${zoneId}`, data: dataToSend };
+  return {method: 'POST', url: `${ENDPOINT}?pubId=${zoneId}`, data: dataToSend};
 };
 
 const getCommonBidsData = bidderRequest => {
   const payload = {
     ua: navigator.userAgent || '',
-    language: navigator.language && navigator.language.indexOf('-') !== -1 ? navigator.language.split('-')[0] : ''
+    language: navigator.language && navigator.language.indexOf('-') !== -1 ? navigator.language.split('-')[0] : '',
   };
 
   if (bidderRequest && bidderRequest.refererInfo) {
@@ -146,6 +147,7 @@ const createVideoObject = (videoMediaTypes, videoParams) => {
     maxduration: getBidIdParameter('maxduration', videoParams) || 500,
     protocols: getBidIdParameter('protocols', videoParams) || [2, 3, 5, 6],
     startdelay: getBidIdParameter('startdelay', videoParams) || 0,
+    placement: getBidIdParameter('placement', videoParams) || videoMediaTypes.context === 'outstream' ? 3 : 1,
     skip: getBidIdParameter('skip', videoParams) || 1,
     skipafter: getBidIdParameter('skipafter', videoParams) || 0,
     minbitrate: getBidIdParameter('minbitrate', videoParams) || 0,
@@ -168,10 +170,10 @@ const interpretResponse = (serverResponse, bidRequest) => {
     return responseBody.seatbid[0].bid
       .map(openRtbBid => {
         const hbRequestBid = getHbRequestBid(openRtbBid, bidRequest.data);
-        if (!hbRequestBid) return null;
+        if (!hbRequestBid) return;
 
         const hbRequestMediaType = getHbRequestMediaType(hbRequestBid);
-        if (!hbRequestMediaType) return null;
+        if (!hbRequestMediaType) return;
 
         return mapOpenRtbToHbBid(openRtbBid, hbRequestMediaType, hbRequestBid);
       })
@@ -182,7 +184,7 @@ const interpretResponse = (serverResponse, bidRequest) => {
 };
 
 const getHbRequestBid = (openRtbBid, bidRequest) => {
-  return ((bidRequest.bidRequests) || []).find(x => x.bidId === openRtbBid.impid);
+  return find(bidRequest.bidRequests, x => x.bidId === openRtbBid.impid);
 };
 
 const getHbRequestMediaType = hbRequestBid => {

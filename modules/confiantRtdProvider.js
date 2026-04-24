@@ -12,8 +12,7 @@ import { submodule } from '../src/hook.js';
 import { logError, generateUUID } from '../src/utils.js';
 import { loadExternalScript } from '../src/adloader.js';
 import * as events from '../src/events.js';
-import { EVENTS } from '../src/constants.js';
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
+import CONSTANTS from '../src/constants.json';
 
 /**
  * Injects the Confiant Inc. configuration script into the page, based on proprtyId provided
@@ -22,8 +21,7 @@ import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
 function injectConfigScript(propertyId) {
   const scriptSrc = `https://cdn.confiant-integrations.net/${propertyId}/gpt_and_prebid/config.js`;
 
-  loadExternalScript(scriptSrc, MODULE_TYPE_RTD, 'confiant', () => {
-  });
+  loadExternalScript(scriptSrc, 'confiant', () => {});
 }
 
 /**
@@ -91,7 +89,7 @@ function setUpMutationObserver() {
 function getEventHandlerFunction(propertyId) {
   return function reportBillableEvent(e) {
     if (e.data.type.indexOf('cnft:reportBillableEvent:' + propertyId) > -1) {
-      events.emit(EVENTS.BILLABLE_EVENT, {
+      events.emit(CONSTANTS.EVENTS.BILLABLE_EVENT, {
         auctionId: e.data.auctionId,
         billingId: generateUUID(),
         transactionId: e.data.transactionId,

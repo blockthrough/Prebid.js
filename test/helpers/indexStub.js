@@ -1,6 +1,6 @@
-import { AuctionIndex } from '../../src/auctionIndex.js';
+import {AuctionIndex} from '../../src/auctionIndex.js';
 
-export function stubAuctionIndex({ bidRequests, bidderRequests, adUnits, auctionId = 'mock-auction' }) {
+export function stubAuctionIndex({bidRequests, bidderRequests, adUnits}) {
   if (adUnits == null) {
     adUnits = []
   }
@@ -15,7 +15,7 @@ export function stubAuctionIndex({ bidRequests, bidderRequests, adUnits, auction
   }
   const auction = {
     getAuctionId() {
-      return auctionId;
+      return 'mock-auction'
     },
     getBidRequests() {
       return bidderRequests;

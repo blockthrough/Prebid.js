@@ -9,24 +9,7 @@ Maintainer: prebid_integration@connatix.com
 
 # Description
 Connects to Connatix demand source to fetch bids.  
-Please use ```connatix``` as the bidder code.
-
-# Configuration
-Connatix requires that ```iframe``` is used for user syncing.
-
-Example configuration:
-```
-pbjs.setConfig({
-  userSync: {
-    filterSettings: {
-      iframe: {
-        bidders: '*', // represents all bidders
-        filter: 'include'
-      }
-    }
-  }
-});
-```
+Please use ```connatix``` as the bidder code. 
 
 # Test Parameters
 ```

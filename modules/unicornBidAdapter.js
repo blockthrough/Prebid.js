@@ -1,19 +1,14 @@
 import { logInfo, deepAccess, generateUUID } from '../src/utils.js';
-import { BANNER } from '../src/mediaTypes.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { getStorageManager } from '../src/storageManager.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').ServerRequest} ServerRequest
- */
+import {BANNER} from '../src/mediaTypes.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {getStorageManager} from '../src/storageManager.js';
 
 const BIDDER_CODE = 'unicorn';
 const UNICORN_ENDPOINT = 'https://ds.uncn.jp/pb/0/bid.json';
 const UNICORN_DEFAULT_CURRENCY = 'JPY';
 const UNICORN_PB_COOKIE_KEY = '__pb_unicorn_aud';
 const UNICORN_PB_VERSION = '1.1';
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 /**
  * Placement ID and Account ID are required.
@@ -92,31 +87,8 @@ function buildOpenRtbBidRequestPayload(validBidRequests, bidderRequest) {
       accountId: deepAccess(validBidRequests[0], 'params.accountId')
     }
   };
-  const eids = initializeEids(validBidRequests[0]);
-  if (eids.length > 0) {
-    request.user.eids = eids;
-  }
-
   logInfo('[UNICORN] OpenRTB Formatted Request:', request);
   return JSON.stringify(request);
-}
-
-const initializeEids = (bidRequest) => {
-  const eids = [];
-
-  const id5 = deepAccess(bidRequest, 'userId.id5id.uid');
-  if (id5) {
-    eids.push({
-      source: 'id5-sync.com',
-      uids: [
-        {
-          id: id5
-        }
-      ]
-    });
-  }
-
-  return eids;
 }
 
 const interpretResponse = (serverResponse, request) => {
@@ -135,11 +107,11 @@ const interpretResponse = (serverResponse, request) => {
           ad: b.adm,
           ttl: 1000,
           creativeId: b.crid,
-          netRevenue: true,
+          netRevenue: false,
           currency: res.cur
         }
 
-        if (b.adomain) {
+        if (b.adomain != undefined || b.adomain != null) {
           bid.meta = { advertiserDomains: b.adomain };
         }
 
@@ -173,7 +145,7 @@ const getUid = () => {
  * @param {Array<Number>} arr
  */
 const makeFormat = arr => arr.map((s) => {
-  return { w: s[0], h: s[1] };
+  return {w: s[0], h: s[1]};
 });
 
 export const spec = {

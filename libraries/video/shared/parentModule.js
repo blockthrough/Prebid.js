@@ -3,7 +3,7 @@
  * @summary abstraction for any module to store and reference its submodules
  * @param {SubmoduleBuilder} submoduleBuilder_
  * @returns {ParentModule}
- * @class
+ * @constructor
  */
 export function ParentModule(submoduleBuilder_) {
   const submoduleBuilder = submoduleBuilder_;
@@ -22,7 +22,11 @@ export function ParentModule(submoduleBuilder_) {
     }
 
     let submodule;
-    submodule = submoduleBuilder.build(vendorCode, config);
+    try {
+      submodule = submoduleBuilder.build(vendorCode, config);
+    } catch (e) {
+      throw e;
+    }
     submodules[id] = submodule;
   }
 
@@ -43,13 +47,12 @@ export function ParentModule(submoduleBuilder_) {
 }
 
 /**
- * @typedef {import('../../../modules/videoModule/coreVideo.js').vendorSubmoduleDirectory} vendorSubmoduleDirectory
  * @typedef {Object} SubmoduleBuilder
  * @summary Instantiates submodules
  * @param {vendorSubmoduleDirectory} submoduleDirectory_
  * @param {Object|null|undefined} sharedUtils_
  * @returns {SubmoduleBuilder}
- * @class
+ * @constructor
  */
 export function SubmoduleBuilder(submoduleDirectory_, sharedUtils_) {
   const submoduleDirectory = submoduleDirectory_;

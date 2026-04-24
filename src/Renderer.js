@@ -1,9 +1,9 @@
 import { loadExternalScript } from './adloader.js';
 import {
-  logError, logWarn, logMessage
+  logError, logWarn, logMessage, deepAccess
 } from './utils.js';
-import { getGlobal } from './prebidGlobal.js';
-import { MODULE_TYPE_PREBID } from './activities/modules.js';
+import {find} from './polyfill.js';
+import {getGlobal} from './prebidGlobal.js';
 
 const pbjsInstance = getGlobal();
 const moduleCode = 'outstream';
@@ -23,7 +23,6 @@ export function Renderer(options) {
   this.handlers = {};
   this.id = id;
   this.renderNow = renderNow;
-  this.adUnitCode = adUnitCode;
 
   // a renderer may push to the command queue to delay rendering until the
   // render function is loaded by loadExternalScript, at which point the the command
@@ -63,15 +62,11 @@ export function Renderer(options) {
     } else {
       // we expect to load a renderer url once only so cache the request to load script
       this.cmd.unshift(runRender) // should render run first ?
-      loadExternalScript(url, MODULE_TYPE_PREBID, moduleCode, this.callback, this.documentContext);
+      loadExternalScript(url, moduleCode, this.callback, this.documentContext);
     }
   }.bind(this); // bind the function to this object to avoid 'this' errors
 }
 
-/**
- * @param {{}} options
- * @return {Renderer}
- */
 Renderer.install = function({ url, config, id, callback, loaded, adUnitCode, renderNow }) {
   return new Renderer({ url, config, id, callback, loaded, adUnitCode, renderNow });
 };
@@ -105,7 +100,7 @@ Renderer.prototype.process = function() {
     try {
       this.cmd.shift().call();
     } catch (error) {
-      logError(`Error processing Renderer command on ad unit '${this.adUnitCode}':`, error);
+      logError('Error processing Renderer command: ', error);
     }
   }
 };
@@ -139,7 +134,7 @@ export function executeRenderer(renderer, bid, doc) {
 
 function isRendererPreferredFromAdUnit(adUnitCode) {
   const adUnits = pbjsInstance.adUnits;
-  const adUnit = adUnits.find(adUnit => {
+  const adUnit = find(adUnits, adUnit => {
     return adUnit.code === adUnitCode;
   });
 
@@ -148,11 +143,11 @@ function isRendererPreferredFromAdUnit(adUnitCode) {
   }
 
   // renderer defined at adUnit level
-  const adUnitRenderer = adUnit?.renderer;
+  const adUnitRenderer = deepAccess(adUnit, 'renderer');
   const hasValidAdUnitRenderer = !!(adUnitRenderer && adUnitRenderer.url && adUnitRenderer.render);
 
   // renderer defined at adUnit.mediaTypes level
-  const mediaTypeRenderer = adUnit?.mediaTypes?.video?.renderer;
+  const mediaTypeRenderer = deepAccess(adUnit, 'mediaTypes.video.renderer');
   const hasValidMediaTypeRenderer = !!(mediaTypeRenderer && mediaTypeRenderer.url && mediaTypeRenderer.render)
 
   return !!(

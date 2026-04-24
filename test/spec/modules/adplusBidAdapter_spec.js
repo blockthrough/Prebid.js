@@ -1,8 +1,6 @@
-import { expect } from 'chai';
-import { ADPLUS_ENDPOINT, BIDDER_CODE, spec, } from 'modules/adplusBidAdapter.js';
-import { newBidder } from 'src/adapters/bidderFactory.js';
-
-const TEST_UID = 'test-uid-value';
+import {expect} from 'chai';
+import {spec, BIDDER_CODE, ADPLUS_ENDPOINT, } from 'modules/adplusBidAdapter.js';
+import {newBidder} from 'src/adapters/bidderFactory.js';
 
 describe('AplusBidAdapter', function () {
   const adapter = newBidder(spec);
@@ -15,7 +13,7 @@ describe('AplusBidAdapter', function () {
 
   describe('isBidRequestValid', function () {
     it('should return true when required params found', function () {
-      const validRequest = {
+      let validRequest = {
         mediaTypes: {
           banner: {
             sizes: [[300, 250]]
@@ -30,7 +28,7 @@ describe('AplusBidAdapter', function () {
     });
 
     it('should return false when required params are not passed', function () {
-      const validRequest = {
+      let validRequest = {
         mediaTypes: {
           banner: {
             sizes: [[300, 250]]
@@ -44,7 +42,7 @@ describe('AplusBidAdapter', function () {
     });
 
     it('should return false when required param types are wrong', function () {
-      const validRequest = {
+      let validRequest = {
         mediaTypes: {
           banner: {
             sizes: [[300, 250]]
@@ -59,7 +57,7 @@ describe('AplusBidAdapter', function () {
     });
 
     it('should return false when size is not exists', function () {
-      const validRequest = {
+      let validRequest = {
         params: {
           inventoryId: 30,
           adUnitId: '1',
@@ -69,7 +67,7 @@ describe('AplusBidAdapter', function () {
     });
 
     it('should return false when size is wrong', function () {
-      const validRequest = {
+      let validRequest = {
         mediaTypes: {
           banner: {
             sizes: [[300]]
@@ -85,7 +83,7 @@ describe('AplusBidAdapter', function () {
   });
 
   describe('buildRequests', function () {
-    const validRequest = [
+    let validRequest = [
       {
         bidder: BIDDER_CODE,
         mediaTypes: {
@@ -97,20 +95,11 @@ describe('AplusBidAdapter', function () {
           inventoryId: '-1',
           adUnitId: '-3',
         },
-        bidId: '2bdcb0b203c17d',
-        userIdAsEids: [{
-          source: 'ad-plus.com.tr',
-          uids: [
-            {
-              atype: 1,
-              id: TEST_UID
-            }
-          ]
-        }]
+        bidId: '2bdcb0b203c17d'
       },
     ];
 
-    const bidderRequest = {
+    let bidderRequest = {
       refererInfo: {
         referer: 'https://test.domain'
       }
@@ -118,7 +107,7 @@ describe('AplusBidAdapter', function () {
 
     it('bidRequest HTTP method', function () {
       const request = spec.buildRequests(validRequest, bidderRequest);
-      expect(request[0].method).to.equal('POST');
+      expect(request[0].method).to.equal('GET');
     });
 
     it('bidRequest url', function () {
@@ -130,20 +119,13 @@ describe('AplusBidAdapter', function () {
       const request = spec.buildRequests(validRequest, bidderRequest);
 
       expect(request[0].data.bidId).to.equal('2bdcb0b203c17d');
-      expect(request[0].data.inventoryId).to.equal(-1);
-      expect(request[0].data.adUnitId).to.equal(-3);
+      expect(request[0].data.inventoryId).to.equal('-1');
+      expect(request[0].data.adUnitId).to.equal('-3');
       expect(request[0].data.adUnitWidth).to.equal(300);
       expect(request[0].data.adUnitHeight).to.equal(250);
       expect(request[0].data.sdkVersion).to.equal('1');
-      expect(request[0].data.eids).to.deep.equal([{
-        source: 'ad-plus.com.tr',
-        uids: [
-          {
-            atype: 1,
-            id: TEST_UID
-          }
-        ]
-      }]);
+      expect(typeof request[0].data.session).to.equal('string');
+      expect(request[0].data.session).length(36);
       expect(request[0].data.interstitial).to.equal(0);
       expect(request[0].data).to.not.have.deep.property('extraData');
       expect(request[0].data).to.not.have.deep.property('yearOfBirth');
@@ -167,11 +149,13 @@ describe('AplusBidAdapter', function () {
       domain: 'tassandigi.com',
       pageUrl: 'https%3A%2F%2Ftassandigi.com%2Fserafettin%2Fads.html',
       interstitial: 0,
+      session: '1c02db03-5289-932a-93af-7b4022611fec',
+      token: '1c02db03-5289-937a-93df-7b4022611fec',
       secure: 1,
       bidId: '2bdcb0b203c17d',
     };
     const bidRequest = {
-      'method': 'POST',
+      'method': 'GET',
       'url': ADPLUS_ENDPOINT,
       'data': requestData,
     };

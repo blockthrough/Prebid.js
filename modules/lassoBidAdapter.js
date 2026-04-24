@@ -3,13 +3,12 @@ import { BANNER } from '../src/mediaTypes.js';
 import { getStorageManager } from '../src/storageManager.js';
 import { ajax } from '../src/ajax.js';
 import { config } from '../src/config.js';
-import { getWinDimensions } from '../src/utils.js';
 
 const BIDDER_CODE = 'lasso';
 const ENDPOINT_URL = 'https://trc.lhmos.com/prebid';
 const GET_IUD_URL = 'https://secure.adnxs.com/getuid?';
 const COOKIE_NAME = 'aim-xr';
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 export const spec = {
   code: BIDDER_CODE,
@@ -33,34 +32,12 @@ export const spec = {
         sizes = bidRequest.mediaTypes[BANNER].sizes;
       }
 
-      const { params } = bidRequest;
-
-      let npi = params.npi || '';
-      let dgid = params.dgid || '';
-      let aimOnly = params.aimOnly || '';
-      let test = false;
-      let testDk = '';
-
-      if (params.testNPI) {
-        npi = params.testNPI;
-        test = true;
-      }
-
-      if (params.testDGID) {
-        dgid = params.testDGID;
-        test = true;
-      }
-
-      if (params.testDk) {
-        testDk = params.testDk;
-        test = true;
-      }
-
       const payload = {
         auctionStart: bidderRequest.auctionStart,
         url: encodeURIComponent(window.location.href),
         bidderRequestId: bidRequest.bidderRequestId,
         adUnitCode: bidRequest.adUnitCode,
+        // TODO: fix auctionId leak: https://github.com/prebid/Prebid.js/issues/9781
         auctionId: bidRequest.auctionId,
         bidId: bidRequest.bidId,
         transactionId: bidRequest.ortb2Imp?.ext?.tid,
@@ -68,27 +45,12 @@ export const spec = {
         sizes,
         aimXR,
         uid: '$UID',
-        npi,
-        dgid,
-        npi_hash: params.npiHash || '',
         params: JSON.stringify(bidRequest.params),
         crumbs: JSON.stringify(bidRequest.crumbs),
         prebidVersion: '$prebid.version$',
-        version: 4,
-        coppa: config.getConfig('coppa') === true ? 1 : 0,
-        ccpa: bidderRequest.uspConsent || undefined,
-        test,
-        testDk,
-        aimOnly
-      }
-
-      if (
-        bidderRequest &&
-        bidderRequest.gppConsent &&
-        bidderRequest.gppConsent.gppString
-      ) {
-        payload.gpp = bidderRequest.gppConsent.gppString;
-        payload.gppSid = bidderRequest.gppConsent.applicableSections;
+        version: 3,
+        coppa: config.getConfig('coppa') == true ? 1 : 0,
+        ccpa: bidderRequest.uspConsent || undefined
       }
 
       return {
@@ -112,7 +74,6 @@ export const spec = {
 
     const bidResponse = {
       requestId: response.bidid,
-      bidId: response.bidid,
       cpm: response.bid.price,
       currency: response.cur,
       width: response.bid.w,
@@ -154,24 +115,22 @@ export const spec = {
 }
 
 function getBidRequestUrl(aimXR, params) {
-  const { npi, dgid, npiHash, testNPI, testDGID, aimOnly, testDk, dtc } = params;
   let path = '/request';
-  if (dtc) {
+  if (params && params.dtc) {
     path = '/dtc-request';
   }
-  if (aimXR || npi || dgid || npiHash || testNPI || testDGID || aimOnly || testDk) {
-    return ENDPOINT_URL + path;
+  if (!aimXR) {
+    return GET_IUD_URL + ENDPOINT_URL + path;
   }
-  return GET_IUD_URL + ENDPOINT_URL + path;
+  return ENDPOINT_URL + path;
 }
 
 function getDeviceData() {
   const win = window.top;
-  const winDimensions = getWinDimensions();
   return {
     ua: navigator.userAgent,
-    width: winDimensions.innerWidth || winDimensions.document.documentElement.clientWidth || win.document.body.clientWidth,
-    height: winDimensions.innerHeight || winDimensions.document.documentElement.clientHeight || win.document.body.clientHeight,
+    width: win.innerWidth || win.document.documentElement.clientWidth || win.document.body.clientWidth,
+    height: win.innerHeight || win.document.documentElement.clientHeight || win.document.body.clientHeight,
     browserLanguage: navigator.language,
   }
 }

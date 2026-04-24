@@ -2,7 +2,7 @@
 
 **Module Name** : BeOp Bidder Adapter  
 **Module Type** : Bidder Adapter  
-**Maintainer** : tech@collectiveaudience.co
+**Maintainer** : tech@beop.io
 
 # Description
 
