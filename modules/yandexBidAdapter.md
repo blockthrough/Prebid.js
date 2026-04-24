@@ -8,65 +8,38 @@ Maintainer: prebid@yandex-team.com
 
 # Description
 
-The Yandex Prebid Adapter is designed for seamless integration with Yandex's advertising services. It facilitates effective bidding by leveraging Yandex's robust ad-serving technology, ensuring publishers can maximize their ad revenue through efficient and targeted ad placements. Please reach out to <prebid@yandex-team.com> for the integration guide and more details.
-
-For comprehensive auction analytics, consider using the [Yandex Analytics Adapter](https://docs.prebid.org/dev-docs/analytics/yandex.html). This tool provides essential insights into auction dynamics and user interactions, empowering publishers to fine-tune their strategies for optimal ad performance.
+Yandex Bidder Adapter for Prebid.js.
 
 # Parameters
 
-| Name          | Scope                                  | Description  | Example          | Type      |
-|---------------|----------------------------------------|--------------|------------------|-----------|
-| `placementId` | Required                               | Placement ID | `'R-X-123456-1'` | `String`  |
-| `cur`         | Optional. Default value is `'EUR'`     | Bid Currency | `'USD'`          | `String`  |
-| `pageId`      | `Deprecated`. Please use `placementId` | Page ID      | `123`            | `Integer` |
-| `impId`       | `Deprecated`. Please use `placementId` | Imp ID       | `1`              | `Integer` |
+| Name          | Required?                                  | Description | Example | Type      |
+|---------------|--------------------------------------------|-------------|---------|-----------|
+| `placementId` | Yes                                        | Block ID    | `123-1` | `String`  |
+| `pageId`      | No<br>Deprecated. Please use `placementId` | Page ID     | `123`   | `Integer` |
+| `impId`       | No<br>Deprecated. Please use `placementId` | Imp ID      | `1`     | `Integer` |
 
 # Test Parameters
 
 ```javascript
 var adUnits = [
-  { // banner example. please check if the 'placementId' is active in Yandex UI
+  { // banner
     code: 'banner-1',
     mediaTypes: {
       banner: {
-        sizes: [[300, 250], [300, 600]],
+        sizes: [[240, 400], [300, 600]],
       }
     },
     bids: [
       {
         bidder: 'yandex',
         params: {
-          placementId: 'R-A-346580-1',
-          cur: 'USD'
+          placementId: '346580-1'
         },
       }
     ],
   },
-  { // video example. please check if the 'placementId' is active in Yandex UI
-    code: 'video-1',
-    mediaTypes: {
-      video: {
-        sizes: [[640, 480]],
-        context: 'instream',
-        playerSize: [[640, 480]],
-        mimes: ['video/mp4'],
-        protocols: [1, 2, 3, 4, 5, 6, 7, 8],
-        playbackmethod: [2],
-        skip: 1
-      },
-    },
-    bids: [
-      {
-        bidder: 'yandex',
-        params: {
-          placementId: 'R-V-346580-1',
-          cur: 'USD'
-        },
-      }
-    ],
-  },
-  { // native example. please check if the 'placementId' is active in Yandex UI
-    code: 'native-1',
+  { // native
+    code: 'banner-2',
     mediaTypes: {
       native: {
         title: {
@@ -87,7 +60,7 @@ var adUnits = [
           len: 90
         },
         sponsoredBy: {
-          len: 25
+          len: 25,
         }
       },
     },
@@ -95,8 +68,7 @@ var adUnits = [
       {
         bidder: 'yandex',
         params: {
-          placementId: 'R-A-346580-2',
-          cur: 'USD'
+          placementId: '346580-1'
         },
       }
     ],

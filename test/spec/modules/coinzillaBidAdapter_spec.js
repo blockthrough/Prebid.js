@@ -1,13 +1,13 @@
-import { assert, expect } from 'chai';
-import { spec } from 'modules/coinzillaBidAdapter.js';
-import { newBidder } from 'src/adapters/bidderFactory.js';
+import {assert, expect} from 'chai';
+import {spec} from 'modules/coinzillaBidAdapter.js';
+import {newBidder} from 'src/adapters/bidderFactory.js';
 
 const ENDPOINT_URL = 'https://request.czilladx.com/serve/request.php';
 
 describe('coinzillaBidAdapter', function () {
   const adapter = newBidder(spec);
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidder': 'coinzilla',
       'params': {
         placementId: 'testPlacementId'
@@ -25,7 +25,7 @@ describe('coinzillaBidAdapter', function () {
     });
   });
   describe('buildRequests', function () {
-    const bidRequests = [
+    let bidRequests = [
       {
         'bidder': 'coinzilla',
         'params': {
@@ -53,7 +53,7 @@ describe('coinzillaBidAdapter', function () {
       }
     ];
 
-    const bidderRequests = {
+    let bidderRequests = {
       'refererInfo': {
         'numIframes': 0,
         'reachedTop': true,
@@ -74,7 +74,7 @@ describe('coinzillaBidAdapter', function () {
   });
 
   describe('interpretResponse', function () {
-    const bidRequest = [
+    let bidRequest = [
       {
         'method': 'POST',
         'url': ENDPOINT_URL,
@@ -87,12 +87,13 @@ describe('coinzillaBidAdapter', function () {
         }
       }
     ];
-    const serverResponse = {
+    let serverResponse = {
       body: {
         'ad': '<html><h3>I am an ad</h3></html> ',
         'cpm': 4.2,
         'creativeId': '12345asdfg',
         'currency': 'EUR',
+        'statusMessage': 'Bid available',
         'requestId': 'bidId123',
         'width': 300,
         'height': 250,
@@ -102,7 +103,7 @@ describe('coinzillaBidAdapter', function () {
       }
     };
     it('should get the correct bid response', function () {
-      const expectedResponse = [{
+      let expectedResponse = [{
         'requestId': 'bidId123',
         'cpm': 4.2,
         'width': 300,
@@ -113,9 +114,9 @@ describe('coinzillaBidAdapter', function () {
         'ttl': 3000,
         'ad': '<html><h3>I am an ad</h3></html>',
         'mediaType': 'banner',
-        'meta': { 'advertiserDomains': ['none.com'] }
+        'meta': {'advertiserDomains': ['none.com']}
       }];
-      const result = spec.interpretResponse(serverResponse, bidRequest[0]);
+      let result = spec.interpretResponse(serverResponse, bidRequest[0]);
       expect(Object.keys(result)).to.deep.equal(Object.keys(expectedResponse));
     });
   });

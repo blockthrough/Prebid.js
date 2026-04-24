@@ -1,5 +1,5 @@
-import { spec, resetBidderConfigs } from 'modules/relevantdigitalBidAdapter.js';
-import { parseUrl } from 'src/utils.js';
+import {spec, resetBidderConfigs} from 'modules/relevantdigitalBidAdapter.js';
+import { parseUrl, deepClone } from 'src/utils.js';
 
 const expect = require('chai').expect;
 
@@ -8,19 +8,15 @@ const PLACEMENT_ID = 'example_placement_id';
 const ACCOUNT_ID = 'example_account_id';
 const TEST_DOMAIN = 'example.com';
 const TEST_PAGE = `https://${TEST_DOMAIN}/page.html`;
-const ADUNIT_CODE = '/19968336/header-bid-tag-0';
 
-const BID_PARAMS = {
+const BID_REQUEST =
+{
+  'bidder': 'relevantdigital',
   'params': {
     'placementId': PLACEMENT_ID,
     'accountId': ACCOUNT_ID,
-    'pbsHost': PBS_HOST
-  }
-};
-
-const BID_REQUEST = {
-  'bidder': 'relevantdigital',
-  ...BID_PARAMS,
+    'pbsHost': PBS_HOST,
+  },
   'ortb2Imp': {
     'ext': {
       'tid': 'e13391ea-00f3-495d-99a6-d937990d73a9'
@@ -36,7 +32,7 @@ const BID_REQUEST = {
       ]
     }
   },
-  'adUnitCode': ADUNIT_CODE,
+  'adUnitCode': '/19968336/header-bid-tag-0',
   'transactionId': 'e13391ea-00f3-495d-99a6-d937990d73a9',
   'sizes': [
     [
@@ -228,7 +224,7 @@ const resetAndBuildRequest = (params) => {
 describe('Relevant Digital Bid Adaper', function () {
   describe('buildRequests', () => {
     const [request] = resetAndBuildRequest();
-    const { data, url } = request
+    const {data, url} = request
     it('should give the correct URL', () => {
       expect(url).equal(`https://${PBS_HOST}/openrtb2/auction`);
     });
@@ -292,7 +288,7 @@ describe('Relevant Digital Bid Adaper', function () {
     const responseSyncs = BID_RESPONSE.ext.relevant.sync;
     const allSyncs = spec.getUserSyncs({ pixelEnabled: true }, [{ body: BID_RESPONSE }], null, null);
     it('should return one sync object per pixel', () => {
-      const expectedResult = responseSyncs.map(({ url }) => ({ url, type: 'image' }));
+      const expectedResult = responseSyncs.map(({ url }) => ({url, type: 'image'}));
       expect(allSyncs).to.deep.equal(expectedResult)
     });
   });

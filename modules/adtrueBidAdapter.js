@@ -1,13 +1,12 @@
 import { logWarn, isArray, inIframe, isNumber, isStr, deepClone, deepSetValue, logError, deepAccess, isBoolean } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
-import { config } from '../src/config.js';
-import { getStorageManager } from '../src/storageManager.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER, NATIVE, VIDEO} from '../src/mediaTypes.js';
+import {config} from '../src/config.js';
+import {getStorageManager} from '../src/storageManager.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { getDNT } from '../libraries/dnt/index.js';
 
 const BIDDER_CODE = 'adtrue';
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
 const ADTRUE_CURRENCY = 'USD';
 const ENDPOINT_URL = 'https://hb.adtrue.com/prebid/auction';
 const LOG_WARN_PREFIX = 'AdTrue: ';
@@ -18,7 +17,7 @@ const DEFAULT_HEIGHT = 0;
 const NET_REVENUE = false;
 let publisherId = 0;
 let zoneId = 0;
-const NATIVE_ASSET_ID_TO_KEY_MAP = {};
+let NATIVE_ASSET_ID_TO_KEY_MAP = {};
 const DATA_TYPES = {
   'NUMBER': 'number',
   'STRING': 'string',
@@ -44,43 +43,42 @@ const VIDEO_CUSTOM_PARAMS = {
   'battr': DATA_TYPES.ARRAY,
   'linearity': DATA_TYPES.NUMBER,
   'placement': DATA_TYPES.NUMBER,
-  'plcmt': DATA_TYPES.NUMBER,
   'minbitrate': DATA_TYPES.NUMBER,
   'maxbitrate': DATA_TYPES.NUMBER
 };
 
 const NATIVE_ASSETS = {
-  'TITLE': { ID: 1, KEY: 'title', TYPE: 0 },
-  'IMAGE': { ID: 2, KEY: 'image', TYPE: 0 },
-  'ICON': { ID: 3, KEY: 'icon', TYPE: 0 },
-  'SPONSOREDBY': { ID: 4, KEY: 'sponsoredBy', TYPE: 1 }, // please note that type of SPONSORED is also 1
-  'BODY': { ID: 5, KEY: 'body', TYPE: 2 }, // please note that type of DESC is also set to 2
-  'CLICKURL': { ID: 6, KEY: 'clickUrl', TYPE: 0 },
-  'VIDEO': { ID: 7, KEY: 'video', TYPE: 0 },
-  'EXT': { ID: 8, KEY: 'ext', TYPE: 0 },
-  'DATA': { ID: 9, KEY: 'data', TYPE: 0 },
-  'LOGO': { ID: 10, KEY: 'logo', TYPE: 0 },
-  'SPONSORED': { ID: 11, KEY: 'sponsored', TYPE: 1 }, // please note that type of SPONSOREDBY is also set to 1
-  'DESC': { ID: 12, KEY: 'data', TYPE: 2 }, // please note that type of BODY is also set to 2
-  'RATING': { ID: 13, KEY: 'rating', TYPE: 3 },
-  'LIKES': { ID: 14, KEY: 'likes', TYPE: 4 },
-  'DOWNLOADS': { ID: 15, KEY: 'downloads', TYPE: 5 },
-  'PRICE': { ID: 16, KEY: 'price', TYPE: 6 },
-  'SALEPRICE': { ID: 17, KEY: 'saleprice', TYPE: 7 },
-  'PHONE': { ID: 18, KEY: 'phone', TYPE: 8 },
-  'ADDRESS': { ID: 19, KEY: 'address', TYPE: 9 },
-  'DESC2': { ID: 20, KEY: 'desc2', TYPE: 10 },
-  'DISPLAYURL': { ID: 21, KEY: 'displayurl', TYPE: 11 },
-  'CTA': { ID: 22, KEY: 'cta', TYPE: 12 }
+  'TITLE': {ID: 1, KEY: 'title', TYPE: 0},
+  'IMAGE': {ID: 2, KEY: 'image', TYPE: 0},
+  'ICON': {ID: 3, KEY: 'icon', TYPE: 0},
+  'SPONSOREDBY': {ID: 4, KEY: 'sponsoredBy', TYPE: 1}, // please note that type of SPONSORED is also 1
+  'BODY': {ID: 5, KEY: 'body', TYPE: 2}, // please note that type of DESC is also set to 2
+  'CLICKURL': {ID: 6, KEY: 'clickUrl', TYPE: 0},
+  'VIDEO': {ID: 7, KEY: 'video', TYPE: 0},
+  'EXT': {ID: 8, KEY: 'ext', TYPE: 0},
+  'DATA': {ID: 9, KEY: 'data', TYPE: 0},
+  'LOGO': {ID: 10, KEY: 'logo', TYPE: 0},
+  'SPONSORED': {ID: 11, KEY: 'sponsored', TYPE: 1}, // please note that type of SPONSOREDBY is also set to 1
+  'DESC': {ID: 12, KEY: 'data', TYPE: 2}, // please note that type of BODY is also set to 2
+  'RATING': {ID: 13, KEY: 'rating', TYPE: 3},
+  'LIKES': {ID: 14, KEY: 'likes', TYPE: 4},
+  'DOWNLOADS': {ID: 15, KEY: 'downloads', TYPE: 5},
+  'PRICE': {ID: 16, KEY: 'price', TYPE: 6},
+  'SALEPRICE': {ID: 17, KEY: 'saleprice', TYPE: 7},
+  'PHONE': {ID: 18, KEY: 'phone', TYPE: 8},
+  'ADDRESS': {ID: 19, KEY: 'address', TYPE: 9},
+  'DESC2': {ID: 20, KEY: 'desc2', TYPE: 10},
+  'DISPLAYURL': {ID: 21, KEY: 'displayurl', TYPE: 11},
+  'CTA': {ID: 22, KEY: 'cta', TYPE: 12}
 };
 
 function _getDomainFromURL(url) {
-  const anchor = document.createElement('a');
+  let anchor = document.createElement('a');
   anchor.href = url;
   return anchor.hostname;
 }
 
-const platform = (function getPlatform() {
+let platform = (function getPlatform() {
   var ua = navigator.userAgent;
   if (ua.indexOf('Android') > -1 || ua.indexOf('Adr') > -1) {
     return 'Android'
@@ -96,7 +94,7 @@ function _generateGUID() {
   var guid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     var r = (d + Math.random() * 16) % 16 | 0;
     d = Math.floor(d / 16);
-    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
   })
   return guid;
 }
@@ -169,7 +167,7 @@ function _createOrtbTemplate(conf) {
       ua: navigator.userAgent,
       os: platform,
       js: 1,
-      dnt: getDNT() ? 1 : 0,
+      dnt: (navigator.doNotTrack == 'yes' || navigator.doNotTrack == '1' || navigator.msDoNotTrack == '1') ? 1 : 0,
       h: screen.height,
       w: screen.width,
       language: _getLanguage(),
@@ -220,7 +218,7 @@ function _parseNativeResponse(bid, newBid) {
     try {
       adm = JSON.parse(bid.adm.replace(/\\/g, ''));
     } catch (ex) {
-      // logWarn(LOG_WARN_PREFIX + 'Error: Cannot parse native response for ad response: ' + newBid.adm);
+      // logWarn(LOG_WARN_PREFIX + 'Error: Cannot parse native reponse for ad response: ' + newBid.adm);
       return;
     }
     if (adm && adm.native && adm.native.assets && adm.native.assets.length > 0) {
@@ -299,7 +297,7 @@ function _createBannerRequest(bid) {
       format = [];
       sizes.forEach(function (size) {
         if (size.length > 1) {
-          format.push({ w: size[0], h: size[1] });
+          format.push({w: size[0], h: size[1]});
         }
       });
       if (format.length > 0) {
@@ -359,7 +357,7 @@ function _checkMediaType(adm, newBid) {
         newBid.mediaType = NATIVE;
       }
     } catch (e) {
-      logWarn(LOG_WARN_PREFIX + 'Error: Cannot parse native response for ad response: ' + adm);
+      logWarn(LOG_WARN_PREFIX + 'Error: Cannot parse native reponse for ad response: ' + adm);
     }
   }
 }
@@ -400,7 +398,7 @@ function _createImpressionObject(bid, conf) {
     }
   } else {
     // mediaTypes is not present, so this is a banner only impression
-    // this part of code is required for older testcases with no 'mediaTypes' to run successfully.
+    // this part of code is required for older testcases with no 'mediaTypes' to run succesfully.
     bannerObj = {
       pos: 0,
       w: bid.params.width,
@@ -460,8 +458,8 @@ export const spec = {
     if (bidderRequest && bidderRequest.refererInfo) {
       refererInfo = bidderRequest.refererInfo;
     }
-    const conf = _initConf(refererInfo);
-    const payload = _createOrtbTemplate(conf);
+    let conf = _initConf(refererInfo);
+    let payload = _createOrtbTemplate(conf);
     let bidCurrency = '';
     let bid;
     validBidRequests.forEach(originalBid => {
@@ -484,7 +482,7 @@ export const spec = {
         payload.imp.push(impObj);
       }
     });
-    if (payload.imp.length === 0) {
+    if (payload.imp.length == 0) {
       return;
     }
     publisherId = conf.pubId.trim();
@@ -515,9 +513,8 @@ export const spec = {
       payload.test = 1;
     }
     // adding schain object
-    const schain = validBidRequests[0]?.ortb2?.source?.ext?.schain;
-    if (schain) {
-      deepSetValue(payload, 'source.ext.schain', schain);
+    if (validBidRequests[0].schain) {
+      deepSetValue(payload, 'source.ext.schain', validBidRequests[0].schain);
     }
     // Attaching GDPR Consent Params
     if (bidderRequest && bidderRequest.gdprConsent) {
@@ -544,8 +541,8 @@ export const spec = {
   interpretResponse: function (serverResponses, bidderRequest) {
     const bidResponses = [];
     var respCur = ADTRUE_CURRENCY;
-    const parsedRequest = JSON.parse(bidderRequest.data);
-    const parsedReferrer = parsedRequest.site && parsedRequest.site.ref ? parsedRequest.site.ref : '';
+    let parsedRequest = JSON.parse(bidderRequest.data);
+    let parsedReferrer = parsedRequest.site && parsedRequest.site.ref ? parsedRequest.site.ref : '';
     try {
       if (serverResponses.body && serverResponses.body.seatbid && isArray(serverResponses.body.seatbid)) {
         // Supporting multiple bid responses for same adSize
@@ -554,7 +551,7 @@ export const spec = {
           seatbidder.bid &&
           isArray(seatbidder.bid) &&
           seatbidder.bid.forEach(bid => {
-            const newBid = {
+            let newBid = {
               requestId: bid.impid,
               cpm: (parseFloat(bid.price) || 0).toFixed(2),
               width: bid.w,
@@ -615,9 +612,9 @@ export const spec = {
       return [];
     }
     return responses.reduce((accum, rsp) => {
-      const cookieSyncs = deepAccess(rsp, 'body.ext.cookie_sync');
+      let cookieSyncs = deepAccess(rsp, 'body.ext.cookie_sync');
       if (cookieSyncs) {
-        const cookieSyncObjects = cookieSyncs.map(cookieSync => {
+        let cookieSyncObjects = cookieSyncs.map(cookieSync => {
           return {
             type: SYNC_TYPES[cookieSync.type],
             url: cookieSync.url +
@@ -631,7 +628,6 @@ export const spec = {
         });
         return accum.concat(cookieSyncObjects);
       }
-      return accum;
     }, []);
   }
 };

@@ -6,11 +6,12 @@
 
 import adapterManager from '../src/adapterManager.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
-import { loadExternalScript } from '../src/adloader.js';
-import { auctionManager } from '../src/auctionManager.js';
-import { AUCTION_COMPLETED } from '../src/auction.js';
-import { EVENTS } from '../src/constants.js';
-import { getRefererInfo } from '../src/refererDetection.js';
+import {loadExternalScript} from '../src/adloader.js';
+import {auctionManager} from '../src/auctionManager.js';
+import {AUCTION_COMPLETED} from '../src/auction.js';
+import CONSTANTS from '../src/constants.json';
+import {find} from '../src/polyfill.js';
+import {getRefererInfo} from '../src/refererDetection.js';
 import {
   deepAccess,
   getUniqueIdentifierStr,
@@ -26,8 +27,7 @@ import {
   mergeDeep,
   parseUrl
 } from '../src/utils.js';
-import { getGptSlotInfoForAdUnitCode } from '../libraries/gptUtils/gptUtils.js';
-import { MODULE_TYPE_ANALYTICS } from '../src/activities/modules.js';
+import {getGptSlotInfoForAdUnitCode} from '../libraries/gptUtils/gptUtils.js';
 
 const MODULE = 'adlooxAnalyticsAdapter';
 
@@ -57,15 +57,15 @@ MACRO['targetelt'] = function(b, c) {
   return c.toselector(b);
 };
 MACRO['creatype'] = function(b, c) {
-  return b.mediaType === 'video' ? ADLOOX_MEDIATYPE.VIDEO : ADLOOX_MEDIATYPE.DISPLAY;
+  return b.mediaType == 'video' ? ADLOOX_MEDIATYPE.VIDEO : ADLOOX_MEDIATYPE.DISPLAY;
 };
 MACRO['pageurl'] = function(b, c) {
   const refererInfo = getRefererInfo();
   return (refererInfo.page || '').substr(0, 300).split(/[?#]/)[0];
 };
 MACRO['gpid'] = function(b, c) {
-  const adUnit = ((auctionManager.getAdUnits()) || []).find(a => b.adUnitCode === a.code);
-  return deepAccess(adUnit, 'ortb2Imp.ext.gpid') || getGptSlotInfoForAdUnitCode(b.adUnitCode).gptSlot || b.adUnitCode;
+  const adUnit = find(auctionManager.getAdUnits(), a => b.adUnitCode === a.code);
+  return deepAccess(adUnit, 'ortb2Imp.ext.gpid') || deepAccess(adUnit, 'ortb2Imp.ext.data.pbadslot') || getGptSlotInfoForAdUnitCode(b.adUnitCode).gptSlot || b.adUnitCode;
 };
 MACRO['pbAdSlot'] = MACRO['pbadslot'] = MACRO['gpid']; // legacy
 
@@ -80,7 +80,9 @@ const PARAMS_DEFAULT = {
   'id11': '$ADLOOX_WEBSITE'
 };
 
-const analyticsAdapter = Object.assign(adapter({ analyticsType: 'endpoint' }), {
+const NOOP = function() {};
+
+let analyticsAdapter = Object.assign(adapter({ analyticsType: 'endpoint' }), {
   track({ eventType, args }) {
     if (!analyticsAdapter[`handle_${eventType}`]) return;
 
@@ -104,10 +106,6 @@ analyticsAdapter.enableAnalytics = function(config) {
   }
   if (!(config.options.js === undefined || isStr(config.options.js))) {
     logError(MODULE, 'invalid js options value');
-    return;
-  }
-  if (isStr(config.options.js) && !/\.adlooxtracking\.(com|ru)$/.test(parseUrl(config.options.js, { 'noDecodeWholeURL': true }).host)) {
-    logError(MODULE, "invalid js options value, must be a sub-domain of 'adlooxtracking.com'");
     return;
   }
   if (!(config.options.toselector === undefined || isFn(config.options.toselector))) {
@@ -159,9 +157,9 @@ analyticsAdapter.enableAnalytics = function(config) {
     .keys(config.options.params)
     .forEach(k => {
       if (!Array.isArray(config.options.params[k])) {
-        config.options.params[k] = [config.options.params[k]];
+        config.options.params[k] = [ config.options.params[k] ];
       }
-      config.options.params[k].forEach(v => analyticsAdapter.context.params.push([k, v]));
+      config.options.params[k].forEach(v => analyticsAdapter.context.params.push([ k, v ]));
     });
 
   Object.keys(COMMAND_QUEUE).forEach(commandProcess);
@@ -172,9 +170,8 @@ analyticsAdapter.enableAnalytics = function(config) {
 analyticsAdapter.originDisableAnalytics = analyticsAdapter.disableAnalytics;
 analyticsAdapter.disableAnalytics = function() {
   analyticsAdapter.context = null;
-  if (this.enabled) {
-    analyticsAdapter.originDisableAnalytics();
-  }
+
+  analyticsAdapter.originDisableAnalytics();
 }
 
 analyticsAdapter.url = function(url, args, bid) {
@@ -223,27 +220,22 @@ analyticsAdapter.url = function(url, args, bid) {
   return url + a2qs(args);
 }
 
-const preloaded = {};
-analyticsAdapter[`handle_${EVENTS.AUCTION_END}`] = function(auctionDetails) {
-  if (!(auctionDetails.auctionStatus === AUCTION_COMPLETED && auctionDetails.bidsReceived.length > 0)) return;
-
-  const uri = parseUrl(analyticsAdapter.url(`${analyticsAdapter.context.js}#`));
-  const href = `${uri.protocol}://${uri.host}${uri.pathname}`;
-  if (preloaded[href]) return;
+analyticsAdapter[`handle_${CONSTANTS.EVENTS.AUCTION_END}`] = function(auctionDetails) {
+  if (!(auctionDetails.auctionStatus == AUCTION_COMPLETED && auctionDetails.bidsReceived.length > 0)) return;
+  analyticsAdapter[`handle_${CONSTANTS.EVENTS.AUCTION_END}`] = NOOP;
 
   logMessage(MODULE, 'preloading verification JS');
 
+  const uri = parseUrl(analyticsAdapter.url(`${analyticsAdapter.context.js}#`));
+
   const link = document.createElement('link');
-  link.setAttribute('href', href);
+  link.setAttribute('href', `${uri.protocol}://${uri.host}${uri.pathname}`);
   link.setAttribute('rel', 'preload');
   link.setAttribute('as', 'script');
-  // TODO fix rules violation
   insertElement(link);
-
-  preloaded[href] = true;
 }
 
-analyticsAdapter[`handle_${EVENTS.BID_WON}`] = function(bid) {
+analyticsAdapter[`handle_${CONSTANTS.EVENTS.BID_WON}`] = function(bid) {
   if (deepAccess(bid, 'ext.adloox.video.adserver')) {
     logMessage(MODULE, `measuring '${bid.mediaType}' ad unit code '${bid.adUnitCode}' via Ad Server module`);
     return;
@@ -262,14 +254,14 @@ analyticsAdapter[`handle_${EVENTS.BID_WON}`] = function(bid) {
   logMessage(MODULE, `measuring '${bid.mediaType}' unit at '${bid.adUnitCode}'`);
 
   const params = analyticsAdapter.context.params.concat([
-    ['tagid', '%%tagid%%'],
-    ['platform', '%%platformid%%'],
-    ['fwtype', 4],
-    ['targetelt', '%%targetelt%%'],
-    ['creatype', '%%creatype%%']
+    [ 'tagid', '%%tagid%%' ],
+    [ 'platform', '%%platformid%%' ],
+    [ 'fwtype', 4 ],
+    [ 'targetelt', '%%targetelt%%' ],
+    [ 'creatype', '%%creatype%%' ]
   ]);
 
-  loadExternalScript(analyticsAdapter.url(`${analyticsAdapter.context.js}#`, params, bid), MODULE_TYPE_ANALYTICS, 'adloox');
+  loadExternalScript(analyticsAdapter.url(`${analyticsAdapter.context.js}#`, params, bid), 'adloox');
 }
 
 adapterManager.registerAnalyticsAdapter({

@@ -215,7 +215,7 @@ describe('bigRichMediaAdapterTests', function () {
           adUnitCode: 'code'
         }]
       };
-      const result = spec.interpretResponse({ body: response }, { bidderRequest });
+      const result = spec.interpretResponse({ body: response }, {bidderRequest});
       expect(Object.keys(result[0])).to.have.members(Object.keys(expectedResponse[0]));
     });
 
@@ -249,7 +249,7 @@ describe('bigRichMediaAdapterTests', function () {
           }]
         }
 
-        const result = spec.interpretResponse({ body: response }, { bidderRequest });
+        const result = spec.interpretResponse({ body: response }, {bidderRequest});
         expect(result[0]).not.to.have.property('vastXml');
         expect(result[0]).not.to.have.property('vastUrl');
         expect(result[0]).to.have.property('width', 1);
@@ -268,6 +268,38 @@ describe('bigRichMediaAdapterTests', function () {
       const serverResponse = [{ body: '' }];
       const result = spec.getUserSyncs(syncOptions, serverResponse);
       expect(result).to.be.undefined;
+    });
+  });
+
+  describe('transformBidParams', function() {
+    it('cast placementId to number', function() {
+      const adUnit = {
+        code: 'adunit-code',
+        params: {
+          placementId: '456'
+        }
+      };
+      const bid = {
+        params: {
+          placementId: '456'
+        },
+        sizes: [[300, 250]],
+        mediaTypes: {
+          banner: { sizes: [[300, 250]] }
+        }
+      };
+
+      const params = spec.transformBidParams({ placementId: '456' }, true, adUnit, [{ bidderCode: 'bigRichmedia', auctionId: bid.auctionId, bids: [bid] }]);
+
+      expect(params.placement_id).to.exist;
+      expect(params.placement_id).to.be.a('number');
+    });
+  });
+
+  describe('onBidWon', function() {
+    it('Should not have any error', function() {
+      const result = spec.onBidWon({});
+      expect(true).to.be.true;
     });
   });
 });

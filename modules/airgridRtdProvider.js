@@ -5,19 +5,15 @@
  * @module modules/airgridRtdProvider
  * @requires module:modules/realTimeData
  */
-import { submodule } from '../src/hook.js';
-import { deepAccess, deepSetValue, mergeDeep } from '../src/utils.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { loadExternalScript } from '../src/adloader.js';
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
+import {submodule} from '../src/hook.js';
+import {deepAccess, deepSetValue, mergeDeep} from '../src/utils.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {loadExternalScript} from '../src/adloader.js';
+import {MODULE_TYPE_RTD} from '../src/activities/modules.js';
 
 const MODULE_NAME = 'realTimeData';
 const SUBMODULE_NAME = 'airgrid';
-const MIQ_TCF_ID = 101;
+const AG_TCF_ID = 782;
 export const AG_AUDIENCE_IDS_KEY = 'edkt_matched_audience_ids';
 
 export const storage = getStorageManager({
@@ -43,7 +39,7 @@ export function attachScriptTagToDOM(rtdConfig) {
     edktInitializor.apiKey = rtdConfig.params.apiKey;
     edktInitializor.invoked = true;
     const moduleSrc = getModuleUrl(rtdConfig.params.accountId);
-    loadExternalScript(moduleSrc, MODULE_TYPE_RTD, SUBMODULE_NAME);
+    loadExternalScript(moduleSrc, SUBMODULE_NAME);
   }
 }
 
@@ -76,12 +72,12 @@ export function setAudiencesAsBidderOrtb2(bidConfig, rtdConfig, audiences) {
 
   const agUserData = [
     {
-      id: String(MIQ_TCF_ID),
+      id: String(AG_TCF_ID),
       ext: {
         segtax: 540,
       },
       name: 'airgrid',
-      segment: audiences.map((id) => ({ id }))
+      segment: audiences.map((id) => ({id}))
     }
   ]
   deepSetValue(agOrtb2, 'user.data', agUserData);
@@ -105,7 +101,7 @@ function init(rtdConfig, userConsent) {
 
 /**
  * Real-time data retrieval from AirGrid
- * @param {Object} bidConfig
+ * @param {Object} reqBidsConfigObj
  * @param {function} onDone
  * @param {Object} rtdConfig
  * @param {Object} userConsent
@@ -129,7 +125,7 @@ export const airgridSubmodule = {
   name: SUBMODULE_NAME,
   init: init,
   getBidRequestData: passAudiencesToBidders,
-  gvlid: MIQ_TCF_ID
+  gvlid: AG_TCF_ID
 };
 
 submodule(MODULE_NAME, airgridSubmodule);

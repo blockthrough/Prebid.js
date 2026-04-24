@@ -16,11 +16,9 @@ const NATIVE_DEFAULTS = {
 };
 
 const BIDDER_CODE = 'readpeak';
-const GVLID = 290;
 
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
 
   supportedMediaTypes: [NATIVE, BANNER],
 
@@ -136,9 +134,9 @@ function impression(slot) {
     const floorInfo = slot.getFloor({
       currency: 'USD',
       mediaType: 'native',
-      size: '*'
+      size: '\*'
     });
-    bidFloorFromModule = floorInfo?.currency === 'USD' ? floorInfo?.floor : undefined;
+    bidFloorFromModule = floorInfo.currency === 'USD' ? floorInfo.floor : undefined;
   }
   const imp = {
     id: slot.bidId,
@@ -219,27 +217,27 @@ function titleAsset(id, params, defaultLen) {
 function imageAsset(id, params, type, defaultMinWidth, defaultMinHeight) {
   return params
     ? {
-        id,
-        required: params.required ? 1 : 0,
-        img: {
-          type,
-          wmin: params.wmin || defaultMinWidth,
-          hmin: params.hmin || defaultMinHeight
-        }
+      id,
+      required: params.required ? 1 : 0,
+      img: {
+        type,
+        wmin: params.wmin || defaultMinWidth,
+        hmin: params.hmin || defaultMinHeight
       }
+    }
     : null;
 }
 
 function dataAsset(id, params, type, defaultLen) {
   return params
     ? {
-        id,
-        required: params.required ? 1 : 0,
-        data: {
-          type,
-          len: params.len || defaultLen
-        }
+      id,
+      required: params.required ? 1 : 0,
+      data: {
+        type,
+        len: params.len || defaultLen
       }
+    }
     : null;
 }
 
@@ -294,12 +292,12 @@ function app(bidderRequest) {
 }
 
 function isMobile() {
-  return /(ios|ipod|ipad|iphone|android)/i.test(window.navigator.userAgent);
+  return /(ios|ipod|ipad|iphone|android)/i.test(global.navigator.userAgent);
 }
 
 function isConnectedTV() {
   return /(smart[-]?tv|hbbtv|appletv|googletv|hdmi|netcast\.tv|viera|nettv|roku|\bdtv\b|sonydtv|inettvbrowser|\btv\b)/i.test(
-    window.navigator.userAgent
+    global.navigator.userAgent
   );
 }
 
@@ -343,15 +341,15 @@ function nativeResponse(imp, bid) {
         keys.image =
           asset.img && asset.id === 2
             ? {
-                url: asset.img.url,
-                width: asset.img.w || 750,
-                height: asset.img.h || 500
-              }
+              url: asset.img.url,
+              width: asset.img.w || 750,
+              height: asset.img.h || 500
+            }
             : keys.image;
         keys.cta = asset.data && asset.id === 5 ? asset.data.value : keys.cta;
       });
       if (nativeAd.link) {
-        keys.clickUrl = nativeAd.link.url;
+        keys.clickUrl = encodeURIComponent(nativeAd.link.url);
       }
       const trackers = nativeAd.imptrackers || [];
       trackers.unshift(replaceAuctionPrice(bid.burl, bid.price));

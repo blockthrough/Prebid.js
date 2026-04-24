@@ -1,17 +1,20 @@
-import { getBidRequest } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { ajax } from '../src/ajax.js';
-import { hasPurpose1Consent } from '../src/utils/gdpr.js';
-import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { getANKeywordParam } from '../libraries/appnexusUtils/anKeywords.js';
-import { interpretResponseUtil } from '../libraries/interpretResponseUtils/index.js';
+import {getBidRequest, logError} from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER, NATIVE, VIDEO} from '../src/mediaTypes.js';
+import {auctionManager} from '../src/auctionManager.js';
+import {find, includes} from '../src/polyfill.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {ajax} from '../src/ajax.js';
+import {hasPurpose1Consent} from '../src/utils/gpdr.js';
+import {convertOrtbRequestToProprietaryNative} from '../src/native.js';
+import {getANKeywordParam, transformBidderParamKeywords} from '../libraries/appnexusUtils/anKeywords.js';
+import {convertCamelToUnderscore} from '../libraries/appnexusUtils/anUtils.js';
+import {convertTypes} from '../libraries/transformParamsUtils/convertTypes.js';
 
 const BIDDER_CODE = 'craft';
 const URL_BASE = 'https://gacraft.jp/prebid-v3';
 const TTL = 360;
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 export const spec = {
   code: BIDDER_CODE,
@@ -25,19 +28,16 @@ export const spec = {
   buildRequests: function(bidRequests, bidderRequest) {
     // convert Native ORTB definition to old-style prebid native definition
     bidRequests = convertOrtbRequestToProprietaryNative(bidRequests);
-    const bidRequest = bidRequests[0] || {};
+    const bidRequest = bidRequests[0];
     const tags = bidRequests.map(bidToTag);
-    const schain = bidRequest.ortb2?.source?.ext?.schain;
+    const schain = bidRequest.schain;
     const payload = {
       tags: [...tags],
       ua: navigator.userAgent,
       sdk: {
-        version: '$prebid.version$',
+        version: '$prebid.version$'
       },
-      schain: schain,
-      user: {
-        eids: bidRequest.userIdAsEids,
-      },
+      schain: schain
     };
     if (bidderRequest) {
       if (bidderRequest.gdprConsent) {
@@ -50,11 +50,11 @@ export const spec = {
         payload.us_privacy = bidderRequest.uspConsent;
       }
       if (bidderRequest.refererInfo) {
-        const refererinfo = {
+        let refererinfo = {
           // TODO: this collects everything it finds, except for the canonical URL
           rd_ref: bidderRequest.refererInfo.topmostLocation,
           rd_top: bidderRequest.refererInfo.reachedTop,
-          rd_ifs: bidderRequest.refererInfo.numIframes
+          rd_ifs: bidderRequest.refererInfo.numIframes,
         };
         if (bidderRequest.refererInfo.stack) {
           refererinfo.rd_stk = bidderRequest.refererInfo.stack.join(',');
@@ -69,20 +69,55 @@ export const spec = {
     return request;
   },
 
-  interpretResponse: function(serverResponse, { bidderRequest }) {
+  interpretResponse: function(serverResponse, {bidderRequest}) {
     try {
-      const bids = interpretResponseUtil(serverResponse, { bidderRequest }, serverBid => {
-        const rtbBid = getRtbBid(serverBid);
-        if (rtbBid && rtbBid.cpm !== 0 && this.supportedMediaTypes.includes(rtbBid.ad_type)) {
-          const bid = newBid(serverBid, rtbBid, bidderRequest);
-          bid.mediaType = parseMediaType(rtbBid);
-          return bid;
+      serverResponse = serverResponse.body;
+      const bids = [];
+      if (!serverResponse) {
+        return [];
+      }
+      if (serverResponse.error) {
+        let errorMessage = `in response for ${bidderRequest.bidderCode} adapter`;
+        if (serverResponse.error) {
+          errorMessage += `: ${serverResponse.error}`;
         }
-      });
+        logError(errorMessage);
+        return bids;
+      }
+      if (serverResponse.tags) {
+        serverResponse.tags.forEach(serverBid => {
+          const rtbBid = getRtbBid(serverBid);
+          if (rtbBid) {
+            if (rtbBid.cpm !== 0 && includes(this.supportedMediaTypes, rtbBid.ad_type)) {
+              const bid = newBid(serverBid, rtbBid, bidderRequest);
+              bid.mediaType = parseMediaType(rtbBid);
+              bids.push(bid);
+            }
+          }
+        });
+      }
       return bids;
     } catch (e) {
       return [];
     }
+  },
+
+  transformBidParams: function(params, isOpenRtb) {
+    params = convertTypes({
+      'sitekey': 'string',
+      'placementId': 'string',
+      'keywords': transformBidderParamKeywords,
+    }, params);
+    if (isOpenRtb) {
+      Object.keys(params).forEach(paramKey => {
+        let convertedKey = convertCamelToUnderscore(paramKey);
+        if (convertedKey !== paramKey) {
+          params[convertedKey] = params[paramKey];
+          delete params[paramKey];
+        }
+      });
+    }
+    return params;
   },
 
   onBidWon: function(bid) {
@@ -122,7 +157,7 @@ function newBid(serverBid, rtbBid, bidderRequest) {
     ad: rtbBid.rtb.banner.content,
     ttl: TTL,
     creativeId: rtbBid.creative_id,
-    netRevenue: true,
+    netRevenue: false, // ???
     dealId: rtbBid.deal_id,
     meta: null,
     _adUnitCode: bidRequest.adUnitCode,
@@ -151,9 +186,12 @@ function bidToTag(bid) {
   if (keywords.length) {
     tag.keywords = keywords;
   }
-  if (bid.mediaTypes?.banner) {
+  // TODO: why does this need to iterate through every ad unit?
+  let adUnit = find(auctionManager.getAdUnits(), au => bid.transactionId === au.transactionId);
+  if (adUnit && adUnit.mediaTypes && adUnit.mediaTypes.banner) {
     tag.ad_types.push(BANNER);
   }
+
   if (tag.ad_types.length === 0) {
     delete tag.ad_types;
   }
@@ -162,7 +200,7 @@ function bidToTag(bid) {
 }
 
 function getRtbBid(tag) {
-  return tag && tag.ads && tag.ads.length && ((tag.ads) || []).find(ad => ad.rtb);
+  return tag && tag.ads && tag.ads.length && find(tag.ads, ad => ad.rtb);
 }
 
 function parseMediaType(rtbBid) {

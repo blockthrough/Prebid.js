@@ -1,7 +1,7 @@
 import { deepAccess, logError } from '../src/utils.js';
-import { Renderer } from '../src/Renderer.js'
-import { registerBidder } from '../src/adapters/bidderFactory.js'
-import { VIDEO, BANNER } from '../src/mediaTypes.js'
+import {Renderer} from '../src/Renderer.js'
+import {registerBidder} from '../src/adapters/bidderFactory.js'
+import {VIDEO, BANNER} from '../src/mediaTypes.js'
 
 function configureUniversalTag(exchangeRenderer, requestId) {
   if (!exchangeRenderer.config) throw new Error('UnrulyBidAdapter: Missing renderer config.');
@@ -31,7 +31,7 @@ const addBidFloorInfo = (validBid) => {
         currency: 'USD',
         mediaType: key,
         size: '*'
-      })?.floor || 0;
+      }).floor || 0;
     } else {
       floor = validBid.params.floor || 0;
     }
@@ -41,10 +41,10 @@ const addBidFloorInfo = (validBid) => {
 };
 
 const RemoveDuplicateSizes = (validBid) => {
-  const bannerMediaType = deepAccess(validBid, 'mediaTypes.banner');
+  let bannerMediaType = deepAccess(validBid, 'mediaTypes.banner');
   if (bannerMediaType) {
-    const seenSizes = {};
-    const newSizesArray = [];
+    let seenSizes = {};
+    let newSizesArray = [];
     bannerMediaType.sizes.forEach((size) => {
       if (!seenSizes[size.toString()]) {
         seenSizes[size.toString()] = true;
@@ -57,9 +57,9 @@ const RemoveDuplicateSizes = (validBid) => {
 };
 
 const getRequests = (conf, validBidRequests, bidderRequest) => {
-  const { bids, bidderRequestId, bidderCode, ...bidderRequestData } = bidderRequest;
+  const {bids, bidderRequestId, bidderCode, ...bidderRequestData} = bidderRequest;
   const invalidBidsCount = bidderRequest.bids.length - validBidRequests.length;
-  const requestBySiteId = {};
+  let requestBySiteId = {};
 
   validBidRequests.forEach((validBid) => {
     const currSiteId = validBid.params.siteId;
@@ -69,37 +69,30 @@ const getRequests = (conf, validBidRequests, bidderRequest) => {
     requestBySiteId[currSiteId].push(validBid);
   });
 
-  const request = [];
+  let request = [];
 
   Object.keys(requestBySiteId).forEach((key) => {
-    const data = {
-      bidderRequest: Object.assign({},
-        {
-          bids: requestBySiteId[key],
-          invalidBidsCount,
-          prebidVersion: '$prebid.version$',
-          ...bidderRequestData
-        }
-      )
+    let data = {
+      bidderRequest: Object.assign({}, {bids: requestBySiteId[key], invalidBidsCount, ...bidderRequestData})
     };
 
-    request.push(Object.assign({}, { data, ...conf }));
+    request.push(Object.assign({}, {data, ...conf}));
   });
 
   return request;
 };
 
 const handleBidResponseByMediaType = (bids) => {
-  const bidResponses = [];
+  let bidResponses = [];
 
   bids.forEach((bid) => {
     let parsedBidResponse;
-    const bidMediaType = deepAccess(bid, 'meta.mediaType');
+    let bidMediaType = deepAccess(bid, 'meta.mediaType');
     if (bidMediaType && bidMediaType.toLowerCase() === 'banner') {
       bid.mediaType = BANNER;
       parsedBidResponse = handleBannerBid(bid);
     } else if (bidMediaType && bidMediaType.toLowerCase() === 'video') {
-      const context = deepAccess(bid, 'meta.videoContext');
+      let context = deepAccess(bid, 'meta.videoContext');
       bid.mediaType = VIDEO;
       if (context === 'instream') {
         parsedBidResponse = handleInStreamBid(bid);
@@ -202,8 +195,8 @@ export const adapter = {
   supportedMediaTypes: [VIDEO, BANNER],
   gvlid: 36,
   isBidRequestValid: function (bid) {
-    const siteId = deepAccess(bid, 'params.siteId');
-    const isBidValid = siteId && isMediaTypesValid(bid);
+    let siteId = deepAccess(bid, 'params.siteId');
+    let isBidValid = siteId && isMediaTypesValid(bid);
     return !!isBidValid;
   },
 
@@ -213,24 +206,21 @@ export const adapter = {
       endPoint = deepAccess(validBidRequests[0], 'params.endpoint') || endPoint;
     }
 
-    return getRequests({
-      'url': endPoint,
-      'method': 'POST',
-      'options': {
-        'contentType': 'application/json'
-      },
-    }, validBidRequests, bidderRequest);
+    const url = endPoint;
+    const method = 'POST';
+    const options = {contentType: 'application/json'};
+    return getRequests({url, method, options}, validBidRequests, bidderRequest);
   },
 
-  interpretResponse: function (serverResponse) {
-    if (!(serverResponse && serverResponse.body && serverResponse.body.bids)) {
-      return [];
-    }
-
+  interpretResponse: function (serverResponse = {}) {
     const serverResponseBody = serverResponse.body;
-    const bids = handleBidResponseByMediaType(serverResponseBody.bids);
 
-    return bids;
+    const noBidsResponse = [];
+    const isInvalidResponse = !serverResponseBody || !serverResponseBody.bids;
+
+    return isInvalidResponse
+      ? noBidsResponse
+      : handleBidResponseByMediaType(serverResponseBody.bids);
   }
 };
 

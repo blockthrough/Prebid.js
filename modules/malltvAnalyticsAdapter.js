@@ -1,18 +1,20 @@
-import { ajax } from '../src/ajax.js'
+import {ajax} from '../src/ajax.js'
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js'
-import { EVENTS } from '../src/constants.js'
+import CONSTANTS from '../src/constants.json'
 import adapterManager from '../src/adapterManager.js'
-import { getGlobal } from '../src/prebidGlobal.js'
-import { logInfo, logError, deepClone } from '../src/utils.js'
+import {getGlobal} from '../src/prebidGlobal.js'
+import {logInfo, logError, deepClone} from '../src/utils.js'
 
 const analyticsType = 'endpoint'
 export const ANALYTICS_VERSION = '1.0.0'
 export const DEFAULT_SERVER = 'https://central.mall.tv/analytics'
 
 const {
-  AUCTION_END,
-  BID_TIMEOUT
-} = EVENTS
+  EVENTS: {
+    AUCTION_END,
+    BID_TIMEOUT
+  }
+} = CONSTANTS
 
 export const BIDDER_STATUS = {
   BID: 1,
@@ -32,7 +34,7 @@ export const getCpmInEur = function (bid) {
 const analyticsOptions = {}
 
 export const parseBidderCode = function (bid) {
-  const bidderCode = bid.bidderCode || bid.bidder
+  let bidderCode = bid.bidderCode || bid.bidder
   return bidderCode.toLowerCase()
 }
 
@@ -40,7 +42,7 @@ export const parseAdUnitCode = function (bidResponse) {
   return bidResponse.adUnitCode.toLowerCase()
 }
 
-export const malltvAnalyticsAdapter = Object.assign(adapter({ DEFAULT_SERVER, analyticsType }), {
+export const malltvAnalyticsAdapter = Object.assign(adapter({DEFAULT_SERVER, analyticsType}), {
 
   cachedAuctions: {},
 
@@ -62,7 +64,7 @@ export const malltvAnalyticsAdapter = Object.assign(adapter({ DEFAULT_SERVER, an
 
     return true
   },
-  track({ eventType, args }) {
+  track({eventType, args}) {
     switch (eventType) {
       case BID_TIMEOUT:
         this.handleBidTimeout(args)
@@ -86,7 +88,7 @@ export const malltvAnalyticsAdapter = Object.assign(adapter({ DEFAULT_SERVER, an
     )
   },
   createBidMessage(auctionEndArgs, winningBids, timeoutBids) {
-    const { auctionId, timestamp, timeout, auctionEnd, adUnitCodes, bidsReceived, noBids } = auctionEndArgs
+    const {auctionId, timestamp, timeout, auctionEnd, adUnitCodes, bidsReceived, noBids} = auctionEndArgs
     const message = this.createCommonMessage(auctionId)
 
     message.auctionElapsed = (auctionEnd - timestamp)

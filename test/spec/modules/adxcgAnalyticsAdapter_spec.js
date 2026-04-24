@@ -2,9 +2,9 @@ import adxcgAnalyticsAdapter from 'modules/adxcgAnalyticsAdapter.js';
 import { expect } from 'chai';
 import adapterManager from 'src/adapterManager.js';
 import { server } from 'test/mocks/xhr.js';
-import { EVENTS } from 'src/constants.js';
 
-const events = require('src/events');
+let events = require('src/events');
+let constants = require('src/constants.json');
 
 describe('adxcg analytics adapter', function () {
   beforeEach(function () {
@@ -16,14 +16,14 @@ describe('adxcg analytics adapter', function () {
   });
 
   describe('track', function () {
-    const initOptions = {
+    let initOptions = {
       publisherId: '42'
     };
 
-    const auctionTimestamp = 1496510254313;
+    let auctionTimestamp = 1496510254313;
 
     // prepare general auction - request and response
-    const bidRequest = {
+    let bidRequest = {
       'bidderCode': 'appnexus',
       'bids': [{
         'params': {
@@ -38,8 +38,9 @@ describe('adxcg analytics adapter', function () {
       ]
     };
 
-    const bidResponse = {
+    let bidResponse = {
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '2eddfdc0c791dc',
       'mediaType': 'banner',
       'source': 'client',
@@ -59,7 +60,7 @@ describe('adxcg analytics adapter', function () {
     };
 
     // what we expect after general auction
-    const expectedAfterBid = {
+    let expectedAfterBid = {
       'bidRequests': [
         {
           'bidderCode': 'appnexus',
@@ -80,6 +81,7 @@ describe('adxcg analytics adapter', function () {
         {
           'adUnitCode': 'div-gpt-ad-1438287399331-0',
           'bidderCode': 'appnexus',
+          'statusMessage': 'Bid available',
           'mediaType': 'banner',
           'renderedSize': '300x250',
           'cpm': 0.5,
@@ -98,7 +100,7 @@ describe('adxcg analytics adapter', function () {
     };
 
     // lets simulate that some bidders timeout
-    const bidTimeoutArgsV1 = [
+    let bidTimeoutArgsV1 = [
       {
         bidId: '2baa51527bd015',
         bidder: 'bidderOne',
@@ -114,7 +116,7 @@ describe('adxcg analytics adapter', function () {
     ];
 
     // now simulate some WIN and RENDERING
-    const wonRequest = {
+    let wonRequest = {
       'adId': '4587fec4900b81',
       'mediaType': 'banner',
       'requestId': '4587fec4900b81',
@@ -124,6 +126,7 @@ describe('adxcg analytics adapter', function () {
       'netRevenue': true,
       'ttl': 302,
       'auctionId': '914bedad-b145-4e46-ba58-51365faea6cb',
+      'statusMessage': 'Bid available',
       'responseTimestamp': 1530628534437,
       'requestTimestamp': 1530628534219,
       'bidder': 'testbidder4',
@@ -133,7 +136,7 @@ describe('adxcg analytics adapter', function () {
       'status': 'rendered'
     };
 
-    const wonExpect = {
+    let wonExpect = {
       'bidWons': [{
         'bidderCode': 'testbidder4',
         'adUnitCode': 'div-gpt-ad-1438287399331-0',
@@ -144,6 +147,7 @@ describe('adxcg analytics adapter', function () {
         'netRevenue': true,
         'timeToRespond': 218,
         'bidId': '4587fec4900b81',
+        'statusMessage': 'Bid available',
         'status': 'rendered',
         'creativeId': '2126'
       }]
@@ -167,35 +171,35 @@ describe('adxcg analytics adapter', function () {
 
     it('builds and sends auction data', function () {
       // Step 1: Send auction init event
-      events.emit(EVENTS.AUCTION_INIT, {
+      events.emit(constants.EVENTS.AUCTION_INIT, {
         timestamp: auctionTimestamp
       });
 
       // Step 2: Send bid requested event
-      events.emit(EVENTS.BID_REQUESTED, bidRequest);
+      events.emit(constants.EVENTS.BID_REQUESTED, bidRequest);
 
       // Step 3: Send bid response event
-      events.emit(EVENTS.BID_RESPONSE, bidResponse);
+      events.emit(constants.EVENTS.BID_RESPONSE, bidResponse);
 
       // Step 4: Send bid time out event
-      events.emit(EVENTS.BID_TIMEOUT, bidTimeoutArgsV1);
+      events.emit(constants.EVENTS.BID_TIMEOUT, bidTimeoutArgsV1);
 
       // Step 5: Send auction end event
-      events.emit(EVENTS.AUCTION_END, {});
+      events.emit(constants.EVENTS.AUCTION_END, {});
 
       expect(server.requests.length).to.equal(1);
 
-      const realAfterBid = JSON.parse(server.requests[0].requestBody);
+      let realAfterBid = JSON.parse(server.requests[0].requestBody);
 
       expect(realAfterBid).to.deep.equal(expectedAfterBid);
 
       expect(realAfterBid.bidTimeout).to.deep.equal(['bidderOne', 'bidderTwo']);
 
       // Step 6: Send auction bid won event
-      events.emit(EVENTS.BID_WON, wonRequest);
+      events.emit(constants.EVENTS.BID_WON, wonRequest);
 
       expect(server.requests.length).to.equal(2);
-      const winEventData = JSON.parse(server.requests[1].requestBody);
+      let winEventData = JSON.parse(server.requests[1].requestBody);
 
       expect(winEventData).to.deep.equal(wonExpect);
     });

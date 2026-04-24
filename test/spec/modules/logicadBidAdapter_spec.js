@@ -1,5 +1,5 @@
-import { expect } from 'chai';
-import { spec } from '../../../modules/logicadBidAdapter.js';
+import {expect} from 'chai';
+import {spec} from '../../../modules/logicadBidAdapter.js';
 import * as utils from 'src/utils.js';
 
 describe('LogicadAdapter', function () {
@@ -79,23 +79,8 @@ describe('LogicadAdapter', function () {
             name: 'cd.ladsp.com'
           }
         ]
-      },
-      source: {
-        ext: {
-          schain: {
-            ver: '1.0',
-            complete: 1,
-            nodes: [
-              {
-                asi: 'exchange1.com',
-                sid: '1234',
-                hp: 1
-              }
-            ]
-          }
-        }
       }
-    },
+    }
   }];
   const nativeBidRequests = [{
     bidder: 'logicad',
@@ -191,7 +176,7 @@ describe('LogicadAdapter', function () {
       numIframes: 1,
       stack: []
     },
-    auctionStart: 1563337198010,
+    auctionStart: 1563337198010
   };
   const serverResponse = {
     body: {
@@ -218,7 +203,6 @@ describe('LogicadAdapter', function () {
       }
     }
   };
-
   const nativeServerResponse = {
     body: {
       seatbid:
@@ -263,13 +247,13 @@ describe('LogicadAdapter', function () {
     });
 
     it('should return false if the tid parameter is not present', function () {
-      const bidRequest = utils.deepClone(bidRequests[0]);
+      let bidRequest = utils.deepClone(bidRequests[0]);
       delete bidRequest.params.tid;
       expect(spec.isBidRequestValid(bidRequest)).to.be.false;
     });
 
     it('should return false if the params object is not present', function () {
-      const bidRequest = utils.deepClone(bidRequests);
+      let bidRequest = utils.deepClone(bidRequests);
       delete bidRequest[0].params;
       expect(spec.isBidRequestValid(bidRequest)).to.be.false;
     });
@@ -288,7 +272,6 @@ describe('LogicadAdapter', function () {
 
       const data = JSON.parse(request.data);
       expect(data.auctionId).to.equal('18fd8b8b0bd757');
-
       expect(data.eids[0].source).to.equal('sharedid.org');
       expect(data.eids[0].uids[0].id).to.equal('fakesharedid');
 
@@ -321,12 +304,6 @@ describe('LogicadAdapter', function () {
       expect(data.userData[0].segment[0].id).to.equal('1');
       expect(data.userData[0].ext.segtax).to.equal(600);
       expect(data.userData[0].ext.segclass).to.equal('2206021246');
-
-      expect(data.schain.ver).to.equal('1.0');
-      expect(data.schain.complete).to.equal(1);
-      expect(data.schain.nodes[0].asi).to.equal('exchange1.com');
-      expect(data.schain.nodes[0].sid).to.equal('1234');
-      expect(data.schain.nodes[0].hp).to.equal(1);
     });
   });
 
@@ -379,10 +356,10 @@ describe('LogicadAdapter', function () {
 
   describe('getUserSyncs', function () {
     it('should perform usersync', function () {
-      let syncs = spec.getUserSyncs({ pixelEnabled: false }, [serverResponse]);
+      let syncs = spec.getUserSyncs({pixelEnabled: false}, [serverResponse]);
       expect(syncs).to.have.length(0);
 
-      syncs = spec.getUserSyncs({ pixelEnabled: true }, [serverResponse]);
+      syncs = spec.getUserSyncs({pixelEnabled: true}, [serverResponse]);
       expect(syncs).to.have.length(1);
 
       expect(syncs[0]).to.have.property('type', 'image');

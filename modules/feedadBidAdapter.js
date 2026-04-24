@@ -1,16 +1,7 @@
-import { deepAccess, isArray, logWarn } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER } from '../src/mediaTypes.js';
-import { ajax } from '../src/ajax.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerRequest} ServerRequest
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').BidderSpec} BidderSpec
- * @typedef {import('../src/adapters/bidderFactory.js').MediaType} MediaType
- */
+import {deepAccess, isArray, logWarn} from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER} from '../src/mediaTypes.js';
+import {ajax} from '../src/ajax.js';
 
 /**
  * Version of the FeedAd bid adapter
@@ -90,7 +81,7 @@ const VERSION = '1.0.6';
 
 /**
  * @typedef {object} FeedAdServerResponse
- * @augments {Object}
+ * @extends ServerResponse
  * @inner
  *
  * @property {FeedAdApiBidResponse[]} body - the body of a FeedAd server response
@@ -185,8 +176,8 @@ function isValidPlacementId(placementId) {
 
 /**
  * Checks if the given media types contain unsupported settings
- * @param {Object} mediaTypes - the media types to check
- * @return {Object} the unsupported settings, empty when all types are supported
+ * @param {MediaTypes} mediaTypes - the media types to check
+ * @return {MediaTypes} the unsupported settings, empty when all types are supported
  */
 function filterSupportedMediaTypes(mediaTypes) {
   return {
@@ -198,7 +189,7 @@ function filterSupportedMediaTypes(mediaTypes) {
 
 /**
  * Checks if the given media types are empty
- * @param {Object} mediaTypes - the types to check
+ * @param {MediaTypes} mediaTypes - the types to check
  * @return {boolean} true if the types are empty
  */
 function isMediaTypesEmpty(mediaTypes) {
@@ -231,21 +222,19 @@ function buildRequests(validBidRequests, bidderRequest) {
   if (!bidderRequest) {
     return [];
   }
-  const acceptableRequests = validBidRequests.filter(request => !isMediaTypesEmpty(filterSupportedMediaTypes(request.mediaTypes)));
+  let acceptableRequests = validBidRequests.filter(request => !isMediaTypesEmpty(filterSupportedMediaTypes(request.mediaTypes)));
   if (acceptableRequests.length === 0) {
     return [];
   }
-  const data = Object.assign({}, bidderRequest, {
+  let data = Object.assign({}, bidderRequest, {
     bids: acceptableRequests.map(req => {
       req.params = createApiBidRParams(req);
       return req;
     })
   });
-  data.bids.forEach(bid => {
-    BID_METADATA[bid.bidId] = {
-      referer: data.refererInfo.page,
-      transactionId: bid.ortb2Imp?.ext?.tid,
-    };
+  data.bids.forEach(bid => BID_METADATA[bid.bidId] = {
+    referer: data.refererInfo.page,
+    transactionId: bid.ortb2Imp?.ext?.tid,
   });
   if (bidderRequest.gdprConsent) {
     data.consentIabTcf = bidderRequest.gdprConsent.consentString;
@@ -291,7 +280,7 @@ function createTrackingParams(data, klass) {
   if (!BID_METADATA.hasOwnProperty(bidId)) {
     return null;
   }
-  const { referer, transactionId } = BID_METADATA[bidId];
+  const {referer, transactionId} = BID_METADATA[bidId];
   delete BID_METADATA[bidId];
   return {
     app_hybrid: false,
@@ -317,7 +306,7 @@ function trackingHandlerFactory(klass) {
     if (!data) {
       return;
     }
-    const params = createTrackingParams(data, klass);
+    let params = createTrackingParams(data, klass);
     if (params) {
       ajax(`${API_ENDPOINT}${API_PATH_TRACK_REQUEST}`, null, JSON.stringify(params), {
         withCredentials: true,

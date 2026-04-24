@@ -1,5 +1,6 @@
 import * as utils from 'src/utils.js';
-import analyticsAdapter, {
+import analyticsAdapter from 'modules/rivrAnalyticsAdapter.js';
+import {
   sendImpressions,
   handleClickEventWithClosureScope,
   createUnOptimisedParamsField,
@@ -13,15 +14,14 @@ import analyticsAdapter, {
   getCookie,
   storeAndReturnRivrUsrIdCookie,
   arrayDifference,
-  activelyWaitForBannersToRender
+  activelyWaitForBannersToRender,
 } from 'modules/rivrAnalyticsAdapter.js';
-
-import { expect } from 'chai';
+import {expect} from 'chai';
 import adapterManager from 'src/adapterManager.js';
 import * as ajax from 'src/ajax.js';
-import { EVENTS } from 'src/constants.js';
+import CONSTANTS from 'src/constants.json';
 
-const events = require('../../../src/events.js');
+const events = require('../../../src/events');
 
 describe('RIVR Analytics adapter', () => {
   const EXPIRING_QUEUE_TIMEOUT = 4000;
@@ -39,7 +39,7 @@ describe('RIVR Analytics adapter', () => {
   let timer;
 
   before(() => {
-    sandbox = sinon.createSandbox();
+    sandbox = sinon.sandbox.create();
     window.rivraddon = {
       analytics: {
         enableAnalytics: () => {},
@@ -93,12 +93,12 @@ describe('RIVR Analytics adapter', () => {
   });
 
   it('Firing an event when rivraddon context is not defined it should do nothing', () => {
-    const rivraddonsGetContextStub = sandbox.stub(window.rivraddon.analytics, 'getContext');
+    let rivraddonsGetContextStub = sandbox.stub(window.rivraddon.analytics, 'getContext');
     rivraddonsTrackPbjsEventStub = sandbox.stub(window.rivraddon.analytics, 'trackPbjsEvent');
 
     expect(rivraddonsTrackPbjsEventStub.callCount).to.be.equal(0);
 
-    events.emit(EVENTS.AUCTION_INIT, { auctionId: EMITTED_AUCTION_ID, config: {}, timeout: 3000 });
+    events.emit(CONSTANTS.EVENTS.AUCTION_INIT, {auctionId: EMITTED_AUCTION_ID, config: {}, timeout: 3000});
 
     expect(rivraddonsTrackPbjsEventStub.callCount).to.be.equal(0);
 
@@ -111,12 +111,12 @@ describe('RIVR Analytics adapter', () => {
 
     expect(rivraddonsTrackPbjsEventStub.callCount).to.be.equal(0);
 
-    events.emit(EVENTS.AUCTION_INIT, { auctionId: EMITTED_AUCTION_ID, config: {}, timeout: 3000 });
+    events.emit(CONSTANTS.EVENTS.AUCTION_INIT, {auctionId: EMITTED_AUCTION_ID, config: {}, timeout: 3000});
 
     expect(rivraddonsTrackPbjsEventStub.callCount).to.be.equal(1);
 
     const firstArgument = rivraddonsTrackPbjsEventStub.getCall(0).args[0];
-    expect(firstArgument.eventType).to.be.equal(EVENTS.AUCTION_INIT);
+    expect(firstArgument.eventType).to.be.equal(CONSTANTS.EVENTS.AUCTION_INIT);
     expect(firstArgument.args.auctionId).to.be.equal(EMITTED_AUCTION_ID);
 
     window.rivraddon.analytics.trackPbjsEvent.restore();

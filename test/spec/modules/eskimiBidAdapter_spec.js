@@ -33,7 +33,7 @@ const VIDEO_BID = {
       playbackmethod: [2, 4, 6],
       playerSize: [[1024, 768]],
       protocols: [3, 4, 7, 8, 10],
-      plcmt: 1,
+      placement: 1,
       minduration: 0,
       maxduration: 60,
       startdelay: 0
@@ -117,7 +117,7 @@ const VIDEO_BID_RESPONSE = {
 describe('Eskimi bid adapter', function () {
   describe('isBidRequestValid()', function () {
     it('should accept request if placementId is passed', function () {
-      const bid = {
+      let bid = {
         bidder: 'eskimi',
         params: {
           placementId: 123
@@ -132,7 +132,7 @@ describe('Eskimi bid adapter', function () {
     });
 
     it('should reject requests without params', function () {
-      const bid = {
+      let bid = {
         bidder: 'eskimi',
         params: {}
       };
@@ -155,7 +155,7 @@ describe('Eskimi bid adapter', function () {
           gdprApplies: true,
         }
       });
-      const request = spec.buildRequests([bid], req)[0];
+      let request = spec.buildRequests([bid], req)[0];
 
       const payload = request.data;
       expect(payload.user.ext).to.have.property('consent', req.gdprConsent.consentString);
@@ -169,7 +169,7 @@ describe('Eskimi bid adapter', function () {
         mediaTypes: { banner: { battr: [1] } }
       });
 
-      const [request] = spec.buildRequests([bid], BIDDER_REQUEST);
+      let [request] = spec.buildRequests([bid], BIDDER_REQUEST);
 
       expect(request).to.exist.and.to.be.an('object');
       const payload = request.data;
@@ -193,7 +193,7 @@ describe('Eskimi bid adapter', function () {
       it('should create request data', function () {
         const bid = utils.deepClone(BANNER_BID);
 
-        const [request] = spec.buildRequests([bid], BIDDER_REQUEST);
+        let [request] = spec.buildRequests([bid], BIDDER_REQUEST);
         expect(request).to.exist.and.to.be.a('object');
         const payload = request.data;
         expect(payload.imp[0]).to.have.property('id', bid.bidId);
@@ -208,7 +208,7 @@ describe('Eskimi bid adapter', function () {
         expect(spec.isBidRequestValid(bid)).to.equal(false);
       });
 
-      it('should return false if player size is not set', () => {
+      it('should reutrn false if player size is not set', () => {
         const bid = utils.deepClone(VIDEO_BID);
         delete bid.mediaTypes.video.playerSize;
 
@@ -222,7 +222,7 @@ describe('Eskimi bid adapter', function () {
           mimes: ['video/mp4', 'video/x-flv'],
           playbackmethod: [3, 4],
           protocols: [5, 6],
-          plcmt: 1,
+          placement: 1,
           minduration: 0,
           maxduration: 60,
           w: 1024,
@@ -273,7 +273,7 @@ describe('Eskimi bid adapter', function () {
       it('should handle empty bid response', function () {
         const bid = utils.deepClone(BANNER_BID);
 
-        const request = spec.buildRequests([bid], BIDDER_REQUEST)[0];
+        let request = spec.buildRequests([bid], BIDDER_REQUEST)[0];
         const EMPTY_RESP = Object.assign({}, BANNER_BID_RESPONSE, { 'body': {} });
         const bids = spec.interpretResponse(EMPTY_RESP, request);
         expect(bids).to.be.empty;

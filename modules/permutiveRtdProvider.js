@@ -5,22 +5,12 @@
  * @module modules/permutiveRtdProvider
  * @requires module:modules/realTimeData
  */
-import { getGlobal } from '../src/prebidGlobal.js';
-import { submodule } from '../src/hook.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { deepAccess, deepSetValue, isFn, logError, mergeDeep, isPlainObject, safeJSONParse, prefixLog } from '../src/utils.js';
-import { VENDORLESS_GVLID } from '../src/consentHandler.js';
-import { hasPurposeConsent } from '../libraries/permutiveUtils/index.js';
-
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- * @typedef {import('./permutiveRtdProviderTypes.d.ts').PermutiveRtdProviderConfig} PermutiveRtdProviderConfig
- * @typedef {import('./permutiveRtdProviderTypes.d.ts').PermutiveRtdProviderParams} PermutiveRtdProviderParams
- * @typedef {import('./permutiveRtdProviderTypes.d.ts').PermutiveBidderConfig} PermutiveBidderConfig
- * @typedef {import('./permutiveRtdProviderTypes.d.ts').PermutiveTransformationConfig} PermutiveTransformationConfig
- */
+import {getGlobal} from '../src/prebidGlobal.js';
+import {submodule} from '../src/hook.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {deepAccess, deepSetValue, isFn, logError, mergeDeep, isPlainObject, safeJSONParse, prefixLog} from '../src/utils.js';
+import {includes} from '../src/polyfill.js';
+import {MODULE_TYPE_RTD} from '../src/activities/modules.js';
 
 const MODULE_NAME = 'permutive'
 
@@ -31,14 +21,12 @@ export const PERMUTIVE_STANDARD_KEYWORD = 'p_standard'
 export const PERMUTIVE_CUSTOM_COHORTS_KEYWORD = 'permutive'
 export const PERMUTIVE_STANDARD_AUD_KEYWORD = 'p_standard_aud'
 
-export const storage = getStorageManager({ moduleType: MODULE_TYPE_RTD, moduleName: MODULE_NAME })
+export const storage = getStorageManager({moduleType: MODULE_TYPE_RTD, moduleName: MODULE_NAME})
 
 function init(moduleConfig, userConsent) {
   readPermutiveModuleConfigFromCache()
 
-  const enforceVendorConsent = deepAccess(moduleConfig, 'params.enforceVendorConsent')
-
-  return hasPurposeConsent(userConsent, [1], enforceVendorConsent)
+  return true
 }
 
 function liftIntoParams(params) {
@@ -54,8 +42,7 @@ let cachedPermutiveModuleConfig = {}
  */
 function readPermutiveModuleConfigFromCache() {
   const params = safeJSONParse(storage.getDataFromLocalStorage(PERMUTIVE_SUBMODULE_CONFIG_KEY))
-  cachedPermutiveModuleConfig = liftIntoParams(params)
-  return cachedPermutiveModuleConfig
+  return cachedPermutiveModuleConfig = liftIntoParams(params)
 }
 
 /**
@@ -81,8 +68,8 @@ function getParamsFromPermutive() {
  * As items with a higher priority will be deeply merged into the previous config, deep merges are performed by
  * reversing the priority order.
  *
- * @param {PermutiveRtdProviderConfig} customModuleConfig - Publisher config for module
- * @return {PermutiveRtdProviderConfig} Deep merges of the default, Permutive and custom config.
+ * @param {Object} customModuleConfig - Publisher config for module
+ * @return {Object} Deep merges of the default, Permutive and custom config.
  */
 export function getModuleConfig(customModuleConfig) {
   // Use the params from Permutive if available, otherwise fallback to the cached value set by Permutive.
@@ -94,8 +81,6 @@ export function getModuleConfig(customModuleConfig) {
       maxSegs: 500,
       acBidders: [],
       overwrites: {},
-      enforceVendorConsent: false,
-      bidders: {},
     },
   },
   permutiveModuleConfig,
@@ -106,22 +91,18 @@ export function getModuleConfig(customModuleConfig) {
 /**
  * Sets ortb2 config for ac bidders
  * @param {Object} bidderOrtb2 - The ortb2 object for the all bidders
- * @param {PermutiveRtdProviderConfig} moduleConfig - Publisher config for module
- * @param {Object} segmentData - Segment data grouped by bidder or type
+ * @param {Object} customModuleConfig - Publisher config for module
  */
 export function setBidderRtb (bidderOrtb2, moduleConfig, segmentData) {
   const acBidders = deepAccess(moduleConfig, 'params.acBidders')
   const maxSegs = deepAccess(moduleConfig, 'params.maxSegs')
   const transformationConfigs = deepAccess(moduleConfig, 'params.transformations') || []
-  const biddersConfig = deepAccess(moduleConfig, 'params.bidders') || {}
 
   const ssps = segmentData?.ssp?.ssps ?? []
   const sspCohorts = segmentData?.ssp?.cohorts ?? []
-  const topics = segmentData?.topics ?? {}
 
-  const bidders = new Set([...acBidders, ...ssps, ...Object.keys(biddersConfig)])
+  const bidders = new Set([...acBidders, ...ssps])
   bidders.forEach(function (bidder) {
-    const bidderConfig = biddersConfig[bidder] || {};
     const currConfig = { ortb2: bidderOrtb2[bidder] || {} }
 
     let cohorts = []
@@ -136,43 +117,26 @@ export function setBidderRtb (bidderOrtb2, moduleConfig, segmentData) {
       cohorts = [...new Set([...cohorts, ...sspCohorts])].slice(0, maxSegs)
     }
 
-    const customCohortsData = getCustomCohortsData(bidderConfig, bidder, segmentData, maxSegs)
-
-    const nextConfig = updateOrtbConfig(bidder, currConfig, cohorts, sspCohorts, topics, transformationConfigs, customCohortsData)
+    const nextConfig = updateOrtbConfig(bidder, currConfig, cohorts, sspCohorts, transformationConfigs, segmentData)
     bidderOrtb2[bidder] = nextConfig.ortb2
   })
 }
 
 /**
- * Resolves custom cohorts data for a bidder, reading from localStorage if configured.
- * @param {PermutiveBidderConfig} bidderCfg - Bidder-specific configuration from params.bidders
- * @param {string} bidder - The bidder identifier
- * @param {Object} segmentData - Segment data grouped by bidder or type
- * @param {number} maxSegs - Maximum number of segments
- * @return {string[]} Custom cohort IDs
- */
-function getCustomCohortsData (bidderCfg, bidder, segmentData, maxSegs) {
-  const customCohorts = bidderCfg?.customCohorts
-  if (customCohorts?.source === 'ls' && customCohorts?.key) {
-    return makeSafe(() => readSegments(customCohorts.key, []).map(String).slice(0, maxSegs)) || []
-  }
-  return deepAccess(segmentData, bidder) || []
-}
-
-/**
  * Updates `user.data` object in existing bidder config with Permutive segments
- * @param {string} bidder - The bidder identifier
+ * @param string bidder - The bidder
  * @param {Object} currConfig - Current bidder config
+ * @param {Object[]} transformationConfigs - array of objects with `id` and `config` properties, used to determine
+ *                                           the transformations on user data to include the ORTB2 object
  * @param {string[]} segmentIDs - Permutive segment IDs
  * @param {string[]} sspSegmentIDs - Permutive SSP segment IDs
- * @param {Object} topics - Privacy Sandbox Topics, keyed by IAB taxonomy version (600, 601, etc.)
- * @param {PermutiveTransformationConfig[]} transformationConfigs - array of objects with `id` and `config` properties, used to determine
- *                                           the transformations on user data to include the ORTB2 object
- * @param {string[]} customCohortsData - Custom cohort IDs for this bidder
+ * @param {Object} segmentData - The segments available for targeting
  * @return {Object} Merged ortb2 object
  */
-function updateOrtbConfig(bidder, currConfig, segmentIDs, sspSegmentIDs, topics, transformationConfigs, customCohortsData) {
+function updateOrtbConfig(bidder, currConfig, segmentIDs, sspSegmentIDs, transformationConfigs, segmentData) {
   logger.logInfo(`Current ortb2 config`, { bidder, config: currConfig })
+
+  const customCohortsData = deepAccess(segmentData, bidder) || []
 
   const name = 'permutive.com'
 
@@ -193,21 +157,9 @@ function updateOrtbConfig(bidder, currConfig, segmentIDs, sspSegmentIDs, topics,
   const ortbConfig = mergeDeep({}, currConfig)
   const currentUserData = deepAccess(ortbConfig, 'ortb2.user.data') || []
 
-  const topicsUserData = []
-  for (const [k, value] of Object.entries(topics)) {
-    topicsUserData.push({
-      name,
-      ext: {
-        segtax: Number(k)
-      },
-      segment: value.map(topic => ({ id: topic.toString() })),
-    })
-  }
-
   const updatedUserData = currentUserData
     .filter(el => el.name !== permutiveUserData.name && el.name !== customCohortsUserData.name)
     .concat(permutiveUserData, transformedUserData, customCohortsUserData)
-    .concat(topicsUserData)
 
   logger.logInfo(`Updating ortb2.user.data`, { bidder, user_data: updatedUserData })
   deepSetValue(ortbConfig, 'ortb2.user.data', updatedUserData)
@@ -225,10 +177,10 @@ function updateOrtbConfig(bidder, currConfig, segmentIDs, sspSegmentIDs, topics,
   const transformedKeywordGroups = Object.entries(keywordGroups)
     .flatMap(([keyword, ids]) => ids.map(id => `${keyword}=${id}`))
 
-  const keywords = Array.from(new Set([
-    ...(currentKeywords || '').split(',').map(kv => kv.trim()),
-    ...transformedKeywordGroups
-  ]))
+  const keywords = [
+    currentKeywords,
+    ...transformedKeywordGroups,
+  ]
     .filter(Boolean)
     .join(',')
 
@@ -262,7 +214,7 @@ function updateOrtbConfig(bidder, currConfig, segmentIDs, sspSegmentIDs, topics,
 /**
  * Set segments on bid request object
  * @param {Object} reqBidsConfigObj - Bid request object
- * @param {PermutiveRtdProviderConfig} moduleConfig - Module configuration
+ * @param {Object} moduleConfig - Module configuration
  * @param {Object} segmentData - Segment object
  */
 function setSegments (reqBidsConfigObj, moduleConfig, segmentData) {
@@ -300,7 +252,7 @@ function setSegments (reqBidsConfigObj, moduleConfig, segmentData) {
  */
 function makeSafe (fn) {
   try {
-    return fn()
+    fn()
   } catch (e) {
     logError(e)
   }
@@ -318,13 +270,13 @@ function getCustomBidderFn (moduleConfig, bidder) {
 
 /**
  * Check whether ac is enabled for bidder
- * @param {PermutiveRtdProviderConfig} moduleConfig - Module configuration
+ * @param {Object} moduleConfig - Module configuration
  * @param {string} bidder - Bidder name
  * @return {boolean}
  */
 export function isAcEnabled (moduleConfig, bidder) {
   const acBidders = deepAccess(moduleConfig, 'params.acBidders') || []
-  return acBidders.includes(bidder)
+  return includes(acBidders, bidder)
 }
 
 /**
@@ -340,88 +292,34 @@ export function isPermutiveOnPage () {
  * @param {number} maxSegs - Maximum number of segments to be included
  * @return {Object}
  */
-export function getSegments(maxSegs) {
+export function getSegments (maxSegs) {
+  const legacySegs = readSegments('_psegs', []).map(Number).filter(seg => seg >= 1000000).map(String)
+  const _ppam = readSegments('_ppam', [])
+  const _pcrprs = readSegments('_pcrprs', [])
+
   const segments = {
-    ac:
-      makeSafe(() => {
-        const legacySegs =
-          makeSafe(() =>
-            readSegments('_psegs', [])
-              .map(Number)
-              .filter((seg) => seg >= 1000000)
-              .map(String),
-          ) || [];
-        const _ppam = makeSafe(() => readSegments('_ppam', []).map(String)) || [];
-        const _pcrprs = makeSafe(() => readSegments('_pcrprs', []).map(String)) || [];
-
-        return [..._pcrprs, ..._ppam, ...legacySegs];
-      }) || [],
-
-    ix:
-      makeSafe(() => {
-        const _pindexs = readSegments('_pindexs', []);
-        return _pindexs.map(String);
-      }) || [],
-
-    rubicon:
-      makeSafe(() => {
-        const _prubicons = readSegments('_prubicons', []);
-        return _prubicons.map(String);
-      }) || [],
-
-    appnexus:
-      makeSafe(() => {
-        const _papns = readSegments('_papns', []);
-        return _papns.map(String);
-      }) || [],
-
-    gam:
-      makeSafe(() => {
-        const _pdfps = readSegments('_pdfps', []);
-        return _pdfps.map(String);
-      }) || [],
-
-    ssp: makeSafe(() => {
-      const _pssps = readSegments('_pssps', {
-        cohorts: [],
-        ssps: [],
-      });
-
-      return {
-        cohorts: makeSafe(() => _pssps.cohorts.map(String)) || [],
-        ssps: makeSafe(() => _pssps.ssps.map(String)) || [],
-      };
+    ac: [..._pcrprs, ..._ppam, ...legacySegs],
+    ix: readSegments('_pindexs', []),
+    rubicon: readSegments('_prubicons', []),
+    appnexus: readSegments('_papns', []),
+    gam: readSegments('_pdfps', []),
+    ssp: readSegments('_pssps', {
+      cohorts: [],
+      ssps: []
     }),
-
-    topics:
-      makeSafe(() => {
-        const _ppsts = readSegments('_ppsts', {});
-
-        const topics = {};
-        for (const [k, value] of Object.entries(_ppsts)) {
-          topics[k] = makeSafe(() => value.map(String)) || [];
-        }
-
-        return topics;
-      }) || {},
-  };
+  }
 
   for (const bidder in segments) {
     if (bidder === 'ssp') {
       if (segments[bidder].cohorts && Array.isArray(segments[bidder].cohorts)) {
         segments[bidder].cohorts = segments[bidder].cohorts.slice(0, maxSegs)
       }
-    } else if (bidder === 'topics') {
-      for (const taxonomy in segments[bidder]) {
-        segments[bidder][taxonomy] = segments[bidder][taxonomy].slice(0, maxSegs)
-      }
     } else {
       segments[bidder] = segments[bidder].slice(0, maxSegs)
     }
   }
 
-  logger.logInfo(`Read segments`, segments)
-  return segments;
+  return segments
 }
 
 /**
@@ -472,7 +370,7 @@ function iabSegmentId(permutiveSegmentId, iabIds) {
  * Pull the latest configuration and cohort information and update accordingly.
  *
  * @param reqBidsConfigObj - Bidder provided config for request
- * @param moduleConfig - Publisher provided config
+ * @param customModuleConfig - Publisher provide config
  */
 export function readAndSetCohorts(reqBidsConfigObj, moduleConfig) {
   const segmentData = getSegments(deepAccess(moduleConfig, 'params.maxSegs'))
@@ -494,8 +392,6 @@ let permutiveSDKInRealTime = false
 /** @type {RtdSubmodule} */
 export const permutiveSubmodule = {
   name: MODULE_NAME,
-  disclosureURL: "https://assets.permutive.app/tcf/tcf.json",
-  gvlid: VENDORLESS_GVLID,
   getBidRequestData: function (reqBidsConfigObj, callback, customModuleConfig) {
     const completeBidRequestData = () => {
       logger.logInfo(`Request data updated`)

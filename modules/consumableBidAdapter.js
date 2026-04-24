@@ -1,13 +1,7 @@
 import { logWarn, deepAccess, isArray, deepSetValue, isFn, isPlainObject } from '../src/utils.js';
-import { config } from '../src/config.js';
+import {config} from '../src/config.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
 
 const BIDDER_CODE = 'consumable';
 
@@ -33,13 +27,12 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests[]} validBidRequests An array of bids
-   * @param {Object} bidderRequest The bidder's request info.
+   * @param {validBidRequests[]} - an array of bids
    * @return ServerRequest Info describing the request to the server.
    */
 
   buildRequests: function(validBidRequests, bidderRequest) {
-    const ret = {
+    let ret = {
       method: 'POST',
       url: '',
       data: '',
@@ -62,8 +55,7 @@ export const spec = {
       source: [{
         'name': 'prebidjs',
         'version': '$prebid.version$'
-      }],
-      lang: bidderRequest.ortb2.device.language,
+      }]
     }, validBidRequests[0].params);
 
     if (bidderRequest && bidderRequest.gdprConsent) {
@@ -82,16 +74,15 @@ export const spec = {
       data.ccpa = bidderRequest.uspConsent;
     }
 
-    const schain = bidderRequest?.ortb2?.source?.ext?.schain;
-    if (schain) {
-      data.schain = schain;
+    if (bidderRequest && bidderRequest.schain) {
+      data.schain = bidderRequest.schain;
     }
 
     if (config.getConfig('coppa')) {
       data.coppa = true;
     }
 
-    validBidRequests.forEach(bid => {
+    validBidRequests.map(bid => {
       const sizes = (bid.mediaTypes && bid.mediaTypes.banner && bid.mediaTypes.banner.sizes) || bid.sizes || [];
       const placement = Object.assign({
         divName: bid.bidId,
@@ -130,7 +121,7 @@ export const spec = {
     let bids;
     let bidId;
     let bidObj;
-    const bidResponses = [];
+    let bidResponses = [];
 
     bids = bidRequest.bidRequest;
 
@@ -200,20 +191,17 @@ export const spec = {
     if (syncOptions.iframeEnabled) {
       if (gdprConsent && gdprConsent.consentString) {
         if (typeof gdprConsent.gdprApplies === 'boolean') {
-          syncUrl = appendUrlParam(syncUrl, `gdpr=${Number(gdprConsent.gdprApplies)}&gdpr_consent=${encodeURIComponent(gdprConsent.consentString) || ''}`);
+          syncUrl = appendUrlParam(syncUrl, `gdpr=${Number(gdprConsent.gdprApplies)}&gdpr_consent=${gdprConsent.consentString}`);
         } else {
-          syncUrl = appendUrlParam(syncUrl, `gdpr=0&gdpr_consent=${encodeURIComponent(gdprConsent.consentString) || ''}`);
+          syncUrl = appendUrlParam(syncUrl, `gdpr=0&gdpr_consent=${gdprConsent.consentString}`);
         }
       }
       if (gppConsent && gppConsent.gppString) {
-        syncUrl = appendUrlParam(syncUrl, `gpp=${encodeURIComponent(gppConsent.gppString)}`);
-        if (gppConsent.applicableSections && gppConsent.applicableSections.length > 0) {
-          syncUrl = appendUrlParam(syncUrl, `gpp_sid=${encodeURIComponent(gppConsent.applicableSections.join(','))}`);
-        }
+        syncUrl = appendUrlParam(syncUrl, `gpp=${gppConsent.gppString}&gpp_sid=${gppConsent.applicableSections}`);
       }
 
-      if (uspConsent) {
-        syncUrl = appendUrlParam(syncUrl, `us_privacy=${encodeURIComponent(uspConsent)}`);
+      if (uspConsent && uspConsent.consentString) {
+        syncUrl = appendUrlParam(syncUrl, `us_privacy=${uspConsent.consentString}`);
       }
 
       if (!serverResponses || serverResponses.length === 0 || !serverResponses[0].body.bdr || serverResponses[0].body.bdr !== 'cx') {
@@ -302,7 +290,6 @@ function retrieveAd(decision, unitId, unitName) {
 function handleEids(data, validBidRequests) {
   let bidUserIdAsEids = deepAccess(validBidRequests, '0.userIdAsEids');
   if (isArray(bidUserIdAsEids) && bidUserIdAsEids.length > 0) {
-    bidUserIdAsEids = bidUserIdAsEids.filter(e => typeof e === 'object');
     deepSetValue(data, 'user.eids', bidUserIdAsEids);
   } else {
     deepSetValue(data, 'user.eids', undefined);
@@ -316,7 +303,7 @@ function getBidFloor(bid, sizes) {
 
   let floor;
 
-  const floorInfo = bid.getFloor({
+  let floorInfo = bid.getFloor({
     currency: 'USD',
     mediaType: bid.mediaTypes.video ? 'video' : 'banner',
     size: sizes.length === 1 ? sizes[0] : '*'

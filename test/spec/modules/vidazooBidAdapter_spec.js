@@ -1,11 +1,7 @@
-import { expect } from 'chai';
+import {expect} from 'chai';
 import {
   spec as adapter,
-  storage,
   createDomain,
-  webSessionId
-} from 'modules/vidazooBidAdapter.js';
-import {
   hashCode,
   extractPID,
   extractCID,
@@ -15,17 +11,16 @@ import {
   tryParseJSON,
   getUniqueDealId,
   getNextDealId,
-  getTopWindowQueryParams,
-  getVidazooSessionId
-} from 'libraries/vidazooUtils/bidderUtils.js'
+  getVidazooSessionId,
+  webSessionId
+} from 'modules/vidazooBidAdapter.js';
 import * as utils from 'src/utils.js';
-import { version } from 'package.json';
-import { useFakeTimers } from 'sinon';
-import { BANNER, VIDEO } from '../../../src/mediaTypes.js';
-import { config } from '../../../src/config.js';
-import { getGlobal } from '../../../src/prebidGlobal.js';
+import {version} from 'package.json';
+import {useFakeTimers} from 'sinon';
+import {BANNER, VIDEO} from '../../../src/mediaTypes';
+import {config} from '../../../src/config';
 
-export const TEST_ID_SYSTEMS = ['criteoId', 'id5id', 'idl_env', 'lipb', 'netId', 'pubcid', 'tdid', 'pubProvidedId'];
+export const TEST_ID_SYSTEMS = ['britepoolid', 'criteoId', 'id5id', 'idl_env', 'lipb', 'netId', 'parrableId', 'pubcid', 'tdid', 'pubProvidedId'];
 
 const SUB_DOMAIN = 'openrtb';
 
@@ -92,41 +87,11 @@ const VIDEO_BID = {
       'minduration': 0,
       'startdelay': 0,
       'linearity': 1,
-      'api': [2, 7],
+      'api': [2],
       'placement': 1
     }
   }
 }
-
-const ORTB2_DEVICE = {
-  sua: {
-    'source': 2,
-    'platform': {
-      'brand': 'Android',
-      'version': ['8', '0', '0']
-    },
-    'browsers': [
-      { 'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0'] },
-      { 'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119'] },
-      { 'brand': 'Chromium', 'version': ['109', '0', '5414', '119'] }
-    ],
-    'mobile': 1,
-    'model': 'SM-G955U',
-    'bitness': '64',
-    'architecture': ''
-  },
-  w: 980,
-  h: 1720,
-  dnt: 0,
-  ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/125.0.6422.80 Mobile/15E148 Safari/604.1',
-  language: 'en',
-  devicetype: 1,
-  make: 'Apple',
-  model: 'iPhone 12 Pro Max',
-  os: 'iOS',
-  osv: '17.4',
-  ext: { fiftyonedegrees_deviceId: '17595-133085-133468-18092' },
-};
 
 const BIDDER_REQUEST = {
   'gdprConsent': {
@@ -143,43 +108,31 @@ const BIDDER_REQUEST = {
   'ortb2': {
     'site': {
       'cat': ['IAB2'],
-      'pagecat': ['IAB2-2'],
-      'content': {
-        'language': 'en',
-        'data': [{
-          'name': 'example.com',
-          'ext': {
-            'segtax': 7
-          },
-          'segments': [
-            { 'id': 'segId1' },
-            { 'id': 'segId2' }
-          ]
-        }]
-      }
+      'pagecat': ['IAB2-2']
     },
     'regs': {
       'gpp': 'gpp_string',
-      'gpp_sid': [7],
-      'coppa': 0
+      'gpp_sid': [7]
     },
-    device: ORTB2_DEVICE,
-    user: {
-      data: [
-        {
-          ext: { segtax: 600, segclass: '1' },
-          name: 'example.com',
-          segment: [{ id: '243' }],
+    'device': {
+      'sua': {
+        'source': 2,
+        'platform': {
+          'brand': 'Android',
+          'version': ['8', '0', '0']
         },
-      ],
-    },
-    source: {
-      ext: {
-        omidpn: 'MyIntegrationPartner',
-        omidpv: '7.1'
+        'browsers': [
+          {'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0']},
+          {'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119']},
+          {'brand': 'Chromium', 'version': ['109', '0', '5414', '119']}
+        ],
+        'mobile': 1,
+        'model': 'SM-G955U',
+        'bitness': '64',
+        'architecture': ''
       }
     }
-  }
+  },
 };
 
 const SERVER_RESPONSE = {
@@ -220,28 +173,7 @@ const VIDEO_SERVER_RESPONSE = {
       'cookies': []
     }]
   }
-};
-
-const ORTB2_OBJ = {
-  "device": ORTB2_DEVICE,
-  "regs": { "coppa": 0, "gpp": "gpp_string", "gpp_sid": [7] },
-  "site": {
-    "cat": ["IAB2"],
-    "content": {
-      "data": [{
-        "ext": { "segtax": 7 },
-        "name": "example.com",
-        "segments": [{ "id": "segId1" }, { "id": "segId2" }]
-      }],
-      "language": "en"
-    },
-    "pagecat": ["IAB2-2"]
-  },
-  "source": { "ext": { "omidpn": "MyIntegrationPartner", "omidpv": "7.1" } },
-  "user": {
-    "data": [{ "ext": { "segclass": "1", "segtax": 600 }, "name": "example.com", "segment": [{ "id": "243" }] }]
-  }
-};
+}
 
 const REQUEST = {
   data: {
@@ -251,10 +183,16 @@ const REQUEST = {
   }
 };
 
-describe('VidazooBidAdapter', function () {
-  before(() => config.resetConfig());
-  after(() => config.resetConfig());
+function getTopWindowQueryParams() {
+  try {
+    const parsedUrl = utils.parseUrl(window.top.document.URL, {decodeSearchAsString: true});
+    return parsedUrl.search;
+  } catch (e) {
+    return '';
+  }
+}
 
+describe('VidazooBidAdapter', function () {
   describe('validtae spec', function () {
     it('exists and is a function', function () {
       expect(adapter.isBidRequestValid).to.exist.and.to.be.a('function');
@@ -315,12 +253,12 @@ describe('VidazooBidAdapter', function () {
   describe('build requests', function () {
     let sandbox;
     before(function () {
-      getGlobal().bidderSettings = {
+      $$PREBID_GLOBAL$$.bidderSettings = {
         vidazoo: {
           storageAllowed: true,
         }
       };
-      sandbox = sinon.createSandbox();
+      sandbox = sinon.sandbox.create();
       sandbox.stub(Date, 'now').returns(1000);
     });
 
@@ -341,8 +279,6 @@ describe('VidazooBidAdapter', function () {
           bidderVersion: adapter.version,
           cat: ['IAB2'],
           pagecat: ['IAB2-2'],
-          ortb2Imp: VIDEO_BID.ortb2Imp,
-          ortb2: ORTB2_OBJ,
           cb: 1000,
           dealId: 1,
           gdpr: 1,
@@ -359,7 +295,6 @@ describe('VidazooBidAdapter', function () {
           gpid: '',
           prebidVersion: version,
           ptrace: '1000',
-          vdzhum: '1000',
           publisherId: '59ac17c192832d0011283fe3',
           url: 'https%3A%2F%2Fwww.greatsite.com',
           referrer: 'https://www.somereferrer.com',
@@ -374,42 +309,22 @@ describe('VidazooBidAdapter', function () {
               'version': ['8', '0', '0']
             },
             'browsers': [
-              { 'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0'] },
-              { 'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119'] },
-              { 'brand': 'Chromium', 'version': ['109', '0', '5414', '119'] }
+              {'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0']},
+              {'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119']},
+              {'brand': 'Chromium', 'version': ['109', '0', '5414', '119']}
             ],
             'mobile': 1,
             'model': 'SM-G955U',
             'bitness': '64',
             'architecture': ''
           },
-          contentLang: 'en',
-          coppa: 0,
-          device: ORTB2_DEVICE,
-          contentData: [{
-            'name': 'example.com',
-            'ext': {
-              'segtax': 7
-            },
-            'segments': [
-              { 'id': 'segId1' },
-              { 'id': 'segId2' }
-            ]
-          }],
-          userData: [
-            {
-              ext: { segtax: 600, segclass: '1' },
-              name: 'example.com',
-              segment: [{ id: '243' }],
-            },
-          ],
           uniqueDealId: `${hashUrl}_${Date.now().toString()}`,
           uqs: getTopWindowQueryParams(),
           isStorageAllowed: true,
           webSessionId: webSessionId,
           mediaTypes: {
             video: {
-              api: [2, 7],
+              api: [2],
               context: 'instream',
               linearity: 1,
               maxduration: 60,
@@ -423,12 +338,9 @@ describe('VidazooBidAdapter', function () {
               protocols: [2, 3, 5, 6],
               startdelay: 0
             }
-          },
-          omidpn: 'MyIntegrationPartner',
-          omidpv: '7.1'
+          }
         }
-      })
-      ;
+      });
     });
 
     it('should build banner request for each size', function () {
@@ -461,16 +373,15 @@ describe('VidazooBidAdapter', function () {
               'version': ['8', '0', '0']
             },
             'browsers': [
-              { 'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0'] },
-              { 'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119'] },
-              { 'brand': 'Chromium', 'version': ['109', '0', '5414', '119'] }
+              {'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0']},
+              {'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119']},
+              {'brand': 'Chromium', 'version': ['109', '0', '5414', '119']}
             ],
             'mobile': 1,
             'model': 'SM-G955U',
             'bitness': '64',
             'architecture': ''
           },
-          device: ORTB2_DEVICE,
           url: 'https%3A%2F%2Fwww.greatsite.com',
           referrer: 'https://www.somereferrer.com',
           cb: 1000,
@@ -485,7 +396,6 @@ describe('VidazooBidAdapter', function () {
           prebidVersion: version,
           schain: BID.schain,
           ptrace: '1000',
-          vdzhum: '1000',
           res: `${window.top.screen.width}x${window.top.screen.height}`,
           mediaTypes: [BANNER],
           uqs: getTopWindowQueryParams(),
@@ -495,27 +405,6 @@ describe('VidazooBidAdapter', function () {
           gpid: '1234567890',
           cat: ['IAB2'],
           pagecat: ['IAB2-2'],
-          ortb2Imp: BID.ortb2Imp,
-          ortb2: ORTB2_OBJ,
-          contentLang: 'en',
-          coppa: 0,
-          contentData: [{
-            'name': 'example.com',
-            'ext': {
-              'segtax': 7
-            },
-            'segments': [
-              { 'id': 'segId1' },
-              { 'id': 'segId2' }
-            ]
-          }],
-          userData: [
-            {
-              ext: { segtax: 600, segclass: '1' },
-              name: 'example.com',
-              segment: [{ id: '243' }],
-            },
-          ],
           webSessionId: webSessionId
         }
       });
@@ -557,16 +446,15 @@ describe('VidazooBidAdapter', function () {
             'version': ['8', '0', '0']
           },
           'browsers': [
-            { 'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0'] },
-            { 'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119'] },
-            { 'brand': 'Chromium', 'version': ['109', '0', '5414', '119'] }
+            {'brand': 'Not_A Brand', 'version': ['99', '0', '0', '0']},
+            {'brand': 'Google Chrome', 'version': ['109', '0', '5414', '119']},
+            {'brand': 'Chromium', 'version': ['109', '0', '5414', '119']}
           ],
           'mobile': 1,
           'model': 'SM-G955U',
           'bitness': '64',
           'architecture': ''
         },
-        device: ORTB2_DEVICE,
         url: 'https%3A%2F%2Fwww.greatsite.com',
         referrer: 'https://www.somereferrer.com',
         cb: 1000,
@@ -581,7 +469,6 @@ describe('VidazooBidAdapter', function () {
         prebidVersion: version,
         schain: BID.schain,
         ptrace: '1000',
-        vdzhum: '1000',
         res: `${window.top.screen.width}x${window.top.screen.height}`,
         mediaTypes: [BANNER],
         uqs: getTopWindowQueryParams(),
@@ -591,25 +478,6 @@ describe('VidazooBidAdapter', function () {
         gpid: '1234567890',
         cat: ['IAB2'],
         pagecat: ['IAB2-2'],
-        contentLang: 'en',
-        coppa: 0,
-        contentData: [{
-          'name': 'example.com',
-          'ext': {
-            'segtax': 7
-          },
-          'segments': [
-            { 'id': 'segId1' },
-            { 'id': 'segId2' }
-          ]
-        }],
-        userData: [
-          {
-            ext: { segtax: 600, segclass: '1' },
-            name: 'example.com',
-            segment: [{ id: '243' }],
-          },
-        ],
         webSessionId: webSessionId
       };
 
@@ -625,16 +493,11 @@ describe('VidazooBidAdapter', function () {
       expect(requests[0]).to.deep.equal({
         method: 'POST',
         url: `${createDomain(SUB_DOMAIN)}/prebid/multi/59db6b3b4ffaa70004f45cdc`,
-        data: {
-          bids: [
-            { ...REQUEST_DATA, ortb2: ORTB2_OBJ, ortb2Imp: BID.ortb2Imp },
-            { ...REQUEST_DATA2, ortb2: ORTB2_OBJ, ortb2Imp: BID.ortb2Imp }
-          ]
-        }
+        data: {bids: [REQUEST_DATA, REQUEST_DATA2]}
       });
     });
 
-    it('should return separated requests for video and banner if singleRequest is true', function () {
+    it('should return seperated requests for video and banner if singleRequest is true', function () {
       config.setConfig({
         bidderTimeout: 3000,
         vidazoo: {
@@ -660,30 +523,8 @@ describe('VidazooBidAdapter', function () {
       expect(requests).to.have.length(2);
     });
 
-    it('should build video request with base url from valid params.host', function () {
-      const videoWithHost = VIDEO_BID
-      videoWithHost.params.host = 'example.com'
-      config.setConfig({
-        bidderTimeout: 3000
-      });
-      const requests = adapter.buildRequests([videoWithHost], BIDDER_REQUEST);
-      expect(requests).to.have.length(1);
-      expect(requests[0].url).to.equal(`${createDomain(SUB_DOMAIN, 'example.com')}/prebid/multi/635509f7ff6642d368cb9837`);
-    });
-
-    it('should build video request with default base url ,invalid params.host', function () {
-      const videoWithHost = VIDEO_BID
-      videoWithHost.params.host = 'examplecom'
-      config.setConfig({
-        bidderTimeout: 3000
-      });
-      const requests = adapter.buildRequests([videoWithHost], BIDDER_REQUEST);
-      expect(requests).to.have.length(1);
-      expect(requests[0].url).to.equal(`${createDomain(SUB_DOMAIN)}/prebid/multi/635509f7ff6642d368cb9837`);
-    });
-
     after(function () {
-      getGlobal().bidderSettings = {};
+      $$PREBID_GLOBAL$$.bidderSettings = {};
       config.resetConfig();
       sandbox.restore();
     });
@@ -691,41 +532,30 @@ describe('VidazooBidAdapter', function () {
 
   describe('getUserSyncs', function () {
     it('should have valid user sync with iframeEnabled', function () {
-      const result = adapter.getUserSyncs({ iframeEnabled: true }, [SERVER_RESPONSE]);
+      const result = adapter.getUserSyncs({iframeEnabled: true}, [SERVER_RESPONSE]);
 
       expect(result).to.deep.equal([{
         type: 'iframe',
-        url: 'https://sync.cootlogix.com/api/sync/iframe/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy=&coppa=0'
+        url: 'https://sync.cootlogix.com/api/sync/iframe/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy='
       }]);
     });
 
     it('should have valid user sync with cid on response', function () {
-      const result = adapter.getUserSyncs({ iframeEnabled: true }, [SERVER_RESPONSE]);
+      const result = adapter.getUserSyncs({iframeEnabled: true}, [SERVER_RESPONSE]);
       expect(result).to.deep.equal([{
         type: 'iframe',
-        url: 'https://sync.cootlogix.com/api/sync/iframe/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy=&coppa=0'
+        url: 'https://sync.cootlogix.com/api/sync/iframe/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy='
       }]);
     });
 
     it('should have valid user sync with pixelEnabled', function () {
-      const result = adapter.getUserSyncs({ pixelEnabled: true }, [SERVER_RESPONSE]);
+      const result = adapter.getUserSyncs({pixelEnabled: true}, [SERVER_RESPONSE]);
 
       expect(result).to.deep.equal([{
-        'url': 'https://sync.cootlogix.com/api/sync/image/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy=&coppa=0',
+        'url': 'https://sync.cootlogix.com/api/sync/image/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy=',
         'type': 'image'
       }]);
-    });
-
-    it('should have valid user sync with coppa 1 on response', function () {
-      config.setConfig({
-        coppa: 1
-      });
-      const result = adapter.getUserSyncs({ iframeEnabled: true }, [SERVER_RESPONSE]);
-      expect(result).to.deep.equal([{
-        type: 'iframe',
-        url: 'https://sync.cootlogix.com/api/sync/iframe/?cid=testcid123&gdpr=0&gdpr_consent=&us_privacy=&coppa=1'
-      }]);
-    });
+    })
   });
 
   describe('interpret response', function () {
@@ -735,12 +565,12 @@ describe('VidazooBidAdapter', function () {
     });
 
     it('should return empty array when there is no ad', function () {
-      const responses = adapter.interpretResponse({ price: 1, ad: '' });
+      const responses = adapter.interpretResponse({price: 1, ad: ''});
       expect(responses).to.be.empty;
     });
 
     it('should return empty array when there is no price', function () {
-      const responses = adapter.interpretResponse({ price: null, ad: 'great ad' });
+      const responses = adapter.interpretResponse({price: null, ad: 'great ad'});
       expect(responses).to.be.empty;
     });
 
@@ -818,14 +648,6 @@ describe('VidazooBidAdapter', function () {
       expect(responses).to.have.length(1);
       expect(responses[0].ttl).to.equal(300);
     });
-
-    it('should add nurl if exists on response', function () {
-      const serverResponse = utils.deepClone(SERVER_RESPONSE);
-      serverResponse.body.results[0].nurl = 'https://test.com/win-notice?test=123';
-      const responses = adapter.interpretResponse(serverResponse, REQUEST);
-      expect(responses).to.have.length(1);
-      expect(responses[0].nurl).to.equal('https://test.com/win-notice?test=123');
-    });
   });
 
   describe('user id system', function () {
@@ -836,9 +658,11 @@ describe('VidazooBidAdapter', function () {
       const userId = (function () {
         switch (idSystemProvider) {
           case 'lipb':
-            return { lipbid: id };
+            return {lipbid: id};
+          case 'parrableId':
+            return {eid: id};
           case 'id5id':
-            return { uid: id };
+            return {uid: id};
           default:
             return id;
         }
@@ -853,86 +677,22 @@ describe('VidazooBidAdapter', function () {
         expect(requests[0].data[`uid.${idSystemProvider}`]).to.equal(id);
       });
     });
-    // testing bid.userIdAsEids handling
-    it("should include user ids from bid.userIdAsEids (length=1)", function() {
-      const bid = utils.deepClone(BID);
-      bid.userIdAsEids = [
-        {
-          "source": "audigent.com",
-          "uids": [{ "id": "fakeidi6j6dlc6e" }]
-        }
-      ]
-      const requests = adapter.buildRequests([bid], BIDDER_REQUEST);
-      expect(requests[0].data['uid.audigent.com']).to.equal("fakeidi6j6dlc6e");
-    })
-    it("should include user ids from bid.userIdAsEids (length=2)", function() {
-      const bid = utils.deepClone(BID);
-      bid.userIdAsEids = [
-        {
-          "source": "audigent.com",
-          "uids": [{ "id": "fakeidi6j6dlc6e" }]
-        },
-        {
-          "source": "rwdcntrl.net",
-          "uids": [{ "id": "fakeid6f35197d5c", "atype": 1 }]
-        }
-      ]
-      const requests = adapter.buildRequests([bid], BIDDER_REQUEST);
-      expect(requests[0].data['uid.audigent.com']).to.equal("fakeidi6j6dlc6e");
-      expect(requests[0].data['uid.rwdcntrl.net']).to.equal("fakeid6f35197d5c");
-    })
-    // testing user.ext.eid handling
-    it("should include user ids from user.ext.eid (length=1)", function() {
-      const bid = utils.deepClone(BID);
-      bid.user = {
-        ext: {
-          eids: [
-            {
-              "source": "pubcid.org",
-              "uids": [{ "id": "fakeid8888dlc6e" }]
-            }
-          ]
-        }
-      }
-      const requests = adapter.buildRequests([bid], BIDDER_REQUEST);
-      expect(requests[0].data['uid.pubcid.org']).to.equal("fakeid8888dlc6e");
-    })
-    it("should include user ids from user.ext.eid (length=2)", function() {
-      const bid = utils.deepClone(BID);
-      bid.user = {
-        ext: {
-          eids: [
-            {
-              "source": "pubcid.org",
-              "uids": [{ "id": "fakeid8888dlc6e" }]
-            },
-            {
-              "source": "adserver.org",
-              "uids": [{ "id": "fakeid495ff1" }]
-            }
-          ]
-        }
-      }
-      const requests = adapter.buildRequests([bid], BIDDER_REQUEST);
-      expect(requests[0].data['uid.pubcid.org']).to.equal("fakeid8888dlc6e");
-      expect(requests[0].data['uid.adserver.org']).to.equal("fakeid495ff1");
-    })
   });
 
   describe('alternate param names extractors', function () {
     it('should return undefined when param not supported', function () {
-      const cid = extractCID({ 'c_id': '1' });
-      const pid = extractPID({ 'p_id': '1' });
-      const subDomain = extractSubDomain({ 'sub_domain': 'prebid' });
+      const cid = extractCID({'c_id': '1'});
+      const pid = extractPID({'p_id': '1'});
+      const subDomain = extractSubDomain({'sub_domain': 'prebid'});
       expect(cid).to.be.undefined;
       expect(pid).to.be.undefined;
       expect(subDomain).to.be.undefined;
     });
 
     it('should return value when param supported', function () {
-      const cid = extractCID({ 'cID': '1' });
-      const pid = extractPID({ 'Pid': '2' });
-      const subDomain = extractSubDomain({ 'subDOMAIN': 'prebid' });
+      const cid = extractCID({'cID': '1'});
+      const pid = extractPID({'Pid': '2'});
+      const subDomain = extractSubDomain({'subDOMAIN': 'prebid'});
       expect(cid).to.be.equal('1');
       expect(pid).to.be.equal('2');
       expect(subDomain).to.be.equal('prebid');
@@ -941,51 +701,51 @@ describe('VidazooBidAdapter', function () {
 
   describe('vidazoo session id', function () {
     before(function () {
-      getGlobal().bidderSettings = {
+      $$PREBID_GLOBAL$$.bidderSettings = {
         vidazoo: {
           storageAllowed: true
         }
       };
     });
     after(function () {
-      getGlobal().bidderSettings = {};
+      $$PREBID_GLOBAL$$.bidderSettings = {};
     });
     it('should get undefined vidazoo session id', function () {
-      const sessionId = getVidazooSessionId(storage);
+      const sessionId = getVidazooSessionId();
       expect(sessionId).to.be.empty;
     });
 
     it('should get vidazoo session id from storage', function () {
       const vidSid = '1234-5678';
       window.localStorage.setItem('vidSid', vidSid);
-      const sessionId = getVidazooSessionId(storage);
+      const sessionId = getVidazooSessionId();
       expect(sessionId).to.be.equal(vidSid);
     });
   });
 
   describe('deal id', function () {
     before(function () {
-      getGlobal().bidderSettings = {
+      $$PREBID_GLOBAL$$.bidderSettings = {
         vidazoo: {
           storageAllowed: true
         }
       };
     });
     after(function () {
-      getGlobal().bidderSettings = {};
+      $$PREBID_GLOBAL$$.bidderSettings = {};
     });
     const key = 'myDealKey';
 
     it('should get the next deal id', function () {
-      const dealId = getNextDealId(storage, key);
-      const nextDealId = getNextDealId(storage, key);
+      const dealId = getNextDealId(key);
+      const nextDealId = getNextDealId(key);
       expect(dealId).to.be.equal(1);
       expect(nextDealId).to.be.equal(2);
     });
 
     it('should get the first deal id on expiration', function (done) {
       setTimeout(function () {
-        const dealId = getNextDealId(storage, key, 100);
+        const dealId = getNextDealId(key, 100);
         expect(dealId).to.be.equal(1);
         done();
       }, 200);
@@ -994,25 +754,25 @@ describe('VidazooBidAdapter', function () {
 
   describe('unique deal id', function () {
     before(function () {
-      getGlobal().bidderSettings = {
+      $$PREBID_GLOBAL$$.bidderSettings = {
         vidazoo: {
           storageAllowed: true
         }
       };
     });
     after(function () {
-      getGlobal().bidderSettings = {};
+      $$PREBID_GLOBAL$$.bidderSettings = {};
     });
     const key = 'myKey';
     let uniqueDealId;
     beforeEach(() => {
-      uniqueDealId = getUniqueDealId(storage, key, 0);
+      uniqueDealId = getUniqueDealId(key, 0);
     })
 
     it('should get current unique deal id', function (done) {
       // waiting some time so `now` will become past
       setTimeout(() => {
-        const current = getUniqueDealId(storage, key);
+        const current = getUniqueDealId(key);
         expect(current).to.be.equal(uniqueDealId);
         done();
       }, 200);
@@ -1020,7 +780,7 @@ describe('VidazooBidAdapter', function () {
 
     it('should get new unique deal id on expiration', function (done) {
       setTimeout(() => {
-        const current = getUniqueDealId(storage, key, 100);
+        const current = getUniqueDealId(key, 100);
         expect(current).to.not.be.equal(uniqueDealId);
         done();
       }, 200)
@@ -1029,14 +789,14 @@ describe('VidazooBidAdapter', function () {
 
   describe('storage utils', function () {
     before(function () {
-      getGlobal().bidderSettings = {
+      $$PREBID_GLOBAL$$.bidderSettings = {
         vidazoo: {
           storageAllowed: true
         }
       };
     });
     after(function () {
-      getGlobal().bidderSettings = {};
+      $$PREBID_GLOBAL$$.bidderSettings = {};
     });
     it('should get value from storage with create param', function () {
       const now = Date.now();
@@ -1044,8 +804,8 @@ describe('VidazooBidAdapter', function () {
         shouldAdvanceTime: true,
         now
       });
-      setStorageItem(storage, 'myKey', 2020);
-      const { value, created } = getStorageItem(storage, 'myKey');
+      setStorageItem('myKey', 2020);
+      const {value, created} = getStorageItem('myKey');
       expect(created).to.be.equal(now);
       expect(value).to.be.equal(2020);
       expect(typeof value).to.be.equal('number');
@@ -1056,13 +816,13 @@ describe('VidazooBidAdapter', function () {
     it('should get external stored value', function () {
       const value = 'superman'
       window.localStorage.setItem('myExternalKey', value);
-      const item = getStorageItem(storage, 'myExternalKey');
+      const item = getStorageItem('myExternalKey');
       expect(item).to.be.equal(value);
     });
 
     it('should parse JSON value', function () {
-      const data = JSON.stringify({ event: 'send' });
-      const { event } = tryParseJSON(data);
+      const data = JSON.stringify({event: 'send'});
+      const {event} = tryParseJSON(data);
       expect(event).to.be.equal('send');
     });
 
@@ -1071,68 +831,6 @@ describe('VidazooBidAdapter', function () {
       const parsed = tryParseJSON(value);
       expect(typeof parsed).to.be.equal('number');
       expect(parsed).to.be.equal(value);
-    });
-  });
-
-  describe('validate onBidWon', function () {
-    beforeEach(function () {
-      sinon.stub(utils, 'triggerPixel');
-    });
-    afterEach(function () {
-      utils.triggerPixel.restore();
-    });
-
-    it('should call triggerPixel if nurl exists', function () {
-      const bid = {
-        adUnitCode: 'div-gpt-ad-12345-0',
-        adId: '2d52001cabd527',
-        auctionId: '1fdb5ff1b6eaa7',
-        transactionId: 'c881914b-a3b5-4ecf-ad9c-1c2f37c6aabf',
-        status: 'rendered',
-        timeToRespond: 100,
-        cpm: 0.8,
-        originalCpm: 0.8,
-        creativeId: '12610997325162499419',
-        currency: 'USD',
-        originalCurrency: 'USD',
-        height: 250,
-        mediaType: 'banner',
-        nurl: 'https://test.com/win-notice?test=123',
-        netRevenue: true,
-        requestId: '2d52001cabd527',
-        ttl: 30,
-        width: 300
-      };
-      adapter.onBidWon(bid);
-      expect(utils.triggerPixel.called).to.be.true;
-
-      const url = utils.triggerPixel.args[0];
-
-      expect(url[0]).to.be.equal('https://test.com/win-notice?test=123&adId=2d52001cabd527&creativeId=12610997325162499419&auctionId=1fdb5ff1b6eaa7&transactionId=c881914b-a3b5-4ecf-ad9c-1c2f37c6aabf&adUnitCode=div-gpt-ad-12345-0&cpm=0.8&currency=USD&originalCpm=0.8&originalCurrency=USD&netRevenue=true&mediaType=banner&timeToRespond=100&status=rendered');
-    });
-
-    it('should not call triggerPixel if nurl does not exist', function () {
-      const bid = {
-        adUnitCode: 'div-gpt-ad-12345-0',
-        adId: '2d52001cabd527',
-        auctionId: '1fdb5ff1b6eaa7',
-        transactionId: 'c881914b-a3b5-4ecf-ad9c-1c2f37c6aabf',
-        status: 'rendered',
-        timeToRespond: 100,
-        cpm: 0.8,
-        originalCpm: 0.8,
-        creativeId: '12610997325162499419',
-        currency: 'USD',
-        originalCurrency: 'USD',
-        height: 250,
-        mediaType: 'banner',
-        netRevenue: true,
-        requestId: '2d52001cabd527',
-        ttl: 30,
-        width: 300
-      };
-      adapter.onBidWon(bid);
-      expect(utils.triggerPixel.called).to.be.false;
     });
   });
 });

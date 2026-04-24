@@ -1,12 +1,10 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
 import { BANNER } from '../src/mediaTypes.js';
-import { ajax } from '../src/ajax.js';
+import {ajax} from '../src/ajax.js';
 import { config } from '../src/config.js';
-import { deepAccess, isFn, isPlainObject } from '../src/utils.js';
+import {deepAccess, isFn, isPlainObject} from '../src/utils.js';
 
 const GVLID = 706;
-const VRTCAL_USER_SYNC_URL_IFRAME = `https://usync.vrtcal.com/i?ssp=1804&synctype=iframe`;
-const VRTCAL_USER_SYNC_URL_REDIRECT = `https://usync.vrtcal.com/i?ssp=1804&synctype=redirect`;
 
 export const spec = {
   code: 'vrtcal',
@@ -20,7 +18,7 @@ export const spec = {
       let floor = 0;
 
       if (isFn(bid.getFloor)) {
-        const floorInfo = bid.getFloor({ currency: 'USD', mediaType: 'banner', size: bid.sizes.map(([w, h]) => ({ w, h })) });
+        const floorInfo = bid.getFloor({ currency: 'USD', mediaType: 'banner', size: bid.sizes.map(([w, h]) => ({w, h})) });
 
         if (isPlainObject(floorInfo) && floorInfo.currency === 'USD' && !isNaN(parseFloat(floorInfo.floor))) {
           floor = Math.max(floor, parseFloat(floorInfo.floor));
@@ -69,7 +67,7 @@ export const spec = {
           name: 'VRTCAL_FILLED',
           cat: deepAccess(bid, 'ortb2.site.cat', []),
           domain: decodeURIComponent(window.location.href).replace('https://', '').replace('http://', '').split('/')[0],
-          page: window.location.href
+          page: bid.refererInfo.page
         },
         device: {
           language: navigator.language,
@@ -104,7 +102,7 @@ export const spec = {
         params.regs.ext.gpp_sid = bid.ortb2.regs.gpp_sid;
       }
 
-      return { method: 'POST', url: 'https://rtb.vrtcal.com/bidder_prebid.vap?ssp=1804', data: JSON.stringify(params), options: { withCredentials: false, crossOrigin: true } };
+      return {method: 'POST', url: 'https://rtb.vrtcal.com/bidder_prebid.vap?ssp=1804', data: JSON.stringify(params), options: {withCredentials: false, crossOrigin: true}};
     });
 
     return requests;
@@ -150,34 +148,7 @@ export const spec = {
     );
     ajax(winUrl, null);
     return true;
-  },
-
-  getUserSyncs: function(syncOptions, serverResponses, gdprConsent = {}, uspConsent = '', gppConsent = {}) {
-    const syncs = [];
-    const gdprFlag = `&gdpr=${gdprConsent.gdprApplies ? 1 : 0}`;
-    const gdprString = `&gdpr_consent=${encodeURIComponent((gdprConsent.consentString || ''))}`;
-    const usPrivacy = `&us_privacy=${encodeURIComponent(uspConsent)}`;
-    const gpp = gppConsent.gppString ? gppConsent.gppString : '';
-    const gppSid = Array.isArray(gppConsent.applicableSections) ? gppConsent.applicableSections.join(',') : '';
-    let vrtcalSyncURL = ''
-
-    if (syncOptions.iframeEnabled) {
-      vrtcalSyncURL = `${VRTCAL_USER_SYNC_URL_IFRAME}${usPrivacy}${gdprFlag}${gdprString}&gpp=${gpp}&gpp_sid=${gppSid}&surl=`;
-      syncs.push({
-        type: 'iframe',
-        url: vrtcalSyncURL
-      });
-    } else {
-      vrtcalSyncURL = `${VRTCAL_USER_SYNC_URL_REDIRECT}${usPrivacy}${gdprFlag}${gdprString}&gpp=${gpp}&gpp_sid=${gppSid}&surl=`;
-      syncs.push({
-        type: 'image',
-        url: vrtcalSyncURL
-      });
-    }
-
-    return syncs;
   }
-
 };
 
 registerBidder(spec);

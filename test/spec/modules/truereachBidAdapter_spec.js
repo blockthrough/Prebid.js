@@ -12,12 +12,13 @@ describe('truereachBidAdapterTests', function () {
       bidder: 'truereach',
       params: {
         site_id: '0142010a-8400-1b01-72cb-a553b9000009',
+        bidfloor: 0.1
       }
     })).to.equal(true);
   });
 
   it('validate_generated_params', function () {
-    const bidRequestData = [{
+    let bidRequestData = [{
       bidId: '34ce3f3b15190a',
       mediaTypes: {
         banner: {
@@ -26,22 +27,24 @@ describe('truereachBidAdapterTests', function () {
       },
       bidder: 'truereach',
       params: {
-        site_id: '0142010a-8400-1b01-72cb-a553b9000009'
+        site_id: '0142010a-8400-1b01-72cb-a553b9000009',
+        bidfloor: 0.1
       },
       sizes: [[300, 250]]
     }];
 
-    const request = spec.buildRequests(bidRequestData, {});
-    const req_data = request.data;
+    let request = spec.buildRequests(bidRequestData, {});
+    let req_data = request.data;
 
     expect(request.method).to.equal('POST');
     expect(req_data.imp[0].id).to.equal('34ce3f3b15190a');
     expect(req_data.imp[0].banner.w).to.equal(300);
     expect(req_data.imp[0].banner.h).to.equal(250);
+    expect(req_data.imp[0].bidfloor).to.equal(0);
   });
 
   it('validate_response_params', function () {
-    const serverResponse = {
+    let serverResponse = {
       body: {
         'id': '34ce3f3b15190a',
         'seatbid': [{
@@ -64,9 +67,9 @@ describe('truereachBidAdapterTests', function () {
       }
     };
 
-    const bids = spec.interpretResponse(serverResponse, {});
+    let bids = spec.interpretResponse(serverResponse, {});
     expect(bids).to.have.lengthOf(1);
-    const bid = bids[0];
+    let bid = bids[0];
     expect(bid.requestId).to.equal('34ce3f3b15190a');
     expect(bid.cpm).to.equal(2.55);
     expect(bid.currency).to.equal('USD');
@@ -82,8 +85,8 @@ describe('truereachBidAdapterTests', function () {
   describe('user_sync', function() {
     const user_sync_url = 'https://ads-sg.momagic.com/jsp/usersync.jsp';
     it('register_iframe_pixel_if_iframeEnabled_is_true', function() {
-      const syncs = spec.getUserSyncs(
-        { iframeEnabled: true }
+      let syncs = spec.getUserSyncs(
+        {iframeEnabled: true}
       );
       expect(syncs).to.be.an('array');
       expect(syncs.length).to.equal(1);
@@ -92,8 +95,8 @@ describe('truereachBidAdapterTests', function () {
     });
 
     it('if_pixelEnabled_is_true', function() {
-      const syncs = spec.getUserSyncs(
-        { pixelEnabled: true }
+      let syncs = spec.getUserSyncs(
+        {pixelEnabled: true}
       );
       expect(syncs).to.be.an('array');
       expect(syncs.length).to.equal(0);

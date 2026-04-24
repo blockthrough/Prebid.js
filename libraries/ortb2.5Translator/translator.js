@@ -1,30 +1,19 @@
-import { deepAccess, deepSetValue, logError } from '../../src/utils.js';
+import {deepAccess, deepSetValue, logError} from '../../src/utils.js';
 
 export const EXT_PROMOTIONS = [
-  'device.sua',
   'source.schain',
   'regs.gdpr',
   'regs.us_privacy',
   'regs.gpp',
-  'regs.gpp_sid',
   'user.consent',
   'user.eids'
 ];
 
 export function splitPath(path) {
   const parts = path.split('.');
-  const field = parts.pop();
-  return [parts.join('.'), field];
-}
-
-export function addExt(prefix, field) {
-  return `${prefix}.ext.${field}`
-}
-
-function removeExt(prefix, field) {
-  const [newPrefix, ext] = splitPath(prefix);
-  if (ext !== 'ext') throw new Error('invalid argument');
-  return `${newPrefix}.${field}`;
+  const prefix = parts.slice(0, parts.length - 1).join('.');
+  const field = parts[parts.length - 1];
+  return [prefix, field];
 }
 
 /**
@@ -34,7 +23,7 @@ function removeExt(prefix, field) {
  * @return {(function({}): (function(): void|undefined))|*} a function that takes an object and, if it contains
  *        sourcePath, copies its contents to destinationPath, returning a function that deletes the original sourcePath.
  */
-export function moveRule(sourcePath, dest) {
+export function moveRule(sourcePath, dest = (prefix, field) => `${prefix}.ext.${field}`) {
   const [prefix, field] = splitPath(sourcePath);
   dest = dest(prefix, field);
   return (ortb2) => {
@@ -51,7 +40,7 @@ function kwarrayRule(section) {
   return (ortb2) => {
     const kwarray = ortb2[section]?.kwarray;
     if (kwarray != null) {
-      const kw = (ortb2[section].keywords || '').split(',');
+      let kw = (ortb2[section].keywords || '').split(',');
       if (Array.isArray(kwarray)) kw.push(...kwarray);
       ortb2[section].keywords = kw.join(',');
       return () => delete ortb2[section].kwarray;
@@ -59,13 +48,9 @@ function kwarrayRule(section) {
   };
 }
 
-export const TO_25_DEFAULT_RULES = Object.freeze([
-  ...EXT_PROMOTIONS.map((f) => moveRule(f, addExt)),
+export const DEFAULT_RULES = Object.freeze([
+  ...EXT_PROMOTIONS.map((f) => moveRule(f)),
   ...['app', 'content', 'site', 'user'].map(kwarrayRule)
-]);
-
-export const TO_26_DEFAULT_RULES = Object.freeze([
-  ...EXT_PROMOTIONS.map(f => moveRule(addExt(...splitPath(f)), removeExt)),
 ]);
 
 /**
@@ -75,7 +60,7 @@ export const TO_26_DEFAULT_RULES = Object.freeze([
  * @param rules translation rules; an array of functions of the type returned by `moveRule`
  * @return {function({}): {}} a translation function that takes an ORTB object, modifies it in place, and returns it.
  */
-export function ortb25Translator(deleteFields = true, rules = TO_25_DEFAULT_RULES) {
+export function ortb25Translator(deleteFields = true, rules = DEFAULT_RULES) {
   return function (ortb2) {
     rules.forEach(f => {
       try {
@@ -95,10 +80,3 @@ export function ortb25Translator(deleteFields = true, rules = TO_25_DEFAULT_RULE
  * The request is modified in place and returned.
  */
 export const toOrtb25 = ortb25Translator();
-
-/**
- * Translate an ortb 2.5 request to version 2.6 by moving fields that have a standardized 2.5 extension.
- *
- * The request is modified in place and returned.
- */
-export const toOrtb26 = ortb25Translator(true, TO_26_DEFAULT_RULES);

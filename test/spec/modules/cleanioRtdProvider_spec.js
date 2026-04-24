@@ -2,10 +2,9 @@ import { loadExternalScriptStub } from 'test/mocks/adloaderStub.js';
 import * as utils from '../../../src/utils.js';
 import * as hook from '../../../src/hook.js'
 import * as events from '../../../src/events.js';
-import { EVENTS } from '../../../src/constants.js';
+import CONSTANTS from '../../../src/constants.json';
 
-import { __CLEANIO_TEST__ } from '../../../modules/cleanioRtdProvider.js';
-import { MODULE_TYPE_RTD } from '../../../src/activities/modules.js';
+import { __TEST__ } from '../../../modules/cleanioRtdProvider.js';
 
 const {
   readConfig,
@@ -15,7 +14,7 @@ const {
   bidWrapStepAugmentHtml,
   bidWrapStepProtectByWrapping,
   beforeInit,
-} = __CLEANIO_TEST__;
+} = __TEST__;
 
 sinon.assert.expose(chai.assert, { prefix: 'sinon' });
 
@@ -68,10 +67,10 @@ describe('clean.io RTD module', function () {
     });
 
     it('pageInitStepProtectPage() should insert script element', function() {
-      pageInitStepProtectPage(fakeScriptURL, 'clean.io');
+      pageInitStepProtectPage(fakeScriptURL);
 
       sinon.assert.calledOnce(loadExternalScriptStub);
-      sinon.assert.calledWith(loadExternalScriptStub, fakeScriptURL, MODULE_TYPE_RTD, 'clean.io');
+      sinon.assert.calledWith(loadExternalScriptStub, fakeScriptURL, 'clean.io');
     });
   });
 
@@ -100,7 +99,7 @@ describe('clean.io RTD module', function () {
     });
   });
 
-  describe('Submodule execution', function() {
+  describe('Sumbodule execution', function() {
     let submoduleStub;
     let insertElementStub;
     beforeEach(function () {
@@ -140,7 +139,7 @@ describe('clean.io RTD module', function () {
       const { init, onBidResponseEvent } = getModule();
       expect(init({ params: { cdnUrl: 'https://abc1234567890.cloudfront.net/script.js', protectionMode: 'full' } }, {})).to.equal(true);
       sinon.assert.calledOnce(loadExternalScriptStub);
-      sinon.assert.calledWith(loadExternalScriptStub, 'https://abc1234567890.cloudfront.net/script.js', MODULE_TYPE_RTD, 'clean.io');
+      sinon.assert.calledWith(loadExternalScriptStub, 'https://abc1234567890.cloudfront.net/script.js', 'clean.io');
 
       const fakeBidResponse = makeFakeBidResponse();
       onBidResponseEvent(fakeBidResponse, {}, {});
@@ -194,16 +193,16 @@ describe('clean.io RTD module', function () {
       const eventCounter = { registerCleanioBillingEvent: function() {} };
       sinon.spy(eventCounter, 'registerCleanioBillingEvent');
 
-      events.on(EVENTS.BILLABLE_EVENT, (evt) => {
+      events.on(CONSTANTS.EVENTS.BILLABLE_EVENT, (evt) => {
         if (evt.vendor === 'clean.io') {
           eventCounter.registerCleanioBillingEvent()
         }
       });
 
-      events.emit(EVENTS.BID_WON, {});
-      events.emit(EVENTS.BID_WON, {});
-      events.emit(EVENTS.BID_WON, {});
-      events.emit(EVENTS.BID_WON, {});
+      events.emit(CONSTANTS.EVENTS.BID_WON, {});
+      events.emit(CONSTANTS.EVENTS.BID_WON, {});
+      events.emit(CONSTANTS.EVENTS.BID_WON, {});
+      events.emit(CONSTANTS.EVENTS.BID_WON, {});
 
       sinon.assert.callCount(eventCounter.registerCleanioBillingEvent, 4);
     });

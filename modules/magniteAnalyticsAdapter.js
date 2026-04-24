@@ -19,13 +19,12 @@ import {
 } from '../src/utils.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
-import { EVENTS, REJECTION_REASON } from '../src/constants.js';
-import { ajax } from '../src/ajax.js';
-import { config } from '../src/config.js';
-import { getGlobal } from '../src/prebidGlobal.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { MODULE_TYPE_ANALYTICS } from '../src/activities/modules.js';
-import { getHook } from '../src/hook.js';
+import CONSTANTS from '../src/constants.json';
+import {ajax} from '../src/ajax.js';
+import {config} from '../src/config.js';
+import {getGlobal} from '../src/prebidGlobal.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {MODULE_TYPE_ANALYTICS} from '../src/activities/modules.js';
 
 const RUBICON_GVL_ID = 52;
 export const storage = getStorageManager({ moduleType: MODULE_TYPE_ANALYTICS, moduleName: 'magnite' });
@@ -34,11 +33,10 @@ const LAST_SEEN_EXPIRE_TIME = 1800000; // 30 mins
 const END_EXPIRE_TIME = 21600000; // 6 hours
 const MODULE_NAME = 'Magnite Analytics';
 const BID_REJECTED_IPF = 'rejected-ipf';
-const DEFAULT_INTEGRATION = 'pbjs';
 
 // List of known rubicon aliases
 // This gets updated on auction init to account for any custom aliases present
-const rubiconAliases = ['rubicon'];
+let rubiconAliases = ['rubicon'];
 
 const pbsErrorMap = {
   1: 'timeout-error',
@@ -48,26 +46,21 @@ const pbsErrorMap = {
   999: 'generic-error'
 }
 
-let browser;
-let pageReferer;
-let auctionIndex = 0; // count of auctions on page
-let accountId;
-let endpoint;
-let cookieless;
-
-const prebidGlobal = getGlobal();
+let prebidGlobal = getGlobal();
 const {
-  AUCTION_INIT,
-  AUCTION_END,
-  BID_REQUESTED,
-  BID_RESPONSE,
-  BIDDER_DONE,
-  BID_TIMEOUT,
-  BID_WON,
-  BILLABLE_EVENT,
-  PBS_ANALYTICS,
-  BID_REJECTED
-} = EVENTS;
+  EVENTS: {
+    AUCTION_INIT,
+    AUCTION_END,
+    BID_REQUESTED,
+    BID_RESPONSE,
+    BIDDER_DONE,
+    BID_TIMEOUT,
+    BID_WON,
+    BILLABLE_EVENT,
+    SEAT_NON_BID,
+    BID_REJECTED
+  }
+} = CONSTANTS;
 
 // The saved state of rubicon specific setConfig controls
 export let rubiConf;
@@ -82,8 +75,7 @@ const resetConfs = () => {
     pendingEvents: {},
     eventPending: false,
     elementIdMap: {},
-    sessionData: {},
-    bidsCachedClientSide: new WeakSet()
+    sessionData: {}
   }
   rubiConf = {
     pvid: generateUUID().slice(0, 8),
@@ -111,6 +103,8 @@ let serverConfig;
 config.getConfig('s2sConfig', ({ s2sConfig }) => {
   serverConfig = s2sConfig;
 });
+
+const DEFAULT_INTEGRATION = 'pbjs';
 
 const adUnitIsOnlyInstream = adUnit => {
   return adUnit.mediaTypes && Object.keys(adUnit.mediaTypes).length === 1 && deepAccess(adUnit, 'mediaTypes.video.context') === 'instream';
@@ -163,7 +157,7 @@ const sendEvent = payload => {
 }
 
 const sendAuctionEvent = (auctionId, trigger) => {
-  const auctionCache = cache.auctions[auctionId];
+  let auctionCache = cache.auctions[auctionId];
   const auctionEvent = formatAuction(auctionCache.auction);
 
   auctionCache.sent = true;
@@ -183,7 +177,7 @@ const formatAuction = auction => {
   auctionEvent.adUnits = Object.entries(auctionEvent.adUnits).map(([tid, adUnit]) => {
     adUnit.bids = Object.entries(adUnit.bids).map(([bidId, bid]) => {
       // determine adUnit.status from its bid statuses. Use priority below to determine, higher index is better
-      const statusPriority = ['error', 'no-bid', 'success'];
+      let statusPriority = ['error', 'no-bid', 'success'];
       if (statusPriority.indexOf(bid.status) > statusPriority.indexOf(adUnit.status)) {
         adUnit.status = bid.status;
       }
@@ -211,7 +205,7 @@ const isBillingEventValid = event => {
 }
 
 const formatBillingEvent = event => {
-  const billingEvent = deepClone(event);
+  let billingEvent = deepClone(event);
   // Pass along type if is string and not empty else general
   billingEvent.type = (typeof event.type === 'string' && event.type) || 'general';
   billingEvent.accountId = accountId;
@@ -254,7 +248,7 @@ const getBidPrice = bid => {
 
 export const parseBidResponse = (bid, previousBidResponse) => {
   // The current bidResponse for this matching requestId/bidRequestId
-  const responsePrice = getBidPrice(bid)
+  let responsePrice = getBidPrice(bid)
   // we need to compare it with the previous one (if there was one) log highest only
   // THIS WILL CHANGE WITH ALLOWING MULTIBID BETTER
   if (previousBidResponse && previousBidResponse.bidPriceUSD > responsePrice) {
@@ -264,8 +258,7 @@ export const parseBidResponse = (bid, previousBidResponse) => {
   return pick(bid, [
     'bidPriceUSD', () => responsePrice,
     'dealId', dealId => dealId || undefined,
-    'mediaType', () => bid?.meta?.mediaType || bid.mediaType,
-    'ogMediaType', () => bid?.meta?.mediaType && bid.mediaType !== bid?.meta?.mediaType ? bid.mediaType : undefined,
+    'mediaType',
     'dimensions', () => {
       const width = bid.width || bid.playerWidth;
       const height = bid.height || bid.playerHeight;
@@ -315,8 +308,10 @@ const addFloorData = floorData => {
   }
 }
 
+let pageReferer;
+
 const getTopLevelDetails = () => {
-  const payload = {
+  let payload = {
     channel: 'web',
     integration: rubiConf.int_type || DEFAULT_INTEGRATION,
     referrerUri: pageReferer,
@@ -335,14 +330,10 @@ const getTopLevelDetails = () => {
 
   // Add DM wrapper details
   if (rubiConf.wrapperName) {
-    let rule = rubiConf.rule_name;
-    if (cookieless) {
-      rule = rule ? rule.concat('_cookieless') : 'cookieless';
-    }
     payload.wrapper = {
       name: rubiConf.wrapperName,
       family: rubiConf.wrapperFamily,
-      rule
+      rule: rubiConf.rule_name
     }
   }
 
@@ -375,7 +366,7 @@ export const getHostNameFromReferer = referer => {
 };
 
 const getRpaCookie = () => {
-  const encodedCookie = storage.getDataFromLocalStorage(COOKIE_NAME);
+  let encodedCookie = storage.getDataFromLocalStorage(COOKIE_NAME);
   if (encodedCookie) {
     try {
       return JSON.parse(window.atob(encodedCookie));
@@ -509,7 +500,7 @@ const getRenderingIds = bidWonData => {
     const gamHasRendered = deepAccess(cache, `auctions.${auction.auctionId}.gamRenders.${adUnit.transactionId}`);
     return adUnit.adUnitCode === bidWonData.adUnitCode && gamHasRendered;
   }
-  const { adUnit, auction } = findMatchingAdUnitFromAuctions(matchingFunction, false);
+  let { adUnit, auction } = findMatchingAdUnitFromAuctions(matchingFunction, false);
   // If no match was found, we will use the actual bid won auction id
   return {
     renderTransactionId: (adUnit && adUnit.transactionId) || bidWonData.transactionId,
@@ -531,9 +522,9 @@ const formatBidWon = bidWonData => {
   });
 
   // get the bid from the source auction id
-  const bid = deepAccess(cache, `auctions.${bidWonData.auctionId}.auction.adUnits.${bidWonData.transactionId}.bids.${bidWonData.requestId}`);
-  const adUnit = deepAccess(cache, `auctions.${bidWonData.auctionId}.auction.adUnits.${bidWonData.transactionId}`);
-  const bidWon = {
+  let bid = deepAccess(cache, `auctions.${bidWonData.auctionId}.auction.adUnits.${bidWonData.transactionId}.bids.${bidWonData.requestId}`);
+  let adUnit = deepAccess(cache, `auctions.${bidWonData.auctionId}.auction.adUnits.${bidWonData.transactionId}`);
+  let bidWon = {
     ...bid,
     sourceAuctionId: bidWonData.auctionId,
     renderAuctionId,
@@ -582,7 +573,7 @@ const subscribeToGamSlots = () => {
       const gamHasRendered = deepAccess(cache, `auctions.${auction.auctionId}.gamRenders.${adUnit.transactionId}`);
       return matchesSlot && !gamHasRendered;
     }
-    const { adUnit, auction } = findMatchingAdUnitFromAuctions(matchingFunction, true);
+    let { adUnit, auction } = findMatchingAdUnitFromAuctions(matchingFunction, true);
 
     const slotName = `${event.slot.getAdUnitPath()} - ${event.slot.getSlotElementId()}`;
 
@@ -633,7 +624,7 @@ const subscribeToGamSlots = () => {
  * @returns {string} lazily guessed browser name
  */
 export const detectBrowserFromUa = userAgent => {
-  const normalizedUa = userAgent.toLowerCase();
+  let normalizedUa = userAgent.toLowerCase();
 
   if (normalizedUa.includes('edg')) {
     return 'Edge';
@@ -649,7 +640,10 @@ export const detectBrowserFromUa = userAgent => {
   return 'OTHER';
 }
 
-const magniteAdapter = adapter({ analyticsType: 'endpoint' });
+let accountId;
+let endpoint;
+
+let magniteAdapter = adapter({ analyticsType: 'endpoint' });
 
 magniteAdapter.originEnableAnalytics = magniteAdapter.enableAnalytics;
 function enableMgniAnalytics(config = {}) {
@@ -677,19 +671,7 @@ function enableMgniAnalytics(config = {}) {
     window.googletag.cmd = window.googletag.cmd || [];
     window.googletag.cmd.push(() => subscribeToGamSlots());
   }
-
-  // Edge case handler for client side video caching
-  getHook('callPrebidCache').before(callPrebidCacheHook);
 };
-
-/*
-  We want to know if a bid was cached client side
-    And if it was we will use the actual bidId instead of the pbsBidId override in our BID_RESPONSE handler
-*/
-export function callPrebidCacheHook(fn, auctionInstance, bidResponse, afterBidAdded, videoMediaType) {
-  cache.bidsCachedClientSide.add(bidResponse);
-  fn.call(this, auctionInstance, bidResponse, afterBidAdded, videoMediaType);
-}
 
 const handleBidWon = args => {
   const bidWon = formatBidWon(args);
@@ -704,10 +686,7 @@ magniteAdapter.disableAnalytics = function () {
   magniteAdapter._oldEnable = enableMgniAnalytics;
   endpoint = undefined;
   accountId = undefined;
-  cookieless = undefined;
-  auctionIndex = 0;
   resetConfs();
-  getHook('callPrebidCache').getHooks({ hook: callPrebidCacheHook }).remove();
   magniteAdapter.originDisableAnalytics();
 };
 
@@ -730,7 +709,7 @@ const handleBidResponse = (args, bidStatus) => {
   // if this came from multibid, there might now be matching bid, so check
   // THIS logic will change when we support multibid per bid request
   if (!bid && args.originalRequestId) {
-    const ogBid = adUnit.bids[args.originalRequestId];
+    let ogBid = adUnit.bids[args.originalRequestId];
     // create new bid
     adUnit.bids[args.requestId] = {
       ...ogBid,
@@ -769,8 +748,8 @@ const handleBidResponse = (args, bidStatus) => {
   bid.bidResponse = parseBidResponse(args, bid.bidResponse);
 
   // if pbs gave us back a bidId, we need to use it and update our bidId to PBA
-  const pbsBidId = (Number(args.pbsBidId) === 0 ? generateUUID() : args.pbsBidId) || (Number(args.seatBidId) === 0 ? generateUUID() : args.seatBidId);
-  if (pbsBidId && !cache.bidsCachedClientSide.has(args)) {
+  const pbsBidId = (args.pbsBidId == 0 ? generateUUID() : args.pbsBidId) || (args.seatBidId == 0 ? generateUUID() : args.seatBidId);
+  if (pbsBidId) {
     bid.pbsBidId = pbsBidId;
   }
 }
@@ -794,10 +773,10 @@ const getLatencies = (args, auctionStart) => {
   }
 }
 
+let browser;
 magniteAdapter.track = ({ eventType, args }) => {
   switch (eventType) {
     case AUCTION_INIT:
-      auctionIndex += 1;
       // Update session
       cache.sessionData = storage.localStorageIsEnabled() && updateRpaCookie();
       // set the rubicon aliases
@@ -807,13 +786,12 @@ magniteAdapter.track = ({ eventType, args }) => {
       pageReferer = deepAccess(args, 'bidderRequests.0.refererInfo.page');
 
       // set auction level data
-      const auctionData = pick(args, [
+      let auctionData = pick(args, [
         'auctionId',
         'timestamp as auctionStart',
         'timeout as clientTimeoutMillis',
       ]);
       auctionData.accountId = accountId;
-      auctionData.auctionIndex = auctionIndex;
 
       // get browser
       if (!browser) {
@@ -853,10 +831,10 @@ magniteAdapter.track = ({ eventType, args }) => {
       }
 
       // lets us keep a map of adunit and wether it had a gam or bid won render yet, used to track when to send events
-      const gamRenders = {};
+      let gamRenders = {};
       // adunits saved as map of transactionIds
       auctionData.adUnits = args.adUnits.reduce((adMap, adUnit) => {
-        const ad = pick(adUnit, [
+        let ad = pick(adUnit, [
           'code as adUnitCode',
           'transactionId',
           'mediaTypes', mediaTypes => Object.keys(mediaTypes),
@@ -900,11 +878,9 @@ magniteAdapter.track = ({ eventType, args }) => {
           'source', () => bid.src === 's2s' ? 'server' : 'client',
           'status', () => 'no-bid'
         ]);
-        // add a pbs flag if one of the bids has a server source
-        if (adUnit.bids[bid.bidId].source === 'server') adUnit.pbsRequest = 1;
         // set acct site zone id on adunit
         if ((!adUnit.siteId || !adUnit.zoneId) && rubiconAliases.indexOf(bid.bidder) !== -1) {
-          if (Number(deepAccess(bid, 'params.accountId')) === accountId) {
+          if (deepAccess(bid, 'params.accountId') == accountId) {
             adUnit.accountId = parseInt(accountId);
             adUnit.siteId = parseInt(deepAccess(bid, 'params.siteId'));
             adUnit.zoneId = parseInt(deepAccess(bid, 'params.zoneId'));
@@ -916,17 +892,17 @@ magniteAdapter.track = ({ eventType, args }) => {
       handleBidResponse(args, 'success');
       break;
     case BID_REJECTED:
-      const bidStatus = args.rejectionReason === REJECTION_REASON.FLOOR_NOT_MET ? BID_REJECTED_IPF : 'rejected';
+      const bidStatus = args.rejectionReason === CONSTANTS.REJECTION_REASON.FLOOR_NOT_MET ? BID_REJECTED_IPF : 'rejected';
       handleBidResponse(args, bidStatus);
       break;
-    case PBS_ANALYTICS:
-      handlePbsAnalytics(args);
+    case SEAT_NON_BID:
+      handleNonBidEvent(args);
       break;
     case BIDDER_DONE:
       const serverError = deepAccess(args, 'serverErrors.0');
       const serverResponseTimeMs = args.serverResponseTimeMs;
       args.bids.forEach(bid => {
-        const cachedBid = deepAccess(cache, `auctions.${bid.auctionId}.auction.adUnits.${bid.transactionId}.bids.${bid.bidId}`);
+        let cachedBid = deepAccess(cache, `auctions.${bid.auctionId}.auction.adUnits.${bid.transactionId}.bids.${bid.bidId}`);
         if (typeof bid.serverResponseTimeMs !== 'undefined') {
           cachedBid.serverLatencyMillis = bid.serverResponseTimeMs;
         } else if (serverResponseTimeMs && bid.source === 's2s') {
@@ -962,7 +938,7 @@ magniteAdapter.track = ({ eventType, args }) => {
       }
       break;
     case AUCTION_END:
-      const auctionCache = cache.auctions[args.auctionId];
+      let auctionCache = cache.auctions[args.auctionId];
       // if for some reason the auction did not do its normal thing, this could be undefied so bail
       if (!auctionCache) {
         break;
@@ -987,7 +963,7 @@ magniteAdapter.track = ({ eventType, args }) => {
       break;
     case BID_TIMEOUT:
       args.forEach(badBid => {
-        const bid = deepAccess(cache, `auctions.${badBid.auctionId}.auction.adUnits.${badBid.transactionId}.bids.${badBid.bidId}`, {});
+        let bid = deepAccess(cache, `auctions.${badBid.auctionId}.auction.adUnits.${badBid.transactionId}.bids.${badBid.bidId}`, {});
         // might be set already by bidder-done, so do not overwrite
         if (bid.status !== 'error') {
           bid.status = 'error';
@@ -1011,27 +987,8 @@ magniteAdapter.track = ({ eventType, args }) => {
   }
 };
 
-const handlePbsAnalytics = function (args) {
-  const { seatnonbid, auctionId, atag } = args;
-  if (seatnonbid) {
-    handleNonBidEvent(seatnonbid, auctionId);
-  }
-  if (atag) {
-    handleAtagEvent(atag, auctionId);
-  }
-}
-
-const handleAtagEvent = function (atag, auctionId) {
-  const tags = findTimeoutOptimization(atag)
-  tags.forEach(tag => {
-    tag.activities.forEach(activity => {
-      if (activity.name === 'optimize-tmax' && activity.status === 'success') {
-        setAnalyticsTagData(activity.results[0]?.values, deepAccess(cache, `auctions.${auctionId}.auction`))
-      }
-    })
-  });
-}
-const handleNonBidEvent = function(seatnonbid, auctionId) {
+const handleNonBidEvent = function(args) {
+  const {seatnonbid, auctionId} = args;
   const auction = deepAccess(cache, `auctions.${auctionId}.auction`);
   // if no auction just bail
   if (!auction) {
@@ -1040,10 +997,10 @@ const handleNonBidEvent = function(seatnonbid, auctionId) {
   }
   const adUnits = auction.adUnits;
   seatnonbid.forEach(seatnonbid => {
-    const { seat } = seatnonbid;
+    let {seat} = seatnonbid;
     seatnonbid.nonbid.forEach(nonbid => {
       try {
-        const { status, impid } = nonbid;
+        const {status, impid} = nonbid;
         const matchingTid = Object.keys(adUnits).find(tid => adUnits[tid].adUnitCode === impid);
         const adUnit = adUnits[matchingTid];
         const statusInfo = statusMap[status] || { status: 'no-bid' };
@@ -1060,28 +1017,6 @@ const handleNonBidEvent = function(seatnonbid, auctionId) {
     });
   });
 };
-
-const findTimeoutOptimization = (atag) => {
-  let timeoutOpt;
-  atag.forEach(tag => {
-    if (tag.module === 'mgni-timeout-optimization') {
-      timeoutOpt = tag.analyticstags;
-    }
-  })
-  return timeoutOpt;
-}
-const setAnalyticsTagData = (values, auction) => {
-  const data = {
-    name: values.scenario,
-    rule: values.rule,
-    value: values.tmax
-  }
-
-  const experiments = deepAccess(auction, 'experiments') || [];
-  experiments.push(data);
-
-  deepSetValue(auction, 'experiments', experiments);
-}
 
 const statusMap = {
   0: {

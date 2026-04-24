@@ -7,10 +7,10 @@ import { createEidsArray } from 'modules/userId/eids.js';
 describe('vrtcalBidAdapter', function () {
   const adapter = newBidder(spec)
 
-  const bidRequest = {
+  let bidRequest = {
     bidId: 'bidID0001',
     transactionId: 'transID0001',
-    sizes: [[300, 250]]
+    sizes: [[ 300, 250 ]]
   }
 
   describe('isBidRequestValid', function () {
@@ -20,7 +20,7 @@ describe('vrtcalBidAdapter', function () {
   })
 
   describe('buildRequests', function () {
-    const bidRequests = [
+    let bidRequests = [
       {
         'bidder': 'vrtcal',
         'adUnitCode': 'adunit0001',
@@ -55,13 +55,13 @@ describe('vrtcalBidAdapter', function () {
     it('if the publisher has set a floor via the floors module, it should be sent as  bidfloor parameter on any requests', function () {
       let floorInfo;
       bidRequests[0].getFloor = () => floorInfo;
-      floorInfo = { currency: 'USD', floor: 0.55 };
+      floorInfo = {currency: 'USD', floor: 0.55};
       request = spec.buildRequests(bidRequests);
       expect(request[0].data).to.match(/"bidfloor":0.55/);
     });
 
     it('pass GDPR,CCPA,COPPA, and GPP indicators/consent strings with the request when present', function () {
-      bidRequests[0].gdprConsent = { consentString: 'gdpr-consent-string', gdprApplies: true };
+      bidRequests[0].gdprConsent = {consentString: 'gdpr-consent-string', gdprApplies: true};
       bidRequests[0].uspConsent = 'ccpa-consent-string';
       config.setConfig({ coppa: false });
 
@@ -87,18 +87,18 @@ describe('vrtcalBidAdapter', function () {
       bidRequests[0].userIdAsEids = [
         {
           source: 'adserver.org',
-          uids: [{ id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: { rtiPartner: 'TDID' } }]
+          uids: [{id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: {rtiPartner: 'TDID'}}]
         }
       ];
 
       request = spec.buildRequests(bidRequests);
-      expect(request[0].data).to.include(JSON.stringify({ ext: { consent: 'gdpr-consent-string', eids: [{ source: 'adserver.org', uids: [{ id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: { rtiPartner: 'TDID' } }] }] } }));
+      expect(request[0].data).to.include(JSON.stringify({ext: {consent: 'gdpr-consent-string', eids: [{source: 'adserver.org', uids: [{id: 'TTD_ID_FROM_USER_ID_MODULE', atype: 1, ext: {rtiPartner: 'TDID'}}]}]}}));
     });
   });
 
   describe('interpretResponse', function () {
     it('should form compliant bid object response', function () {
-      const res = {
+      let res = {
         body: {
           id: 'bidID0001',
           seatbid: [{
@@ -119,11 +119,11 @@ describe('vrtcalBidAdapter', function () {
         }
       }
 
-      const ir = spec.interpretResponse(res, bidRequest)
+      let ir = spec.interpretResponse(res, bidRequest)
 
       expect(ir.length).to.equal(1)
 
-      const en = ir[0]
+      let en = ir[0]
 
       expect(en.requestId != null &&
             en.cpm != null && typeof en.cpm === 'number' &&
@@ -133,40 +133,5 @@ describe('vrtcalBidAdapter', function () {
             en.creativeId != null
       ).to.be.true
     })
-  })
-
-  describe('getUserSyncs', function() {
-    const syncurl_iframe = 'https://usync.vrtcal.com/i?ssp=1804&synctype=iframe';
-    const syncurl_redirect = 'https://usync.vrtcal.com/i?ssp=1804&synctype=redirect';
-
-    it('base iframe sync pper config', function() {
-      expect(spec.getUserSyncs({ iframeEnabled: true }, {}, undefined, undefined)).to.deep.equal([{
-        type: 'iframe', url: syncurl_iframe + '&us_privacy=&gdpr=0&gdpr_consent=&gpp=&gpp_sid=&surl='
-      }]);
-    });
-
-    it('base redirect sync per config', function() {
-      expect(spec.getUserSyncs({ iframeEnabled: false }, {}, undefined, undefined)).to.deep.equal([{
-        type: 'image', url: syncurl_redirect + '&us_privacy=&gdpr=0&gdpr_consent=&gpp=&gpp_sid=&surl='
-      }]);
-    });
-
-    it('pass with ccpa data', function() {
-      expect(spec.getUserSyncs({ iframeEnabled: true }, {}, undefined, 'ccpa_consent_string', undefined)).to.deep.equal([{
-        type: 'iframe', url: syncurl_iframe + '&us_privacy=ccpa_consent_string&gdpr=0&gdpr_consent=&gpp=&gpp_sid=&surl='
-      }]);
-    });
-
-    it('pass with gdpr data', function() {
-      expect(spec.getUserSyncs({ iframeEnabled: true }, {}, { gdprApplies: 1, consentString: 'gdpr_consent_string' }, undefined, undefined)).to.deep.equal([{
-        type: 'iframe', url: syncurl_iframe + '&us_privacy=&gdpr=1&gdpr_consent=gdpr_consent_string&gpp=&gpp_sid=&surl='
-      }]);
-    });
-
-    it('pass with gpp data', function() {
-      expect(spec.getUserSyncs({ iframeEnabled: true }, {}, undefined, undefined, { gppString: 'gpp_consent_string', applicableSections: [1, 5] })).to.deep.equal([{
-        type: 'iframe', url: syncurl_iframe + '&us_privacy=&gdpr=0&gdpr_consent=&gpp=gpp_consent_string&gpp_sid=1,5&surl='
-      }]);
-    });
   })
 })

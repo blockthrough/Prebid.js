@@ -1,12 +1,12 @@
 import { getParameterByName, logInfo, generateUUID, debugTurnedOn } from '../src/utils.js';
-import { ajax } from '../src/ajax.js';
+import {ajax} from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
-import { EVENTS } from '../src/constants.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { MODULE_TYPE_ANALYTICS } from '../src/activities/modules.js';
+import CONSTANTS from '../src/constants.json';
+import {getStorageManager} from '../src/storageManager.js';
+import {MODULE_TYPE_ANALYTICS} from '../src/activities/modules.js';
 const MODULE_CODE = 'pubwise';
-const storage = getStorageManager({ moduleType: MODULE_TYPE_ANALYTICS, moduleName: MODULE_CODE });
+const storage = getStorageManager({moduleType: MODULE_TYPE_ANALYTICS, moduleName: MODULE_CODE});
 
 /****
  * PubWise.io Analytics
@@ -31,21 +31,22 @@ Changes in 4.0 Version
 const analyticsType = 'endpoint';
 const analyticsName = 'PubWise:';
 const prebidVersion = '$prebid.version$';
-const pubwiseVersion = '4.0.1';
-let configOptions = { site: '', endpoint: 'https://api.pubwise.io/api/v5/event/add/', debug: null };
+let pubwiseVersion = '4.0.1';
+let configOptions = {site: '', endpoint: 'https://api.pubwise.io/api/v5/event/add/', debug: null};
 let pwAnalyticsEnabled = false;
-const utmKeys = { utm_source: '', utm_medium: '', utm_campaign: '', utm_term: '', utm_content: '' };
-const sessionData = { sessionId: '', activationId: '' };
-const pwNamespace = 'pubwise';
-const pwEvents = [];
+let utmKeys = {utm_source: '', utm_medium: '', utm_campaign: '', utm_term: '', utm_content: ''};
+let sessionData = {sessionId: '', activationId: ''};
+let pwNamespace = 'pubwise';
+let pwEvents = [];
 let metaData = {};
-const auctionEnded = false;
-const sessTimeout = 60 * 30 * 1000; // 30 minutes, G Analytics default session length
-const sessName = 'sess_id';
-const sessTimeoutName = 'sess_timeout';
+let auctionEnded = false;
+let sessTimeout = 60 * 30 * 1000; // 30 minutes, G Analytics default session length
+let sessName = 'sess_id';
+let sessTimeoutName = 'sess_timeout';
 
 function enrichWithSessionInfo(dataBag) {
   try {
+    // eslint-disable-next-line
     // console.log(sessionData);
     dataBag['session_id'] = sessionData.sessionId;
     dataBag['activation_id'] = sessionData.activationId;
@@ -76,7 +77,7 @@ function enrichWithMetrics(dataBag) {
 function enrichWithUTM(dataBag) {
   let newUtm = false;
   try {
-    for (const prop in utmKeys) {
+    for (let prop in utmKeys) {
       utmKeys[prop] = getParameterByName(prop);
       if (utmKeys[prop]) {
         newUtm = true;
@@ -85,14 +86,14 @@ function enrichWithUTM(dataBag) {
     }
 
     if (newUtm === false) {
-      for (const prop in utmKeys) {
-        const itemValue = storage.getDataFromLocalStorage(setNamespace(prop));
+      for (let prop in utmKeys) {
+        let itemValue = storage.getDataFromLocalStorage(setNamespace(prop));
         if (itemValue !== null && typeof itemValue !== 'undefined' && itemValue.length !== 0) {
           dataBag[prop] = itemValue;
         }
       }
     } else {
-      for (const prop in utmKeys) {
+      for (let prop in utmKeys) {
         storage.setDataInLocalStorage(setNamespace(prop), utmKeys[prop]);
       }
     }
@@ -105,7 +106,7 @@ function enrichWithUTM(dataBag) {
 
 function expireUtmData() {
   pwInfo(`Session Expiring UTM Data`);
-  for (const prop in utmKeys) {
+  for (let prop in utmKeys) {
     storage.removeDataFromLocalStorage(setNamespace(prop));
   }
 }
@@ -162,26 +163,26 @@ function userSessionID() {
 }
 
 function sessionExpired() {
-  const sessLastTime = storage.getDataFromLocalStorage(localStorageSessTimeoutName());
+  let sessLastTime = storage.getDataFromLocalStorage(localStorageSessTimeoutName());
   return (Date.now() - parseInt(sessLastTime)) > sessTimeout;
 }
 
 function flushEvents() {
   if (pwEvents.length > 0) {
-    const dataBag = { metaData: metaData, eventList: pwEvents.splice(0) }; // put all the events together with the metadata and send
+    let dataBag = {metaData: metaData, eventList: pwEvents.splice(0)}; // put all the events together with the metadata and send
     ajax(configOptions.endpoint, (result) => pwInfo(`Result`, result), JSON.stringify(dataBag));
   }
 }
 
 function isIngestedEvent(eventType) {
   const ingested = [
-    EVENTS.AUCTION_INIT,
-    EVENTS.BID_REQUESTED,
-    EVENTS.BID_RESPONSE,
-    EVENTS.BID_WON,
-    EVENTS.BID_TIMEOUT,
-    EVENTS.AD_RENDER_FAILED,
-    EVENTS.TCF2_ENFORCEMENT
+    CONSTANTS.EVENTS.AUCTION_INIT,
+    CONSTANTS.EVENTS.BID_REQUESTED,
+    CONSTANTS.EVENTS.BID_RESPONSE,
+    CONSTANTS.EVENTS.BID_WON,
+    CONSTANTS.EVENTS.BID_TIMEOUT,
+    CONSTANTS.EVENTS.AD_RENDER_FAILED,
+    CONSTANTS.EVENTS.TCF2_ENFORCEMENT
   ];
   return ingested.indexOf(eventType) !== -1;
 }
@@ -197,7 +198,7 @@ function pwInfo(info, context) {
 }
 
 function filterBidResponse(data) {
-  const modified = Object.assign({}, data);
+  let modified = Object.assign({}, data);
   // clean up some properties we don't track in public version
   if (typeof modified.ad !== 'undefined') {
     modified.ad = '';
@@ -211,12 +212,16 @@ function filterBidResponse(data) {
   if (typeof modified.ts !== 'undefined') {
     modified.ts = '';
   }
+  // clean up a property to make simpler
+  if (typeof modified.statusMessage !== 'undefined' && modified.statusMessage === 'Bid returned empty or error response') {
+    modified.statusMessage = 'eoe';
+  }
   modified.auctionEnded = auctionEnded;
   return modified;
 }
 
 function filterAuctionInit(data) {
-  const modified = Object.assign({}, data);
+  let modified = Object.assign({}, data);
 
   modified.refererInfo = {};
   // handle clean referrer, we only need one
@@ -250,9 +255,9 @@ function filterAuctionInit(data) {
   return modified;
 }
 
-const pubwiseAnalytics = Object.assign(adapter({ analyticsType }), {
+let pubwiseAnalytics = Object.assign(adapter({analyticsType}), {
   // Override AnalyticsAdapter functions by supplying custom methods
-  track({ eventType, args }) {
+  track({eventType, args}) {
     this.handleEvent(eventType, args);
   }
 });
@@ -273,9 +278,9 @@ pubwiseAnalytics.handleEvent = function(eventType, data) {
     metaData = enrichWithCustomSegments(metaData);
 
     // add data on init to the metadata container
-    if (eventType === EVENTS.AUCTION_INIT) {
+    if (eventType === CONSTANTS.EVENTS.AUCTION_INIT) {
       data = filterAuctionInit(data);
-    } else if (eventType === EVENTS.BID_RESPONSE) {
+    } else if (eventType === CONSTANTS.EVENTS.BID_RESPONSE) {
       data = filterBidResponse(data);
     }
 
@@ -289,7 +294,7 @@ pubwiseAnalytics.handleEvent = function(eventType, data) {
   }
 
   // once the auction ends, or the event is a bid won send events
-  if (eventType === EVENTS.AUCTION_END || eventType === EVENTS.BID_WON) {
+  if (eventType === CONSTANTS.EVENTS.AUCTION_END || eventType === CONSTANTS.EVENTS.BID_WON) {
     flushEvents();
   }
 };
@@ -301,16 +306,16 @@ pubwiseAnalytics.storeSessionID = function (userSessID) {
 
 // ensure a session exists, if not make one, always store it
 pubwiseAnalytics.ensureSession = function () {
-  const sessionId = userSessionID();
+  let sessionId = userSessionID();
   if (sessionExpired() === true || sessionId === null || sessionId === '') {
-    const generatedId = generateUUID();
+    let generatedId = generateUUID();
     expireUtmData();
     this.storeSessionID(generatedId);
     sessionData.sessionId = generatedId;
   } else if (sessionId != null) {
     sessionData.sessionId = sessionId;
   }
-
+  // eslint-disable-next-line
   // console.log('ensured session');
   extendUserSessionTimeout();
 };

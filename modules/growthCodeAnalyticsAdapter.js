@@ -5,19 +5,19 @@ import { ajax } from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
 import * as utils from '../src/utils.js';
-import { EVENTS } from '../src/constants.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { getRefererInfo } from '../src/refererDetection.js';
-import { logError, logInfo } from '../src/utils.js';
-import { MODULE_TYPE_ANALYTICS } from '../src/activities/modules.js';
+import CONSTANTS from '../src/constants.json';
+import {getStorageManager} from '../src/storageManager.js';
+import {getRefererInfo} from '../src/refererDetection.js';
+import {logError, logInfo} from '../src/utils.js';
+import {MODULE_TYPE_ANALYTICS} from '../src/activities/modules.js';
 
 const MODULE_NAME = 'growthCodeAnalytics';
 const DEFAULT_PID = 'INVALID_PID'
 const ENDPOINT_URL = 'https://analytics.gcprivacy.com/v3/pb/analytics'
 
-export const storage = getStorageManager({ moduleType: MODULE_TYPE_ANALYTICS, moduleName: MODULE_NAME });
+export const storage = getStorageManager({moduleType: MODULE_TYPE_ANALYTICS, moduleName: MODULE_NAME});
 
-const sessionId = utils.generateUUID();
+let sessionId = utils.generateUUID();
 
 let trackEvents = [];
 let pid = DEFAULT_PID;
@@ -27,73 +27,78 @@ let eventQueue = [];
 
 let startAuction = 0;
 let bidRequestTimeout = 0;
-const analyticsType = 'endpoint';
+let analyticsType = 'endpoint';
 
-const growthCodeAnalyticsAdapter = Object.assign(adapter({ url: url, analyticsType }), {
-  track({ eventType, args }) {
-    const eventData = args ? utils.deepClone(args) : {};
+let growthCodeAnalyticsAdapter = Object.assign(adapter({url: url, analyticsType}), {
+  track({eventType, args}) {
+    let eventData = args ? JSON.parse(JSON.stringify(args)) : {};
     let data = {};
     if (!trackEvents.includes(eventType)) return;
     switch (eventType) {
-      case EVENTS.AUCTION_INIT: {
+      case CONSTANTS.EVENTS.AUCTION_INIT: {
         data = eventData;
         startAuction = data.timestamp;
         bidRequestTimeout = data.timeout;
         break;
       }
 
-      case EVENTS.AUCTION_END: {
+      case CONSTANTS.EVENTS.AUCTION_END: {
         data = eventData;
         data.start = startAuction;
         data.end = Date.now();
         break;
       }
 
-      case EVENTS.BID_ADJUSTMENT: {
+      case CONSTANTS.EVENTS.BID_ADJUSTMENT: {
         data.bidders = eventData;
         break;
       }
 
-      case EVENTS.BID_TIMEOUT: {
+      case CONSTANTS.EVENTS.BID_TIMEOUT: {
         data.bidders = eventData;
         data.duration = bidRequestTimeout;
         break;
       }
 
-      case EVENTS.BID_REQUESTED: {
+      case CONSTANTS.EVENTS.BID_REQUESTED: {
         data = eventData;
         break;
       }
 
-      case EVENTS.BID_RESPONSE: {
+      case CONSTANTS.EVENTS.BID_RESPONSE: {
         data = eventData;
         delete data.ad;
         break;
       }
 
-      case EVENTS.BID_WON: {
+      case CONSTANTS.EVENTS.BID_WON: {
         data = eventData;
         delete data.ad;
         delete data.adUrl;
         break;
       }
 
-      case EVENTS.BIDDER_DONE: {
+      case CONSTANTS.EVENTS.BIDDER_DONE: {
         data = eventData;
         break;
       }
 
-      case EVENTS.SET_TARGETING: {
+      case CONSTANTS.EVENTS.SET_TARGETING: {
         data.targetings = eventData;
         break;
       }
 
-      case EVENTS.REQUEST_BIDS: {
+      case CONSTANTS.EVENTS.REQUEST_BIDS: {
         data = eventData;
         break;
       }
 
-      case EVENTS.NO_BID: {
+      case CONSTANTS.EVENTS.ADD_AD_UNITS: {
+        data = eventData;
+        break;
+      }
+
+      case CONSTANTS.EVENTS.NO_BID: {
         data = eventData
         break;
       }
@@ -135,9 +140,9 @@ function logToServer() {
   if (pid === DEFAULT_PID) return;
   if (eventQueue.length >= 1) {
     // Get the correct GCID
-    const gcid = storage.getDataFromLocalStorage('gcid');
+    let gcid = localStorage.getItem('gcid')
 
-    const data = {
+    let data = {
       session: sessionId,
       pid: pid,
       gcid: gcid,
@@ -154,7 +159,7 @@ function logToServer() {
       error: error => {
         logInfo(MODULE_NAME + ' Problem Send Data to Server: ' + error)
       }
-    }, JSON.stringify(data), { method: 'POST', withCredentials: true })
+    }, JSON.stringify(data), {method: 'POST', withCredentials: true})
 
     eventQueue = [
     ];
@@ -165,7 +170,7 @@ function sendEvent(event) {
   eventQueue.push(event);
   logInfo(MODULE_NAME + 'Analytics Event: ' + event);
 
-  if ((event.eventType === EVENTS.AUCTION_END) || (event.eventType === EVENTS.BID_WON)) {
+  if ((event.eventType === CONSTANTS.EVENTS.AUCTION_END) || (event.eventType === CONSTANTS.EVENTS.BID_WON)) {
     logToServer();
   }
 }

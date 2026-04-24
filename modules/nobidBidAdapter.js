@@ -1,23 +1,14 @@
-import { logInfo, deepAccess, logWarn, isArray, getParameterByName, getWinDimensions } from '../src/utils.js';
+import { logInfo, deepAccess, logWarn, isArray, getParameterByName } from '../src/utils.js';
 import { config } from '../src/config.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 import { getStorageManager } from '../src/storageManager.js';
-import { hasPurpose1Consent } from '../src/utils/gdpr.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
+import { hasPurpose1Consent } from '../src/utils/gpdr.js';
 
 const GVLID = 816;
 const BIDDER_CODE = 'nobid';
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
-window.nobidVersion = '1.3.4';
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
+window.nobidVersion = '1.3.3';
 window.nobid = window.nobid || {};
 window.nobid.bidResponses = window.nobid.bidResponses || {};
 window.nobid.timeoutTotal = 0;
@@ -86,15 +77,14 @@ function nobidBuildRequests(bids, bidderRequest) {
       return gppConsent;
     }
     var schain = function(bids) {
-      try {
-        return bids[0]?.ortb2?.source?.ext?.schain;
-      } catch (e) {
-        return null;
+      if (bids && bids.length > 0) {
+        return bids[0].schain
       }
+      return null;
     }
     var coppa = function() {
       if (config.getConfig('coppa') === true) {
-        return { 'coppa': true };
+        return {'coppa': true};
       }
       if (bids && bids.length > 0) {
         return bids[0].coppa
@@ -109,7 +99,7 @@ function nobidBuildRequests(bids, bidderRequest) {
         // TODO: does this fallback make sense here?
         ret = (window.context && window.context.location && window.context.location.href) ? window.context.location.href : document.location.href;
       }
-      return encodeURIComponent(ret.replace(/%/g, ''));
+      return encodeURIComponent(ret.replace(/\%/g, ''));
     }
     var timestamp = function() {
       var date = new Date();
@@ -124,9 +114,8 @@ function nobidBuildRequests(bids, bidderRequest) {
     };
     var clientDim = function() {
       try {
-        const winDimensions = getWinDimensions();
-        var width = Math.max(winDimensions.document.documentElement.clientWidth, winDimensions.innerWidth || 0);
-        var height = Math.max(winDimensions.document.documentElement.clientHeight, winDimensions.innerHeight || 0);
+        var width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
+        var height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
         return `${width}x${height}`;
       } catch (e) {
         logWarn('Could not parse screen dimensions, error details:', e);
@@ -134,16 +123,16 @@ function nobidBuildRequests(bids, bidderRequest) {
     }
     var getEIDs = function(eids) {
       if (isArray(eids) && eids.length > 0) {
-        const src = [];
+        let src = [];
         eids.forEach((eid) => {
-          const ids = [];
+          let ids = [];
           if (eid.uids) {
             eid.uids.forEach(value => {
-              ids.push({ 'id': value.id + '' });
+              ids.push({'id': value.id + ''});
             });
           }
           if (eid.source && ids.length > 0) {
-            src.push({ source: eid.source, uids: ids });
+            src.push({source: eid.source, uids: ids});
           }
         });
         return src;
@@ -153,7 +142,7 @@ function nobidBuildRequests(bids, bidderRequest) {
     state['sid'] = siteId;
     state['l'] = topLocation(bidderRequest);
     state['tt'] = encodeURIComponent(document.title);
-    state['tt'] = state['tt'].replace(/'|;|quot;|39;|&amp;|&|#|\r\n|\r|\n|\t|\f|%0A|"|%22|%5C|%23|%26|%26|%09/gm, '');
+    state['tt'] = state['tt'].replace(/'|;|quot;|39;|&amp;|&|#|\r\n|\r|\n|\t|\f|\%0A|\"|\%22|\%5C|\%23|\%26|\%26|\%09/gm, '');
     state['a'] = filterAdUnitsByIds(divIds, adunits || []);
     state['t'] = timestamp();
     state['tz'] = Math.round(new Date().getTimezoneOffset());
@@ -163,7 +152,6 @@ function nobidBuildRequests(bids, bidderRequest) {
     state['gdpr'] = gdprConsent(bidderRequest);
     state['usp'] = uspConsent(bidderRequest);
     state['pjbdr'] = (bidderRequest && bidderRequest.bidderCode) ? bidderRequest.bidderCode : 'nobid';
-    state['pbver'] = '$prebid.version$';
     const sch = schain(bids);
     if (sch) state['schain'] = sch;
     const cop = coppa();
@@ -233,7 +221,7 @@ function nobidBuildRequests(bids, bidderRequest) {
     return adunits;
   }
   function getFloor (bid) {
-    if (bid && typeof bid.getFloor === 'function' && bid.getFloor()?.floor) {
+    if (bid && typeof bid.getFloor === 'function' && bid.getFloor().floor) {
       return bid.getFloor().floor;
     }
     return null;
@@ -241,7 +229,7 @@ function nobidBuildRequests(bids, bidderRequest) {
   if (typeof window.nobid.refreshLimit !== 'undefined') {
     if (window.nobid.refreshLimit < window.nobid.refreshCount) return false;
   }
-  const ublock = nobidGetCookie('_ublock');
+  let ublock = nobidGetCookie('_ublock');
   if (ublock) {
     log('Request blocked for user. hours: ', ublock);
     return false;
@@ -255,7 +243,7 @@ function nobidBuildRequests(bids, bidderRequest) {
     var divid = bid.adUnitCode;
     divids.push(divid);
     var sizes = bid.sizes;
-    siteId = (typeof bid.params['siteId'] !== 'undefined' && bid.params['siteId']) ? bid.params['siteId'] : siteId;
+    siteId = (typeof bid.params['siteId'] != 'undefined' && bid.params['siteId']) ? bid.params['siteId'] : siteId;
     var placementId = bid.params['placementId'];
 
     let adType = 'banner';
@@ -289,7 +277,7 @@ function nobidBuildRequests(bids, bidderRequest) {
 function nobidInterpretResponse(response, bidRequest) {
   var findBid = function(divid, bids) {
     for (var i = 0; i < bids.length; i++) {
-      if (bids[i].adUnitCode === divid) {
+      if (bids[i].adUnitCode == divid) {
         return bids[i];
       }
     }
@@ -355,7 +343,7 @@ window.nobid.renderTag = function(doc, id, win) {
   log('nobid.renderTag() tag NOT FOUND *ERROR*', id);
 }
 window.addEventListener('message', function (event) {
-  const key = event.message ? 'message' : 'data';
+  let key = event.message ? 'message' : 'data';
   var msg = '' + event[key];
   if (msg.substring(0, 'nbTagRenderer.requestAdMarkup|'.length) === 'nbTagRenderer.requestAdMarkup|') {
     log('Prebid received nbTagRenderer.requestAdMarkup event');
@@ -375,36 +363,34 @@ export const spec = {
   code: BIDDER_CODE,
   gvlid: GVLID,
   aliases: [
-    { code: 'duration' }
+    { code: 'duration', gvlid: 674 }
   ],
   supportedMediaTypes: [BANNER, VIDEO],
   /**
-   * Determines whether or not the given bid request is valid.
-   *
-   * @param {BidRequest} bid The bid params to validate.
-   * @return boolean True if this is a valid bid, and false otherwise.
-   */
+ * Determines whether or not the given bid request is valid.
+ *
+ * @param {BidRequest} bid The bid params to validate.
+ * @return boolean True if this is a valid bid, and false otherwise.
+ */
   isBidRequestValid: function(bid) {
     log('isBidRequestValid', bid);
-    if (bid?.params?.siteId) return true;
-    return false;
+    return !!bid.params.siteId;
   },
   /**
-   * Make a server request from the list of BidRequests.
-   *
-   * @param {Array} validBidRequests - an array of bids
-   * @param {Object} bidderRequest
-   * @return {Object} Info describing the request to the server.
-   */
+ * Make a server request from the list of BidRequests.
+ *
+ * @param {validBidRequests[]} - an array of bids
+ * @return ServerRequest Info describing the request to the server.
+ */
   buildRequests: function(validBidRequests, bidderRequest) {
     function resolveEndpoint() {
       var ret = 'https://ads.servenobid.com/';
       var env = (typeof getParameterByName === 'function') && (getParameterByName('nobid-env'));
       env = window.location.href.indexOf('nobid-env=dev') > 0 ? 'dev' : env;
       if (!env) ret = 'https://ads.servenobid.com/';
-      else if (env === 'beta') ret = 'https://beta.servenobid.com/';
-      else if (env === 'dev') ret = '//localhost:8282/';
-      else if (env === 'qa') ret = 'https://qa-ads.nobid.com/';
+      else if (env == 'beta') ret = 'https://beta.servenobid.com/';
+      else if (env == 'dev') ret = '//localhost:8282/';
+      else if (env == 'qa') ret = 'https://qa-ads.nobid.com/';
       return ret;
     }
     var buildEndpoint = function() {
@@ -435,11 +421,11 @@ export const spec = {
     };
   },
   /**
-   * Unpack the response from the server into a list of bids.
-   *
-   * @param {ServerResponse} serverResponse A successful response from the server.
-   * @return {Bid[]} An array of bids which were nested inside the server.
-   */
+     * Unpack the response from the server into a list of bids.
+     *
+     * @param {ServerResponse} serverResponse A successful response from the server.
+     * @return {Bid[]} An array of bids which were nested inside the server.
+     */
   interpretResponse: function(serverResponse, bidRequest) {
     log('interpretResponse -> serverResponse', serverResponse);
     log('interpretResponse -> bidRequest', bidRequest);
@@ -447,12 +433,12 @@ export const spec = {
   },
 
   /**
-   * Register the user sync pixels which should be dropped after the auction.
-   *
-   * @param {SyncOptions} syncOptions Which user syncs are allowed?
-   * @param {ServerResponse[]} serverResponses List of server's responses.
-   * @return {UserSync[]} The user syncs which should be dropped.
-   */
+     * Register the user sync pixels which should be dropped after the auction.
+     *
+     * @param {SyncOptions} syncOptions Which user syncs are allowed?
+     * @param {ServerResponse[]} serverResponses List of server's responses.
+     * @return {UserSync[]} The user syncs which should be dropped.
+     */
   getUserSyncs: function(syncOptions, serverResponses, gdprConsent, usPrivacy, gppConsent) {
     if (syncOptions.iframeEnabled) {
       let params = '';
@@ -480,7 +466,7 @@ export const spec = {
         url: 'https://public.servenobid.com/sync.html' + params
       }];
     } else if (syncOptions.pixelEnabled && serverResponses.length > 0) {
-      const syncs = [];
+      let syncs = [];
       if (serverResponses[0].body.syncs && serverResponses[0].body.syncs.length > 0) {
         serverResponses[0].body.syncs.forEach(element => {
           syncs.push({
@@ -497,9 +483,9 @@ export const spec = {
   },
 
   /**
-   * Register bidder specific code, which will execute if bidder timed out after an auction
-   * @param {Object} data Containing timeout specific data
-   */
+     * Register bidder specific code, which will execute if bidder timed out after an auction
+     * @param {data} Containing timeout specific data
+     */
   onTimeout: function(data) {
     window.nobid.timeoutTotal++;
     log('Timeout total: ' + window.nobid.timeoutTotal, data);

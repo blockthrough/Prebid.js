@@ -1,8 +1,5 @@
-import { inIframe, logError, logMessage, deepAccess, getWinDimensions } from '../src/utils.js';
+import { inIframe, logError, logMessage, deepAccess } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { getBoundingClientRect } from '../libraries/boundingClientRect/boundingClientRect.js';
-import { getViewportSize } from '../libraries/viewport/viewport.js';
-import { getAdUnitElement } from '../src/utils/adUnits.js';
 const BIDDER_CODE = 'h12media';
 const DEFAULT_URL = 'https://bidder.h12-media.com/prebid/';
 const DEFAULT_CURRENCY = 'USD';
@@ -31,15 +28,15 @@ export const spec = {
         pubsubid = '';
       }
       const pubcontainerid = bidderParams.pubcontainerid;
-      const adUnitElement = pubcontainerid ? document.getElementById(pubcontainerid) : getAdUnitElement(bidRequest);
+      const adUnitElement = document.getElementById(pubcontainerid || bidRequest.adUnitCode);
       const ishidden = !isVisible(adUnitElement);
       const framePos = getFramePos();
       const coords = isiframe ? {
         x: framePos[0],
         y: framePos[1],
       } : {
-        x: adUnitElement && getBoundingClientRect(adUnitElement).x,
-        y: adUnitElement && getBoundingClientRect(adUnitElement).y,
+        x: adUnitElement && adUnitElement.getBoundingClientRect().x,
+        y: adUnitElement && adUnitElement.getBoundingClientRect().y,
       };
 
       const bidrequest = {
@@ -67,7 +64,7 @@ export const spec = {
       return {
         method: 'POST',
         url: requestUrl,
-        options: { withCredentials: true },
+        options: {withCredentials: true},
         data: {
           gdpr: !!deepAccess(bidderRequest, 'gdprConsent.gdprApplies', false),
           gdpr_cs: deepAccess(bidderRequest, 'gdprConsent.consentString', ''),
@@ -96,7 +93,7 @@ export const spec = {
   },
 
   interpretResponse: function(serverResponse, bidRequests) {
-    const bidResponses = [];
+    let bidResponses = [];
     try {
       const serverBody = serverResponse.body;
       if (serverBody) {
@@ -211,7 +208,8 @@ function isVisible(element) {
 
 function getClientDimensions() {
   try {
-    const { width: t, height: e } = getViewportSize();
+    const t = window.top.innerWidth || window.top.document.documentElement.clientWidth || window.top.document.body.clientWidth;
+    const e = window.top.innerHeight || window.top.document.documentElement.clientHeight || window.top.document.body.clientHeight;
     return [Math.round(t), Math.round(e)];
   } catch (i) {
     return [0, 0];
@@ -220,10 +218,8 @@ function getClientDimensions() {
 
 function getDocumentDimensions() {
   try {
-    const { document: { documentElement, body } } = getWinDimensions();
-    const width = body.clientWidth;
-    const height = Math.max(body.scrollHeight, body.offsetHeight, documentElement.clientHeight, documentElement.scrollHeight, documentElement.offsetHeight);
-    return [width, height];
+    const D = window.top.document;
+    return [D.body.offsetWidth, Math.max(D.body.scrollHeight, D.documentElement.scrollHeight, D.body.offsetHeight, D.documentElement.offsetHeight, D.body.clientHeight, D.documentElement.clientHeight)]
   } catch (t) {
     return [-1, -1]
   }
@@ -246,8 +242,8 @@ function getFramePos() {
       if (m > 1) {
         t = t.parent
       }
-      frmLeft = frmLeft + getBoundingClientRect(t.frameElement).left;
-      frmTop = frmTop + getBoundingClientRect(t.frameElement).top;
+      frmLeft = frmLeft + t.frameElement.getBoundingClientRect().left;
+      frmTop = frmTop + t.frameElement.getBoundingClientRect().top;
     } catch (o) { /* keep looping */
     }
   } while ((m < 100) && (t.parent !== t.self))

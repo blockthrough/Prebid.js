@@ -1,11 +1,6 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER } from '../src/mediaTypes.js';
-import { isArray, logError, logInfo } from '../src/utils.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER} from '../src/mediaTypes.js';
+import {isArray, logError, logInfo} from '../src/utils.js';
 
 const BIDDER_CODE = 'pxyz';
 const URL = 'https://ads.playground.xyz/host-config/prebid?v=2';
@@ -129,13 +124,10 @@ export const spec = {
     return bids;
   },
 
-  getUserSyncs: function () {
+  getUserSyncs: function (syncOptions) {
     return [{
       type: 'image',
       url: '//ib.adnxs.com/getuidnb?https://ads.playground.xyz/usersync?partner=appnexus&uid=$UID'
-    }, {
-      type: 'iframe',
-      url: '//rtb.gumgum.com/getuid/15801?r=https%3A%2F%2Fads.playground.xyz%2Fusersync%3Fpartner%3Dgumgum%26uid%3D'
     }];
   }
 }

@@ -1,17 +1,17 @@
-import oxxionAnalytics, { dereferenceWithoutRenderer } from 'modules/oxxionAnalyticsAdapter.js';
-
+import oxxionAnalytics from 'modules/oxxionAnalyticsAdapter.js';
+import {dereferenceWithoutRenderer} from 'modules/oxxionAnalyticsAdapter.js';
 import { expect } from 'chai';
 import { server } from 'test/mocks/xhr.js';
-import { EVENTS } from 'src/constants.js';
+let adapterManager = require('src/adapterManager').default;
+let events = require('src/events');
+let constants = require('src/constants.json');
 
-const adapterManager = require('src/adapterManager').default;
-const events = require('src/events');
 describe('Oxxion Analytics', function () {
-  const timestamp = new Date() - 256;
-  const auctionId = '5018eb39-f900-4370-b71e-3bb5b48d324f';
-  const timeout = 1500;
+  let timestamp = new Date() - 256;
+  let auctionId = '5018eb39-f900-4370-b71e-3bb5b48d324f';
+  let timeout = 1500;
 
-  const bidTimeout = [
+  let bidTimeout = [
     {
       'bidId': '5fe418f2d70364',
       'bidder': 'appnexusAst',
@@ -86,21 +86,20 @@ describe('Oxxion Analytics', function () {
               }
             },
             'adUnitCode': 'tag_200124_banner',
-            'transactionId': '8b2a8629-d1ea-4bb1-aff0-e335b96dd002',
+            'transactionId': 'de664ccb-e18b-4436-aeb0-362382eb1b40',
             'sizes': [
               [
                 300,
                 600
               ]
             ],
-            'bidId': '2bd3e8ff8a113f',
+            'bidId': '34a63e5d5378a3',
             'bidderRequestId': '11dc6ff6378de7',
             'auctionId': '1e8b993d-8f0a-4232-83eb-3639ddf3a44b',
             'src': 'client',
             'bidRequestsCount': 1,
             'bidderRequestsCount': 1,
-            'bidderWinsCount': 0,
-            'ova': 'cleared'
+            'bidderWinsCount': 0
           }
         ],
         'auctionStart': 1647424261187,
@@ -150,11 +149,12 @@ describe('Oxxion Analytics', function () {
     'bidsReceived': [
       {
         'bidderCode': 'appnexus',
-        'width': 970,
-        'height': 250,
-        'adId': '65d16ef039a97a',
-        'requestId': '2bd3e8ff8a113f',
-        'transactionId': '8b2a8629-d1ea-4bb1-aff0-e335b96dd002',
+        'width': 300,
+        'height': 600,
+        'statusMessage': 'Bid available',
+        'adId': '7a4ced80f33d33',
+        'requestId': '34a63e5d5378a3',
+        'transactionId': 'de664ccb-e18b-4436-aeb0-362382eb1b40',
         'auctionId': '1e8b993d-8f0a-4232-83eb-3639ddf3a44b',
         'mediaType': 'video',
         'source': 'client',
@@ -168,7 +168,7 @@ describe('Oxxion Analytics', function () {
           'advertiserDomains': [
             'example.com'
           ],
-          'demandSource': 'something'
+	  'demandSource': 'something'
         },
         'renderer': 'something',
         'originalCpm': 25.02521,
@@ -187,7 +187,7 @@ describe('Oxxion Analytics', function () {
         'size': '300x600',
         'adserverTargeting': {
           'hb_bidder': 'appnexus',
-          'hb_adid': '65d16ef039a97a',
+          'hb_adid': '7a4ced80f33d33',
           'hb_pb': '20.000000',
           'hb_size': '300x600',
           'hb_source': 'client',
@@ -202,10 +202,11 @@ describe('Oxxion Analytics', function () {
     'timeout': 1000
   };
 
-  const bidWon = {
+  let bidWon = {
     'bidderCode': 'appnexus',
     'width': 970,
     'height': 250,
+    'statusMessage': 'Bid available',
     'adId': '65d16ef039a97a',
     'requestId': '2bd3e8ff8a113f',
     'transactionId': '8b2a8629-d1ea-4bb1-aff0-e335b96dd002',
@@ -282,9 +283,9 @@ describe('Oxxion Analytics', function () {
           domain: 'test'
         }
       });
-      const resultBidWon = JSON.parse(dereferenceWithoutRenderer(bidWon));
+      let resultBidWon = JSON.parse(dereferenceWithoutRenderer(bidWon));
       expect(resultBidWon).not.to.have.property('renderer');
-      const resultBid = JSON.parse(dereferenceWithoutRenderer(auctionEnd));
+      let resultBid = JSON.parse(dereferenceWithoutRenderer(auctionEnd));
       expect(resultBid).to.have.property('bidsReceived').and.to.have.lengthOf(1);
       expect(resultBid.bidsReceived[0]).not.to.have.property('renderer');
     });
@@ -301,12 +302,12 @@ describe('Oxxion Analytics', function () {
         }
       });
 
-      events.emit(EVENTS.BID_REQUESTED, auctionEnd['bidderRequests'][0]);
-      events.emit(EVENTS.BID_RESPONSE, auctionEnd['bidsReceived'][0]);
-      events.emit(EVENTS.BID_TIMEOUT, bidTimeout);
-      events.emit(EVENTS.AUCTION_END, auctionEnd);
+      events.emit(constants.EVENTS.BID_REQUESTED, auctionEnd['bidderRequests'][0]);
+      events.emit(constants.EVENTS.BID_RESPONSE, auctionEnd['bidsReceived'][0]);
+      events.emit(constants.EVENTS.BID_TIMEOUT, bidTimeout);
+      events.emit(constants.EVENTS.AUCTION_END, auctionEnd);
       expect(server.requests.length).to.equal(1);
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
       expect(message).to.have.property('auctionEnd').exist;
       expect(message.auctionEnd).to.have.lengthOf(1);
       expect(message.auctionEnd[0]).to.have.property('bidsReceived').and.to.have.lengthOf(1);
@@ -322,7 +323,7 @@ describe('Oxxion Analytics', function () {
     });
 
     it('test bidWon', function() {
-      window.OXXION_MODE = { 'abtest': true };
+      window.OXXION_MODE = {'abtest': true};
       adapterManager.registerAnalyticsAdapter({
         code: 'oxxion',
         adapter: oxxionAnalytics
@@ -334,14 +335,14 @@ describe('Oxxion Analytics', function () {
           domain: 'test'
         }
       });
-      events.emit(EVENTS.BID_WON, bidWon);
+      events.emit(constants.EVENTS.BID_WON, bidWon);
       expect(server.requests.length).to.equal(1);
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
       expect(message).not.to.have.property('ad');
       expect(message).to.have.property('adId')
       expect(message).to.have.property('cpmIncrement').and.to.equal(27.4276);
       expect(message).to.have.property('oxxionMode').and.to.have.property('abtest').and.to.equal(true);
-      expect(message).to.have.property('ova').and.to.equal('cleared');
+      // sinon.assert.callCount(oxxionAnalytics.track, 1);
     });
   });
 });

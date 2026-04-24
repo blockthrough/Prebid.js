@@ -2,19 +2,9 @@ import { parseSizesInput, logError, isEmpty } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER } from '../src/mediaTypes.js'
 import { config } from '../src/config.js'
-import { getCurrencyFromBidderRequest } from '../libraries/ortb2Utils/currency.js';
-import { getViewportSize } from '../libraries/viewport/viewport.js'
-import { getDNT } from '../libraries/dnt/index.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').BidderSpec} BidderSpec
- */
 
 const BIDDER_CODE = 'cointraffic';
-const ENDPOINT_URL = 'https://apps.adsgravity.io/v1/request/prebid';
+const ENDPOINT_URL = 'https://apps-pbd.ctraffic.io/pb/tmp';
 const DEFAULT_CURRENCY = 'EUR';
 const ALLOWED_CURRENCIES = [
   'EUR', 'USD', 'JPY', 'BGN', 'CZK', 'DKK', 'GBP', 'HUF', 'PLN', 'RON', 'SEK', 'CHF', 'ISK', 'NOK', 'HRK', 'RUB', 'TRY',
@@ -45,28 +35,15 @@ export const spec = {
    */
   buildRequests: function (validBidRequests, bidderRequest) {
     return validBidRequests.map(bidRequest => {
-      const sizes = parseSizesInput(bidRequest.params.size || bidRequest.mediaTypes.banner.sizes);
-      const { width, height } = getViewportSize();
-
-      const getCurrency = () => {
-        return config.getConfig(`currency.bidderCurrencyDefault.${BIDDER_CODE}`) ||
-          getCurrencyFromBidderRequest(bidderRequest) ||
-          DEFAULT_CURRENCY;
-      }
-
-      const getLanguage = () => {
-        return navigator && navigator.language
-          ? navigator.language.indexOf('-') !== -1
-            ? navigator.language.split('-')[0]
-            : navigator.language
-          : '';
-      }
-
-      const currency = getCurrency();
+      const sizes = parseSizesInput(bidRequest.params.size || bidRequest.sizes);
+      const currency =
+        config.getConfig(`currency.bidderCurrencyDefault.${BIDDER_CODE}`) ||
+        config.getConfig('currency.adServerCurrency') ||
+        DEFAULT_CURRENCY;
 
       if (ALLOWED_CURRENCIES.indexOf(currency) === -1) {
         logError('Currency is not supported - ' + currency);
-        return undefined;
+        return;
       }
 
       const payload = {
@@ -75,13 +52,6 @@ export const spec = {
         sizes: sizes,
         bidId: bidRequest.bidId,
         referer: bidderRequest.refererInfo.ref,
-        device: {
-          width: width,
-          height: height,
-          user_agent: bidRequest.params.ua || navigator.userAgent,
-          dnt: getDNT() ? 1 : 0,
-          language: getLanguage(),
-        },
       };
 
       return {
@@ -89,7 +59,7 @@ export const spec = {
         url: ENDPOINT_URL,
         data: payload
       };
-    }).filter((request) => request !== undefined);
+    });
   },
 
   /**

@@ -1,7 +1,7 @@
 import { logMessage } from '../src/utils.js';
-import { ajax } from '../src/ajax.js';
+import {ajax} from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
-import { EVENTS } from '../src/constants.js';
+import CONSTANTS from '../src/constants.json';
 import adapterManager from '../src/adapterManager.js';
 
 const analyticsType = 'endpoint';
@@ -13,14 +13,16 @@ const pageIncludedInSample = sampleAnalytics();
 const url = 'https://bids.concert.io/analytics';
 
 const {
-  BID_RESPONSE,
-  BID_WON,
-  AUCTION_END
-} = EVENTS;
+  EVENTS: {
+    BID_RESPONSE,
+    BID_WON,
+    AUCTION_END
+  }
+} = CONSTANTS;
 
 let queue = [];
 
-const concertAnalytics = Object.assign(adapter({ url, analyticsType }), {
+let concertAnalytics = Object.assign(adapter({url, analyticsType}), {
   track({ eventType, args }) {
     switch (eventType) {
       case BID_RESPONSE:
@@ -94,9 +96,7 @@ function sendEvents() {
 
   try {
     const body = JSON.stringify(queue);
-    ajax(url, () => {
-      queue = [];
-    }, body, {
+    ajax(url, () => queue = [], body, {
       contentType: 'application/json',
       method: 'POST'
     });

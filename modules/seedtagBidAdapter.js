@@ -1,27 +1,18 @@
-import { getBoundingClientRect } from '../libraries/boundingClientRect/boundingClientRect.js';
+import { isArray, _map, triggerPixel } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { VIDEO, BANNER } from '../src/mediaTypes.js';
 import { config } from '../src/config.js';
-import { BANNER, VIDEO } from '../src/mediaTypes.js';
-import { _map, getWinDimensions, isArray, triggerPixel } from '../src/utils.js';
-import { getViewportCoordinates } from '../libraries/viewport/viewport.js';
-import { getConnectionInfo } from '../libraries/connectionInfo/connectionUtils.js';
-import { getAdUnitElement } from '../src/utils/adUnits.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- * @typedef {import('../src/adapters/bidderFactory.js').bidderRequest} bidderRequest
- * @typedef {import('../src/adapters/bidderFactory.js').TimedOutBid} TimedOutBid
- */
 
 const BIDDER_CODE = 'seedtag';
 const SEEDTAG_ALIAS = 'st';
 const SEEDTAG_SSP_ENDPOINT = 'https://s.seedtag.com/c/hb/bid';
 const SEEDTAG_SSP_ONTIMEOUT_ENDPOINT = 'https://s.seedtag.com/se/hb/timeout';
+const ALLOWED_DISPLAY_PLACEMENTS = [
+  'inScreen',
+  'inImage',
+  'inArticle',
+  'inBanner',
+];
 
 // Global Vendor List Id
 // https://iabeurope.eu/vendor-list-tcf-v2-0/
@@ -38,26 +29,13 @@ const deviceConnection = {
   UNKNOWN: 'unknown',
 };
 
-export const BIDFLOOR_CURRENCY = 'USD'
-
-function getBidFloor(bidRequest) {
-  let floorInfo = {};
-
-  if (typeof bidRequest.getFloor === 'function') {
-    floorInfo = bidRequest.getFloor({
-      currency: BIDFLOOR_CURRENCY,
-      mediaType: '*',
-      size: '*'
-    });
-  }
-
-  return floorInfo?.floor;
-}
-
 const getConnectionType = () => {
-  const connection = getConnectionInfo();
-  const connectionType = connection?.type || connection?.effectiveType;
-  switch (connectionType) {
+  const connection =
+    navigator.connection ||
+    navigator.mozConnection ||
+    navigator.webkitConnection ||
+    {};
+  switch (connection.type || connection.effectiveType) {
     case 'wifi':
     case 'ethernet':
       return deviceConnection.FIXED;
@@ -89,21 +67,36 @@ function hasBannerMediaType(bid) {
 function hasMandatoryDisplayParams(bid) {
   const p = bid.params;
   return (
-    !!p.publisherId
+    !!p.publisherId &&
+    !!p.adUnitId &&
+    ALLOWED_DISPLAY_PLACEMENTS.indexOf(p.placement) > -1
   );
 }
 
 function hasMandatoryVideoParams(bid) {
   const videoParams = getVideoParams(bid);
 
-  const isValid =
+  let isValid =
     !!bid.params.publisherId &&
+    !!bid.params.adUnitId &&
     hasVideoMediaType(bid) &&
     !!videoParams.playerSize &&
     isArray(videoParams.playerSize) &&
     videoParams.playerSize.length > 0;
 
-  return isValid
+  switch (bid.params.placement) {
+    // instream accept only video format
+    case 'inStream':
+      return isValid && videoParams.context === 'instream';
+    // outstream accept banner/native/video format
+    default:
+      return (
+        isValid &&
+        videoParams.context === 'outstream' &&
+        hasBannerMediaType(bid) &&
+        hasMandatoryDisplayParams(bid)
+      );
+  }
 }
 
 function buildBidRequest(validBidRequest) {
@@ -114,26 +107,20 @@ function buildBidRequest(validBidRequest) {
       return mediaTypesMap[pbjsType];
     }
   );
+
   const bidRequest = {
     id: validBidRequest.bidId,
     transactionId: validBidRequest.ortb2Imp?.ext?.tid,
-    gpid: validBidRequest.ortb2Imp?.ext?.gpid,
     sizes: validBidRequest.sizes,
     supplyTypes: mediaTypes,
     adUnitId: params.adUnitId,
     adUnitCode: validBidRequest.adUnitCode,
-    geom: geom(validBidRequest),
     placement: params.placement,
-    requestCount: validBidRequest.bidderRequestsCount || 1,
+    requestCount: validBidRequest.bidderRequestsCount || 1, // FIXME : in unit test the parameter bidderRequestsCount is undefined
   };
 
-  if (hasVideoMediaType(validBidRequest) && hasMandatoryVideoParams(validBidRequest)) {
+  if (hasVideoMediaType(validBidRequest)) {
     bidRequest.videoParams = getVideoParams(validBidRequest);
-  }
-
-  const bidFloor = getBidFloor(validBidRequest)
-  if (bidFloor) {
-    bidRequest.bidFloor = bidFloor;
   }
 
   return bidRequest;
@@ -144,16 +131,12 @@ function buildBidRequest(validBidRequest) {
  */
 function getVideoParams(validBidRequest) {
   const videoParams = validBidRequest.mediaTypes.video || {};
-  if (videoParams.playerSize && isArray(videoParams.playerSize) && videoParams.playerSize.length > 0) {
+  if (videoParams.playerSize) {
     videoParams.w = videoParams.playerSize[0][0];
     videoParams.h = videoParams.playerSize[0][1];
   }
 
   return videoParams;
-}
-
-function isVideoOutstream(validBidRequest) {
-  return getVideoParams(validBidRequest).context === 'outstream';
 }
 
 function buildBidResponse(seedtagBid) {
@@ -174,7 +157,6 @@ function buildBidResponse(seedtagBid) {
         seedtagBid && seedtagBid.adomain && seedtagBid.adomain.length > 0
           ? seedtagBid.adomain
           : [],
-      mediaType: seedtagBid.realMediaType,
     },
   };
 
@@ -216,27 +198,6 @@ function ttfb() {
   return ttfb >= 0 && ttfb <= performance.now() ? ttfb : 0;
 }
 
-function geom(bidRequest) {
-  const slot = getAdUnitElement(bidRequest);
-  if (slot) {
-    const { top, left, width, height } = getBoundingClientRect(slot);
-    const viewport = {
-      width: getWinDimensions().innerWidth,
-      height: getWinDimensions().innerHeight,
-    };
-    const scrollY = getViewportCoordinates().top || 0;
-
-    return {
-      scrollY,
-      top,
-      left,
-      width,
-      height,
-      viewport,
-    };
-  }
-}
-
 export function getTimeoutUrl(data) {
   let queryParams = '';
   if (
@@ -248,14 +209,13 @@ export function getTimeoutUrl(data) {
     const params = data[0].params[0];
     const timeout = data[0].timeout;
 
-    const qsParams = [
-      'publisherToken=' + params.publisherId,
-      'timeout=' + timeout
-    ];
-    if (params.adUnitId) {
-      qsParams.push('adUnitId=' + params.adUnitId);
-    }
-    queryParams = '?' + qsParams.join('&');
+    queryParams =
+      '?publisherToken=' +
+      params.publisherId +
+      '&adUnitId=' +
+      params.adUnitId +
+      '&timeout=' +
+      timeout;
   }
   return SEEDTAG_SSP_ONTIMEOUT_ENDPOINT + queryParams;
 }
@@ -272,35 +232,21 @@ export const spec = {
    * @return boolean True if this is a valid bid, and false otherwise.
    */
   isBidRequestValid(bid) {
-    const hasVideo = hasVideoMediaType(bid);
-    const hasBanner = hasBannerMediaType(bid);
-
-    // when accept both mediatype but it must be outstream
-    if (hasVideo && hasBanner) {
-      return hasMandatoryVideoParams(bid) && isVideoOutstream(bid) && hasMandatoryDisplayParams(bid);
-    } else if (hasVideo) {
-      return hasMandatoryVideoParams(bid);
-    } else if (hasBanner) {
-      return hasMandatoryDisplayParams(bid);
-    } else {
-      return false;
-    }
+    return hasVideoMediaType(bid)
+      ? hasMandatoryVideoParams(bid)
+      : hasMandatoryDisplayParams(bid);
   },
 
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests[]} validBidRequests an array of bids
-   * @param {bidderRequest} bidderRequest an array of bids
+   * @param {validBidRequests[]} - an array of bids
    * @return ServerRequest Info describing the request to the server.
    */
   buildRequests(validBidRequests, bidderRequest) {
-    const publisherId = validBidRequests[0].params.publisherId;
-    const integrationType = validBidRequests[0].params.integrationType || 'publisherToken';
-
     const payload = {
       url: bidderRequest.refererInfo.page,
-      publisherToken: publisherId,
+      publisherToken: validBidRequests[0].params.publisherId,
       cmp: !!bidderRequest.gdprConsent,
       timeout: bidderRequest.timeout,
       version: '$prebid.version$',
@@ -308,9 +254,6 @@ export const spec = {
       auctionStart: bidderRequest.auctionStart || Date.now(),
       ttfb: ttfb(),
       bidRequests: _map(validBidRequests, buildBidRequest),
-      user: { topics: [], eids: [] },
-      site: {},
-      integrationType: integrationType
     };
 
     if (payload.cmp) {
@@ -322,12 +265,11 @@ export const spec = {
       payload['uspConsent'] = bidderRequest.uspConsent;
     }
 
-    const schain = validBidRequests[0]?.ortb2?.source?.ext?.schain;
-    if (schain) {
-      payload.schain = schain;
+    if (validBidRequests[0].schain) {
+      payload.schain = validBidRequests[0].schain;
     }
 
-    const coppa = config.getConfig('coppa');
+    let coppa = config.getConfig('coppa');
     if (coppa) {
       payload.coppa = coppa;
     }
@@ -344,43 +286,7 @@ export const spec = {
       }
     }
 
-    if (bidderRequest.ortb2?.user?.data) {
-      payload.user.topics = bidderRequest.ortb2.user.data
-    }
-    if (validBidRequests[0] && validBidRequests[0].userIdAsEids) {
-      payload.user.eids = validBidRequests[0].userIdAsEids
-    }
-
-    if (bidderRequest.ortb2?.bcat) {
-      payload.bcat = bidderRequest.ortb2?.bcat
-    }
-
-    if (bidderRequest.ortb2?.badv) {
-      payload.badv = bidderRequest.ortb2?.badv
-    }
-
-    if (bidderRequest.ortb2?.device?.sua) {
-      payload.sua = bidderRequest.ortb2.device.sua
-    }
-
-    if (bidderRequest.ortb2?.site?.cat) {
-      payload.site.cat = bidderRequest.ortb2.site.cat
-    }
-
-    if (bidderRequest.ortb2?.site?.cattax) {
-      payload.site.cattax = bidderRequest.ortb2.site.cattax
-    }
-
-    if (bidderRequest.ortb2?.site?.pagecat) {
-      payload.site.pagecat = bidderRequest.ortb2.site.pagecat
-    }
-
-    if (bidderRequest.ortb2) {
-      payload.ortb = bidderRequest.ortb2;
-    }
-
     const payloadString = JSON.stringify(payload);
-
     return {
       method: 'POST',
       url: SEEDTAG_SSP_ENDPOINT,
@@ -424,7 +330,7 @@ export const spec = {
 
   /**
    * Register bidder specific code, which will execute if bidder timed out after an auction
-   * @param {TimedOutBid} data Containing timeout specific data
+   * @param {data} Containing timeout specific data
    */
   onTimeout(data) {
     const url = getTimeoutUrl(data);
@@ -433,7 +339,7 @@ export const spec = {
 
   /**
    * Function to call when the adapter wins the auction
-   * @param {Bid} bid The bid information received from the server
+   * @param {bid} Bid information received from the server
    */
   onBidWon: function (bid) {
     if (bid && bid.nurl) {

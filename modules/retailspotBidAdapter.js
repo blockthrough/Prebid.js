@@ -1,20 +1,13 @@
-import { buildUrl, deepAccess, parseSizesInput } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER, VIDEO } from '../src/mediaTypes.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').BidderRequest} BidderRequest
- */
+import {buildUrl, deepAccess, parseSizesInput} from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER, VIDEO} from '../src/mediaTypes.js';
 
 const BIDDER_CODE = 'retailspot';
-
-const DEFAULT_SUBDOMAIN = 'hbapi';
-const PREPROD_SUBDOMAIN = 'hbapi-preprod';
-const HOST = 'retailspotads.com';
-const ENDPOINT = '/';
-const DEV_URL = 'http://localhost:3030/';
+const DEFAULT_SUBDOMAIN = 'ssp';
+const PREPROD_SUBDOMAIN = 'ssp-preprod';
+const HOST = 'retail-spot.io';
+const ENDPOINT = '/prebid';
+const DEV_URL = 'http://localhost:8090/prebid';
 
 export const spec = {
   code: BIDDER_CODE,
@@ -27,7 +20,7 @@ export const spec = {
    * @return boolean True if this is a valid bid, and false otherwise.
    */
   isBidRequestValid: function (bid) {
-    const sizes = getSize(bid);
+    const sizes = getSize(getSizeArray(bid));
     const sizeValid = sizes.width > 0 && sizes.height > 0;
 
     return deepAccess(bid, 'params.placement') && sizeValid;
@@ -35,8 +28,7 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {BidRequest} bidRequests is an array of AdUnits and bids
-   * @param {BidderRequest} bidderRequest
+   * @param {bidRequests} - bidRequests.bids[] is an array of AdUnits and bids
    * @return ServerRequest Info describing the request to the server.
    */
   buildRequests: function (bidRequests, bidderRequest) {
@@ -99,39 +91,40 @@ export const spec = {
   }
 }
 
-/* Get parsed size from request size */
-function getSize(bid) {
+function getSizeArray(bid) {
   let inputSize = bid.sizes || [];
 
-  if (bid.mediaTypes?.banner) {
+  if (bid.mediaTypes && bid.mediaTypes.banner) {
     inputSize = bid.mediaTypes.banner.sizes || [];
   }
 
-  // Size can be [w, h] or array of sizes : [[w,h]].
-  if (Array.isArray(bid.params?.size)) {
+  // handle size in bid.params in formats: [w, h] and [[w,h]].
+  if (bid.params && Array.isArray(bid.params.size)) {
     inputSize = bid.params.size;
     if (!Array.isArray(inputSize[0])) {
       inputSize = [inputSize]
     }
   }
 
-  const sizesArray = parseSizesInput(inputSize);
-  const parsed = {};
+  return parseSizesInput(inputSize);
+}
 
-  // Use the first size as the main requested one
+/* Get parsed size from request size */
+function getSize(sizesArray) {
+  const parsed = {};
+  // the main requested size is the first one
   const size = sizesArray[0];
 
-  // size is ready
   if (typeof size !== 'string') {
     return parsed;
   }
 
-  // size is given as string "wwwxhhh" or "www*hhh"
-  const parsedSize = size.includes('*') ? size.split('*') : size.toUpperCase().split('X');
+  const parsedSize = size.toUpperCase().split('X');
   const width = parseInt(parsedSize[0], 10);
   if (width) {
     parsed.width = width;
   }
+
   const height = parseInt(parsedSize[1], 10);
   if (height) {
     parsed.height = height;
@@ -149,7 +142,7 @@ function createBid(response, bidRequests) {
   }
 
   const request = bidRequests && bidRequests.length && bidRequests.find(itm => response.requestId === itm.bidId);
-  // In case we don't retrieve the size from the adserver, use the given one.
+  // In case we don't retreive the size from the adserver, use the given one.
   if (request) {
     if (!response.width || response.width === '0') {
       response.width = request.width;
@@ -174,7 +167,7 @@ function createBid(response, bidRequests) {
     mediaType: response.mediaType
   };
 
-  // retrieve video response if present
+  // retreive video response if present
   if (response.mediaType === 'video') {
     bid.vastXml = window.atob(response.vastXml);
   } else {

@@ -1,7 +1,7 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { logMessage } from '../src/utils.js';
-import { BANNER } from '../src/mediaTypes.js';
-import { ortbConverter } from '../libraries/ortbConverter/converter.js'
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {logMessage} from '../src/utils.js';
+import {BANNER} from '../src/mediaTypes.js';
+import {ortbConverter} from '../libraries/ortbConverter/converter.js'
 
 const BIDDER_SERVICE_URL = 'https://bidding-dsp.ad-m.asia/dsp/api/bid/s/s/freepass';
 
@@ -12,29 +12,29 @@ const converter = ortbConverter({
   }
 });
 
-function injectIdsToUser(user, freepassIdObj) {
-  const userInfo = user || {};
-  const extendedUserInfo = userInfo.ext || {};
+function prepareUserInfo(user, freepassId) {
+  let userInfo = user || {};
+  let extendedUserInfo = userInfo.ext || {};
 
-  if (freepassIdObj.ext.userId) {
-    userInfo.id = freepassIdObj.ext.userId;
+  if (freepassId.userId) {
+    userInfo.id = freepassId.userId;
   }
 
-  if (freepassIdObj.id) {
-    extendedUserInfo.fuid = freepassIdObj.id;
+  if (freepassId.commonId) {
+    extendedUserInfo.fuid = freepassId.commonId;
   }
   userInfo.ext = extendedUserInfo;
 
   return userInfo;
 }
 
-function injectIPtoDevice(device, freepassIdObj) {
-  const deviceInfo = device || {};
-  const extendedDeviceInfo = deviceInfo.ext || {};
+function prepareDeviceInfo(device, freepassId) {
+  let deviceInfo = device || {};
+  let extendedDeviceInfo = deviceInfo.ext || {};
 
   extendedDeviceInfo.is_accurate_ip = 0;
-  if (freepassIdObj.ext.ip) {
-    deviceInfo.ip = freepassIdObj.ext.ip;
+  if (freepassId.userIp) {
+    deviceInfo.ip = freepassId.userIp;
     extendedDeviceInfo.is_accurate_ip = 1;
   }
   deviceInfo.ext = extendedDeviceInfo;
@@ -67,11 +67,10 @@ export const spec = {
     });
     logMessage('FreePass BidAdapter interpreted ORTB bid request as ', data);
 
-    const freepassIdObj = validBidRequests[0].userIdAsEids?.find(eid => eid.source === 'freepass.jp');
-    if (freepassIdObj) {
-      data.user = injectIdsToUser(data.user, freepassIdObj.uids[0]);
-      data.device = injectIPtoDevice(data.device, freepassIdObj.uids[0]);
-    }
+    // Only freepassId is supported
+    let freepassId = (validBidRequests[0].userId && validBidRequests[0].userId.freepassId) || {};
+    data.user = prepareUserInfo(data.user, freepassId);
+    data.device = prepareDeviceInfo(data.device, freepassId);
 
     // set site.page & site.publisher
     data.site = data.site || {};
@@ -101,14 +100,14 @@ export const spec = {
       method: 'POST',
       url: BIDDER_SERVICE_URL,
       data,
-      options: { withCredentials: true }
+      options: { withCredentials: false }
     };
   },
 
   interpretResponse(serverResponse, bidRequest) {
     logMessage('FreePass BidAdapter is interpreting server response: ', serverResponse);
     logMessage('FreePass BidAdapter is using bid request: ', bidRequest);
-    const bids = converter.fromORTB({ response: serverResponse.body, request: bidRequest.data }).bids;
+    const bids = converter.fromORTB({response: serverResponse.body, request: bidRequest.data}).bids;
     logMessage('FreePass BidAdapter interpreted ORTB bids as ', bids);
 
     return bids;

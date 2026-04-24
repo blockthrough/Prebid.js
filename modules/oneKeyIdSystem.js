@@ -5,15 +5,8 @@
  * @requires module:modules/userId
  */
 
-import { submodule } from '../src/hook.js';
+import {submodule} from '../src/hook.js';
 import { logError, logMessage } from '../src/utils.js';
-
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- * @typedef {import('../modules/userId/index.js').ConsentData} ConsentData
- * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
- */
 
 // Pre-init OneKey if it has not load yet.
 window.OneKey = window.OneKey || {};
@@ -54,25 +47,27 @@ const getIdsAndPreferences = (callback) => {
 /** @type {Submodule} */
 export const oneKeyIdSubmodule = {
   /**
-   * used to link submodule with config
-   * @type {string}
-   */
+    * used to link submodule with config
+    * @type {string}
+    */
   name: 'oneKeyData',
   /**
-   * decode the stored data value for passing to bid requests
-   * @function decode
-   * @param {(Object|string)} data
-   * @returns {(Object|undefined)}
-   */
+    * decode the stored data value for passing to bid requests
+    * @function decode
+    * @param {(Object|string)} value
+    * @returns {(Object|undefined)}
+    */
   decode(data) {
     return { oneKeyData: data };
   },
   /**
-   * performs action to obtain id and return a value in the callback's response argument
-   * @function
-   * @param {SubmoduleConfig} [config]
-   * @returns {IdResponse|undefined}
-   */
+    * performs action to obtain id and return a value in the callback's response argument
+    * @function
+    * @param {SubmoduleConfig} [config]
+    * @param {ConsentData} [consentData]
+    * @param {(Object|undefined)} cacheIdObj
+    * @returns {IdResponse|undefined}
+    */
   getId(config) {
     return {
       callback: getIdsAndPreferences
@@ -89,7 +84,7 @@ export const oneKeyIdSubmodule = {
       atype: 1,
       getEidExt: function(data) {
         if (data && data.preferences) {
-          return { preferences: data.preferences };
+          return {preferences: data.preferences};
         }
       },
       getUidExt: function(data) {

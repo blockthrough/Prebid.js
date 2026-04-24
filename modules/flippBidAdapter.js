@@ -1,34 +1,23 @@
-import { isEmpty, parseUrl } from '../src/utils.js';
+import {isEmpty, parseUrl} from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER } from '../src/mediaTypes.js';
-import { getStorageManager } from '../src/storageManager.js';
+import {getStorageManager} from '../src/storageManager.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').BidderRequest} BidderRequest
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- */
-
-const NETWORK_ID = 10922;
+const NETWORK_ID = 11090;
 const AD_TYPES = [4309, 641];
 const DTX_TYPES = [5061];
 const TARGET_NAME = 'inline';
 const BIDDER_CODE = 'flipp';
-const ENDPOINT = 'https://ads-flipp.com/flyer-locator-service/client_bidding';
+const ENDPOINT = 'https://gateflipp.flippback.com/flyer-locator-service/client_bidding';
 const DEFAULT_TTL = 30;
 const DEFAULT_CURRENCY = 'USD';
 const DEFAULT_CREATIVE_TYPE = 'NativeX';
 const VALID_CREATIVE_TYPES = ['DTX', 'NativeX'];
 const FLIPP_USER_KEY = 'flipp-uid';
 const COMPACT_DEFAULT_HEIGHT = 600;
-const STANDARD_DEFAULT_HEIGHT = 1800;
 
 let userKey = null;
-export const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+export const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 export function getUserKey(options = {}) {
   if (userKey) {
@@ -36,16 +25,13 @@ export function getUserKey(options = {}) {
   }
 
   // If the partner provides the user key use it, otherwise fallback to cookies
-  if ('userKey' in options && options.userKey) {
-    if (isValidUserKey(options.userKey)) {
-      userKey = options.userKey;
-      return options.userKey;
-    }
+  if (options.userKey && isValidUserKey(options.userKey)) {
+    userKey = options.userKey;
+    return options.userKey;
   }
-
   // Grab from Cookie
-  const foundUserKey = storage.cookiesAreEnabled(null) && storage.getCookie(FLIPP_USER_KEY, null);
-  if (foundUserKey && isValidUserKey(foundUserKey)) {
+  const foundUserKey = storage.cookiesAreEnabled() && storage.getCookie(FLIPP_USER_KEY);
+  if (foundUserKey) {
     return foundUserKey;
   }
 
@@ -61,7 +47,7 @@ export function getUserKey(options = {}) {
 }
 
 function isValidUserKey(userKey) {
-  return typeof userKey === 'string' && !userKey.startsWith('#') && userKey.length > 0;
+  return !userKey.startsWith('#');
 }
 
 const generateUUID = () => {
@@ -108,7 +94,7 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests} validBidRequests an array of bids
+   * @param {BidRequest[]} validBidRequests[] an array of bids
    * @param {BidderRequest} bidderRequest master bidRequest object
    * @return ServerRequest Info describing the request to the server.
    */
@@ -127,9 +113,9 @@ export const spec = {
         siteId: bid.params.siteId,
         adTypes: getAdTypes(bid.params.creativeType),
         count: 1,
-        ...(!isEmpty(bid.params.zoneIds) && { zoneIds: bid.params.zoneIds }),
+        ...(!isEmpty(bid.params.zoneIds) && {zoneIds: bid.params.zoneIds}),
         properties: {
-          ...(!isEmpty(contentCode) && { contentCode: contentCode.slice(0, 32) }),
+          ...(!isEmpty(contentCode) && {contentCode: contentCode.slice(0, 32)}),
         },
         options,
         prebid: {
@@ -167,10 +153,7 @@ export const spec = {
     if (!isEmpty(res) && !isEmpty(res.decisions) && !isEmpty(res.decisions.inline)) {
       return res.decisions.inline.map(decision => {
         const placement = placements.find(p => p.prebid.requestId === decision.prebid?.requestId);
-        const customData = decision.contents[0]?.data?.customData;
-        const height = placement.options?.startCompact
-          ? customData?.compactHeight ?? COMPACT_DEFAULT_HEIGHT
-          : customData?.standardHeight ?? STANDARD_DEFAULT_HEIGHT;
+        const height = placement.options?.startCompact ? COMPACT_DEFAULT_HEIGHT : decision.height;
         return {
           bidderCode: BIDDER_CODE,
           requestId: decision.prebid?.requestId,

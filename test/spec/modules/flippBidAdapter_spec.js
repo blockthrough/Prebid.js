@@ -1,7 +1,7 @@
-import { expect } from 'chai';
-import { spec } from 'modules/flippBidAdapter';
-import { newBidder } from 'src/adapters/bidderFactory';
-const ENDPOINT = 'https://ads-flipp.com/flyer-locator-service/client_bidding';
+import {expect} from 'chai';
+import {spec} from 'modules/flippBidAdapter';
+import {newBidder} from 'src/adapters/bidderFactory';
+const ENDPOINT = 'https://gateflipp.flippback.com/flyer-locator-service/client_bidding';
 describe('flippAdapter', function () {
   const adapter = newBidder(spec);
 
@@ -25,7 +25,7 @@ describe('flippAdapter', function () {
     });
 
     it('should return false when required params are not passed', function () {
-      const invalidBid = Object.assign({}, bid);
+      let invalidBid = Object.assign({}, bid);
       invalidBid.params = { siteId: 1234 }
       expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
     });
@@ -39,7 +39,7 @@ describe('flippAdapter', function () {
       },
       adUnitCode: '/10000/unit_code',
       sizes: [[300, 600]],
-      mediaTypes: { banner: { sizes: [[300, 600]] } },
+      mediaTypes: {banner: {sizes: [[300, 600]]}},
       bidId: '237f4d1a293f99',
       bidderRequestId: '1a857fa34c1c96',
       auctionId: 'a297d1aa-7900-4ce4-a0aa-caa8d46c4af7',
@@ -99,18 +99,10 @@ describe('flippAdapter', function () {
                 'requestId': '237f4d1a293f99',
                 'cpm': 1.11,
                 'creative': 'Returned from server',
-              },
-              'contents': {
-                'data': {
-                  'customData': {
-                    'compactHeight': 600,
-                    'standardHeight': 1800
-                  }
-                }
               }
             }]
           },
-          'location': { 'city': 'Oakville' },
+          'location': {'city': 'Oakville'},
         },
       };
 
@@ -122,7 +114,7 @@ describe('flippAdapter', function () {
           cpm: 1.11,
           netRevenue: true,
           width: 300,
-          height: 1800,
+          height: 600,
           creativeId: 262838368,
           ttl: 30,
           ad: 'Returned from server',
@@ -162,7 +154,7 @@ describe('flippAdapter', function () {
           'decisions': {
             'inline': []
           },
-          'location': { 'city': 'Oakville' },
+          'location': {'city': 'Oakville'},
         },
       };
 

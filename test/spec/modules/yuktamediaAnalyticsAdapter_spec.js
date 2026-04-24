@@ -1,10 +1,9 @@
 import yuktamediaAnalyticsAdapter from 'modules/yuktamediaAnalyticsAdapter.js';
 import { expect } from 'chai';
-import { EVENTS } from 'src/constants.js';
+let events = require('src/events');
+let constants = require('src/constants.json');
 
-const events = require('src/events');
-
-const prebidAuction = {
+let prebidAuction = {
   'auctionInit': {
     'auctionId': 'ca421611-0bc0-4164-a69c-fe4158c68954',
     'timestamp': 1595850680304,
@@ -65,6 +64,7 @@ const prebidAuction = {
     'bidderCode': 'appnexus',
     'width': 300,
     'height': 250,
+    'statusMessage': 'Bid available',
     'getStatusCode': function () { return 1; },
     'adId': '3ade442375213f',
     'requestId': '2bccebeda7fbe4',
@@ -123,7 +123,7 @@ const prebidAuction = {
   }
 };
 
-const prebidNativeAuction = {
+let prebidNativeAuction = {
   'auctionInit': {
     'auctionId': '86e005fa-1900-4782-b6df-528500f09128',
     'timestamp': 1595589742100,
@@ -282,6 +282,7 @@ const prebidNativeAuction = {
   ],
   'bidResponse': {
     'bidderCode': 'appnexus',
+    'statusMessage': 'Bid available',
     'source': 's2s',
     'getStatusCode': function () { return 1; },
     'cpm': 10,
@@ -401,7 +402,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_INIT, prebidAuction[EVENTS.AUCTION_INIT]);
+      events.emit(constants.EVENTS.AUCTION_INIT, prebidAuction[constants.EVENTS.AUCTION_INIT]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -416,7 +417,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_REQUESTED, prebidAuction[EVENTS.BID_REQUESTED]);
+      events.emit(constants.EVENTS.BID_REQUESTED, prebidAuction[constants.EVENTS.BID_REQUESTED]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -431,7 +432,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.NO_BID, prebidAuction[EVENTS.NO_BID]);
+      events.emit(constants.EVENTS.NO_BID, prebidAuction[constants.EVENTS.NO_BID]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -446,7 +447,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_TIMEOUT, prebidAuction[EVENTS.BID_TIMEOUT]);
+      events.emit(constants.EVENTS.BID_TIMEOUT, prebidAuction[constants.EVENTS.BID_TIMEOUT]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -461,7 +462,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_RESPONSE, prebidAuction[EVENTS.BID_RESPONSE]);
+      events.emit(constants.EVENTS.BID_RESPONSE, prebidAuction[constants.EVENTS.BID_RESPONSE]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -476,7 +477,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_END, prebidAuction[EVENTS.AUCTION_END]);
+      events.emit(constants.EVENTS.AUCTION_END, prebidAuction[constants.EVENTS.AUCTION_END]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -487,11 +488,11 @@ describe('yuktamedia analytics adapter', function () {
         }
       });
 
-      events.emit(EVENTS.AUCTION_INIT, {});
-      events.emit(EVENTS.AUCTION_END, {});
-      events.emit(EVENTS.BID_REQUESTED, {});
-      events.emit(EVENTS.BID_RESPONSE, {});
-      events.emit(EVENTS.BID_WON, {});
+      events.emit(constants.EVENTS.AUCTION_INIT, {});
+      events.emit(constants.EVENTS.AUCTION_END, {});
+      events.emit(constants.EVENTS.BID_REQUESTED, {});
+      events.emit(constants.EVENTS.BID_RESPONSE, {});
+      events.emit(constants.EVENTS.BID_WON, {});
 
       sinon.assert.callCount(yuktamediaAnalyticsAdapter.track, 0);
     });
@@ -507,7 +508,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_INIT, prebidNativeAuction[EVENTS.AUCTION_INIT]);
+      events.emit(constants.EVENTS.AUCTION_INIT, prebidNativeAuction[constants.EVENTS.AUCTION_INIT]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -522,7 +523,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_REQUESTED, prebidNativeAuction[EVENTS.BID_REQUESTED]);
+      events.emit(constants.EVENTS.BID_REQUESTED, prebidNativeAuction[constants.EVENTS.BID_REQUESTED]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -537,7 +538,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_REQUESTED, prebidNativeAuction[EVENTS.BID_REQUESTED + '1']);
+      events.emit(constants.EVENTS.BID_REQUESTED, prebidNativeAuction[constants.EVENTS.BID_REQUESTED + '1']);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -552,7 +553,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.NO_BID, prebidNativeAuction[EVENTS.NO_BID]);
+      events.emit(constants.EVENTS.NO_BID, prebidNativeAuction[constants.EVENTS.NO_BID]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -567,7 +568,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_TIMEOUT, prebidNativeAuction[EVENTS.BID_TIMEOUT]);
+      events.emit(constants.EVENTS.BID_TIMEOUT, prebidNativeAuction[constants.EVENTS.BID_TIMEOUT]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -582,7 +583,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.BID_RESPONSE, prebidNativeAuction[EVENTS.BID_RESPONSE]);
+      events.emit(constants.EVENTS.BID_RESPONSE, prebidNativeAuction[constants.EVENTS.BID_RESPONSE]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -597,7 +598,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_END, prebidNativeAuction[EVENTS.AUCTION_END]);
+      events.emit(constants.EVENTS.AUCTION_END, prebidNativeAuction[constants.EVENTS.AUCTION_END]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
 
@@ -612,7 +613,7 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_END, prebidNativeAuction[EVENTS.BID_WON]);
+      events.emit(constants.EVENTS.AUCTION_END, prebidNativeAuction[constants.EVENTS.BID_WON]);
       sinon.assert.called(yuktamediaAnalyticsAdapter.track);
     });
   });
@@ -632,7 +633,7 @@ describe('yuktamedia analytics adapter', function () {
     });
 
     it('should build utm data from local storage', function () {
-      const utmTagData = yuktamediaAnalyticsAdapter.buildUtmTagData({
+      let utmTagData = yuktamediaAnalyticsAdapter.buildUtmTagData({
         pubId: '1',
         pubKey: 'ZXlKaGJHY2lPaUpJVXpJMU5pSjkuT==',
         enableUTMCollection: true,
@@ -647,7 +648,7 @@ describe('yuktamedia analytics adapter', function () {
     });
 
     it('should return empty object for disabled utm setting', function () {
-      const utmTagData = yuktamediaAnalyticsAdapter.buildUtmTagData({
+      let utmTagData = yuktamediaAnalyticsAdapter.buildUtmTagData({
         pubId: '1',
         pubKey: 'ZXlKaGJHY2lPaUpJVXpJMU5pSjkuT==',
         enableUTMCollection: false,
@@ -680,12 +681,12 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_INIT, prebidAuction[EVENTS.AUCTION_INIT]);
-      events.emit(EVENTS.BID_REQUESTED, prebidAuction[EVENTS.BID_REQUESTED]);
-      events.emit(EVENTS.NO_BID, prebidAuction[EVENTS.NO_BID]);
-      events.emit(EVENTS.BID_TIMEOUT, prebidAuction[EVENTS.BID_TIMEOUT]);
-      events.emit(EVENTS.BID_RESPONSE, prebidAuction[EVENTS.BID_RESPONSE]);
-      events.emit(EVENTS.AUCTION_END, prebidAuction[EVENTS.AUCTION_END]);
+      events.emit(constants.EVENTS.AUCTION_INIT, prebidAuction[constants.EVENTS.AUCTION_INIT]);
+      events.emit(constants.EVENTS.BID_REQUESTED, prebidAuction[constants.EVENTS.BID_REQUESTED]);
+      events.emit(constants.EVENTS.NO_BID, prebidAuction[constants.EVENTS.NO_BID]);
+      events.emit(constants.EVENTS.BID_TIMEOUT, prebidAuction[constants.EVENTS.BID_TIMEOUT]);
+      events.emit(constants.EVENTS.BID_RESPONSE, prebidAuction[constants.EVENTS.BID_RESPONSE]);
+      events.emit(constants.EVENTS.AUCTION_END, prebidAuction[constants.EVENTS.AUCTION_END]);
       expect(localStorage.getItem('yuktamediaAnalytics_session_id')).to.not.equal(null);
     });
 
@@ -700,12 +701,12 @@ describe('yuktamedia analytics adapter', function () {
           enableUserIdCollection: true
         }
       });
-      events.emit(EVENTS.AUCTION_INIT, prebidAuction[EVENTS.AUCTION_INIT]);
-      events.emit(EVENTS.BID_REQUESTED, prebidAuction[EVENTS.BID_REQUESTED]);
-      events.emit(EVENTS.NO_BID, prebidAuction[EVENTS.NO_BID]);
-      events.emit(EVENTS.BID_TIMEOUT, prebidAuction[EVENTS.BID_TIMEOUT]);
-      events.emit(EVENTS.BID_RESPONSE, prebidAuction[EVENTS.BID_RESPONSE]);
-      events.emit(EVENTS.AUCTION_END, prebidAuction[EVENTS.AUCTION_END]);
+      events.emit(constants.EVENTS.AUCTION_INIT, prebidAuction[constants.EVENTS.AUCTION_INIT]);
+      events.emit(constants.EVENTS.BID_REQUESTED, prebidAuction[constants.EVENTS.BID_REQUESTED]);
+      events.emit(constants.EVENTS.NO_BID, prebidAuction[constants.EVENTS.NO_BID]);
+      events.emit(constants.EVENTS.BID_TIMEOUT, prebidAuction[constants.EVENTS.BID_TIMEOUT]);
+      events.emit(constants.EVENTS.BID_RESPONSE, prebidAuction[constants.EVENTS.BID_RESPONSE]);
+      events.emit(constants.EVENTS.AUCTION_END, prebidAuction[constants.EVENTS.AUCTION_END]);
       expect(localStorage.getItem('yuktamediaAnalytics_session_id')).to.equal(null);
     });
   });

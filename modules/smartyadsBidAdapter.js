@@ -1,44 +1,69 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { logMessage } from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
 import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
 import { config } from '../src/config.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { getAdUrlByRegion } from '../libraries/smartyadsUtils/getAdUrlByRegion.js';
-import { interpretResponse, getUserSyncs } from '../libraries/teqblazeUtils/bidderUtils.js';
+import { ajax } from '../src/ajax.js';
 
 const BIDDER_CODE = 'smartyads';
-const GVLID = 534;
-
+const AD_URL = 'https://n1.smartyads.com/?c=o&m=prebid&secret_key=prebid_js';
 const URL_SYNC = 'https://as.ck-ie.com/prebidjs?p=7c47322e527cf8bdeb7facc1bb03387a';
+
+function isBidResponseValid(bid) {
+  if (!bid.requestId || !bid.cpm || !bid.creativeId ||
+    !bid.ttl || !bid.currency) {
+    return false;
+  }
+  switch (bid['mediaType']) {
+    case BANNER:
+      return Boolean(bid.width && bid.height && bid.ad);
+    case VIDEO:
+      return Boolean(bid.vastUrl) || Boolean(bid.vastXml);
+    case NATIVE:
+      return Boolean(bid.native && bid.native.title && bid.native.image && bid.native.impressionTrackers);
+    default:
+      return false;
+  }
+}
 
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
   supportedMediaTypes: [BANNER, VIDEO, NATIVE],
 
   isBidRequestValid: (bid) => {
-    return Boolean(bid.bidId && bid.params && !isNaN(bid.params.sourceid) && !isNaN(bid.params.accountid) && bid.params.host === 'prebid');
+    return Boolean(bid.bidId && bid.params && !isNaN(bid.params.sourceid) && !isNaN(bid.params.accountid) && bid.params.host == 'prebid');
   },
 
   buildRequests: (validBidRequests = [], bidderRequest) => {
     // convert Native ORTB definition to old-style prebid native definition
     validBidRequests = convertOrtbRequestToProprietaryNative(validBidRequests);
 
-    const winTop = window;
+    let winTop = window;
     let location;
-    location = bidderRequest?.refererInfo ?? null;
-    const placements = [];
-    const request = {
+    // TODO: this odd try-catch block was copied in several adapters; it doesn't seem to be correct for cross-origin
+    try {
+      location = new URL(bidderRequest.refererInfo.page)
+      winTop = window.top;
+    } catch (e) {
+      location = winTop.location;
+      logMessage(e);
+    };
+    let placements = [];
+    let request = {
       'deviceWidth': winTop.screen.width,
       'deviceHeight': winTop.screen.height,
-      'host': location?.domain ?? '',
-      'page': location?.page ?? '',
+      'language': (navigator && navigator.language) ? navigator.language : '',
+      'secure': 1,
+      'host': location.host,
+      'page': location.pathname,
       'coppa': config.getConfig('coppa') === true ? 1 : 0,
-      'placements': placements,
-      'eeid': validBidRequests[0]?.userIdAsEids,
-      'ifa': bidderRequest?.ortb2?.device?.ifa,
+      'placements': placements
     };
-
+    request.language.indexOf('-') != -1 && (request.language = request.language.split('-')[0])
     if (bidderRequest) {
+      if (bidderRequest.uspConsent) {
+        request.ccpa = bidderRequest.uspConsent;
+      }
       if (bidderRequest.gdprConsent) {
         request.gdpr = bidderRequest.gdprConsent
       }
@@ -48,14 +73,9 @@ export const spec = {
     }
     const len = validBidRequests.length;
 
-    let adUrl;
-
     for (let i = 0; i < len; i++) {
-      const bid = validBidRequests[i];
-
-      if (i === 0) adUrl = getAdUrlByRegion(bid);
-
-      const traff = bid.params.traffic || BANNER;
+      let bid = validBidRequests[i];
+      let traff = bid.params.traffic || BANNER
       placements.push({
         placementId: bid.params.sourceid,
         bidId: bid.bidId,
@@ -63,21 +83,70 @@ export const spec = {
         traffic: traff,
         publisherId: bid.params.accountid
       });
-      const schain = bid?.ortb2?.source?.ext?.schain;
-      if (schain) {
-        placements.schain = schain;
+      if (bid.schain) {
+        placements.schain = bid.schain;
       }
     }
-
     return {
       method: 'POST',
-      url: adUrl,
+      url: AD_URL,
       data: request
+    };
+  },
+
+  interpretResponse: (serverResponse) => {
+    let response = [];
+    serverResponse = serverResponse.body;
+    for (let i = 0; i < serverResponse.length; i++) {
+      let resItem = serverResponse[i];
+      if (isBidResponseValid(resItem)) {
+        response.push(resItem);
+      }
+    }
+    return response;
+  },
+
+  getUserSyncs: (syncOptions, serverResponses = [], gdprConsent = {}, uspConsent = '', gppConsent = '') => {
+    let syncs = [];
+    let { gdprApplies, consentString = '' } = gdprConsent;
+
+    if (syncOptions.iframeEnabled) {
+      syncs.push({
+        type: 'iframe',
+        url: `${URL_SYNC}&gdpr=${gdprApplies ? 1 : 0}&gdpr_consent=${consentString}&type=iframe&us_privacy=${uspConsent}&gpp=${gppConsent}`
+      });
+    } else {
+      syncs.push({
+        type: 'image',
+        url: `${URL_SYNC}&gdpr=${gdprApplies ? 1 : 0}&gdpr_consent=${consentString}&type=image&us_privacy=${uspConsent}&gpp=${gppConsent}`
+      });
+    }
+
+    return syncs
+  },
+
+  onBidWon: function(bid) {
+    if (bid.winUrl) {
+      ajax(bid.winUrl, () => {}, JSON.stringify(bid));
+    } else {
+      if (bid?.postData && bid?.postData[0] && bid?.postData[0].params && bid?.postData[0].params[0].host == 'prebid') {
+        ajax('https://et-nd43.itdsmr.com/?c=o&m=prebid&secret_key=prebid_js&winTest=1', () => {}, JSON.stringify(bid));
+      }
     }
   },
 
-  interpretResponse,
-  getUserSyncs: getUserSyncs(URL_SYNC),
+  onTimeout: function(bid) {
+    if (bid?.postData && bid?.postData[0] && bid?.postData[0].params && bid?.postData[0].params[0].host == 'prebid') {
+      ajax('https://et-nd43.itdsmr.com/?c=o&m=prebid&secret_key=prebid_js&bidTimeout=1', () => {}, JSON.stringify(bid));
+    }
+  },
+
+  onBidderError: function(bid) {
+    if (bid?.postData && bid?.postData[0] && bid?.postData[0].params && bid?.postData[0].params[0].host == 'prebid') {
+      ajax('https://et-nd43.itdsmr.com/?c=o&m=prebid&secret_key=prebid_js&bidderError=1', () => {}, JSON.stringify(bid));
+    }
+  },
+
 };
 
 registerBidder(spec);

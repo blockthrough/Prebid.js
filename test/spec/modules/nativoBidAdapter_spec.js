@@ -12,7 +12,7 @@ import {
   RequestData,
   UserEIDs,
   buildRequestUrl,
-} from '../../../modules/nativoBidAdapter.js'
+} from '../../../modules/nativoBidAdapter'
 
 describe('bidDataMap', function () {
   it('Should fail gracefully if no key value pairs have been added and no key is sent', function () {
@@ -44,7 +44,7 @@ describe('bidDataMap', function () {
 
 describe('nativoBidAdapterTests', function () {
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       bidder: 'nativo',
     }
 
@@ -182,7 +182,7 @@ describe('nativoBidAdapterTests', function () {
 })
 
 describe('interpretResponse', function () {
-  const response = {
+  let response = {
     id: '126456',
     seatbid: [
       {
@@ -206,7 +206,7 @@ describe('interpretResponse', function () {
   }
 
   it('should get correct bid response', function () {
-    const expectedResponse = [
+    let expectedResponse = [
       {
         requestId: '1F254428-AB11-4D5E-9887-567B3F952CA5',
         cpm: 3.569,
@@ -221,11 +221,10 @@ describe('interpretResponse', function () {
         meta: {
           advertiserDomains: ['test.com'],
         },
-        mediaType: 'banner',
       },
     ]
 
-    const bidderRequest = {
+    let bidderRequest = {
       id: 123456,
       bids: [
         {
@@ -244,17 +243,17 @@ describe('interpretResponse', function () {
       }
     }
 
-    const result = spec.interpretResponse({ body: response }, { bidderRequest })
+    let result = spec.interpretResponse({ body: response }, { bidderRequest })
     expect(Object.keys(result[0])).to.have.deep.members(
       Object.keys(expectedResponse[0])
     )
   })
 
   it('handles nobid responses', function () {
-    const response = {}
+    let response = {}
     let bidderRequest
 
-    const result = spec.interpretResponse({ body: response }, { bidderRequest })
+    let result = spec.interpretResponse({ body: response }, { bidderRequest })
     expect(result.length).to.equal(0)
   })
 })
@@ -295,7 +294,7 @@ describe('getUserSyncs', function () {
   }
 
   it('Returns empty array if no supported user syncs', function () {
-    const userSync = spec.getUserSyncs(
+    let userSync = spec.getUserSyncs(
       {
         iframeEnabled: false,
         pixelEnabled: false,
@@ -308,7 +307,7 @@ describe('getUserSyncs', function () {
   })
 
   it('Returns valid iframe user sync', function () {
-    const userSync = spec.getUserSyncs(
+    let userSync = spec.getUserSyncs(
       {
         iframeEnabled: true,
         pixelEnabled: false,
@@ -327,7 +326,7 @@ describe('getUserSyncs', function () {
   })
 
   it('Returns valid URL and type', function () {
-    const userSync = spec.getUserSyncs(
+    let userSync = spec.getUserSyncs(
       {
         iframeEnabled: false,
         pixelEnabled: true,
@@ -388,7 +387,7 @@ describe('getAdUnitData', () => {
 })
 
 describe('Response to Request Filter Flow', () => {
-  const bidRequests = [
+  let bidRequests = [
     {
       bidder: 'nativo',
       params: {
@@ -433,7 +432,7 @@ describe('Response to Request Filter Flow', () => {
     }
   })
 
-  const bidderRequest = {
+  let bidderRequest = {
     id: 123456,
     bids: [
       {
@@ -454,7 +453,7 @@ describe('Response to Request Filter Flow', () => {
 
   it('Appends NO filter based on previous response', () => {
     // Getting the mock response
-    const result = spec.interpretResponse({ body: response }, { bidderRequest })
+    let result = spec.interpretResponse({ body: response }, { bidderRequest })
 
     // Winning the bid
     spec.onBidWon(result[0])
@@ -475,7 +474,7 @@ describe('Response to Request Filter Flow', () => {
     response.seatbid[0].bid[0].ext = { adsToFilter: ['12345'] }
 
     // Getting the mock response
-    const result = spec.interpretResponse({ body: response }, { bidderRequest })
+    let result = spec.interpretResponse({ body: response }, { bidderRequest })
 
     // Winning the bid
     spec.onBidWon(result[0])
@@ -496,7 +495,7 @@ describe('Response to Request Filter Flow', () => {
     response.seatbid[0].bid[0].ext = { advertisersToFilter: ['1'] }
 
     // Getting the mock response
-    const result = spec.interpretResponse({ body: response }, { bidderRequest })
+    let result = spec.interpretResponse({ body: response }, { bidderRequest })
 
     // Winning the bid
     spec.onBidWon(result[0])
@@ -517,7 +516,7 @@ describe('Response to Request Filter Flow', () => {
     response.seatbid[0].bid[0].ext = { campaignsToFilter: ['234'] }
 
     // Getting the mock response
-    const result = spec.interpretResponse({ body: response }, { bidderRequest })
+    let result = spec.interpretResponse({ body: response }, { bidderRequest })
 
     // Winning the bid
     spec.onBidWon(result[0])
@@ -556,15 +555,15 @@ describe('sizeToString', () => {
 
 describe('getSizeWildcardPrice', () => {
   it('Generates the correct floor price data', () => {
-    const floorPrice = {
+    let floorPrice = {
       currency: 'USD',
       floor: 1.0,
     }
-    const getFloorMock = () => {
+    let getFloorMock = () => {
       return floorPrice
     }
-    const floorMockSpy = sinon.spy(getFloorMock)
-    const bidRequest = {
+    let floorMockSpy = sinon.spy(getFloorMock)
+    let bidRequest = {
       getFloor: floorMockSpy,
       mediaTypes: {
         banner: {
@@ -573,7 +572,7 @@ describe('getSizeWildcardPrice', () => {
       },
     }
 
-    const result = getSizeWildcardPrice(bidRequest, 'banner')
+    let result = getSizeWildcardPrice(bidRequest, 'banner')
     expect(
       floorMockSpy.calledWith({
         currency: 'USD',
@@ -587,21 +586,21 @@ describe('getSizeWildcardPrice', () => {
 
 describe('getMediaWildcardPrices', () => {
   it('Generates the correct floor price data', () => {
-    const defaultFloorPrice = {
+    let defaultFloorPrice = {
       currency: 'USD',
       floor: 1.1,
     }
-    const sizefloorPrice = {
+    let sizefloorPrice = {
       currency: 'USD',
       floor: 2.2,
     }
-    const getFloorMock = ({ currency, mediaType, size }) => {
+    let getFloorMock = ({ currency, mediaType, size }) => {
       if (Array.isArray(size)) return sizefloorPrice
 
       return defaultFloorPrice
     }
-    const floorMockSpy = sinon.spy(getFloorMock)
-    const bidRequest = {
+    let floorMockSpy = sinon.spy(getFloorMock)
+    let bidRequest = {
       getFloor: floorMockSpy,
       mediaTypes: {
         banner: {
@@ -610,7 +609,7 @@ describe('getMediaWildcardPrices', () => {
       },
     }
 
-    const result = getMediaWildcardPrices(bidRequest, ['*', [300, 250]])
+    let result = getMediaWildcardPrices(bidRequest, ['*', [300, 250]])
     expect(
       floorMockSpy.calledWith({
         currency: 'USD',
@@ -631,21 +630,21 @@ describe('getMediaWildcardPrices', () => {
 
 describe('parseFloorPriceData', () => {
   it('Generates the correct floor price data', () => {
-    const defaultFloorPrice = {
+    let defaultFloorPrice = {
       currency: 'USD',
       floor: 1.1,
     }
-    const sizefloorPrice = {
+    let sizefloorPrice = {
       currency: 'USD',
       floor: 2.2,
     }
-    const getFloorMock = ({ currency, mediaType, size }) => {
+    let getFloorMock = ({ currency, mediaType, size }) => {
       if (Array.isArray(size)) return sizefloorPrice
 
       return defaultFloorPrice
     }
-    const floorMockSpy = sinon.spy(getFloorMock)
-    const bidRequest = {
+    let floorMockSpy = sinon.spy(getFloorMock)
+    let bidRequest = {
       getFloor: floorMockSpy,
       mediaTypes: {
         banner: {
@@ -654,7 +653,7 @@ describe('parseFloorPriceData', () => {
       },
     }
 
-    const result = parseFloorPriceData(bidRequest)
+    let result = parseFloorPriceData(bidRequest)
     expect(result).to.deep.equal({
       '*': { '*': 1.1, '300x250': 2.2 },
       banner: { '*': 1.1, '300x250': 2.2 },
@@ -682,24 +681,16 @@ describe('hasProtocol', () => {
 
 describe('addProtocol', () => {
   it('www.testpage.com', () => {
-    expect(addProtocol('www.testpage.com')).to.be.equal(
-      'https://www.testpage.com'
-    )
+    expect(addProtocol('www.testpage.com')).to.be.equal('https://www.testpage.com')
   })
   it('//www.testpage.com', () => {
-    expect(addProtocol('//www.testpage.com')).to.be.equal(
-      'https://www.testpage.com'
-    )
+    expect(addProtocol('//www.testpage.com')).to.be.equal('https://www.testpage.com')
   })
   it('http://www.testpage.com', () => {
-    expect(addProtocol('http://www.testpage.com')).to.be.equal(
-      'http://www.testpage.com'
-    )
+    expect(addProtocol('http://www.testpage.com')).to.be.equal('http://www.testpage.com')
   })
   it('https://www.testpage.com', () => {
-    expect(addProtocol('https://www.testpage.com')).to.be.equal(
-      'https://www.testpage.com'
-    )
+    expect(addProtocol('https://www.testpage.com')).to.be.equal('https://www.testpage.com')
   })
 })
 
@@ -759,7 +750,7 @@ describe('RequestData', () => {
 
       requestData.addBidRequestDataSource(testBidRequestDataSource)
 
-      expect(requestData.bidRequestDataSources.length === 1)
+      expect(requestData.bidRequestDataSources.length == 1)
     })
 
     it("Doeasn't add a non BidRequestDataSource", () => {
@@ -770,7 +761,7 @@ describe('RequestData', () => {
       requestData.addBidRequestDataSource(1)
       requestData.addBidRequestDataSource(true)
 
-      expect(requestData.bidRequestDataSources.length === 0)
+      expect(requestData.bidRequestDataSources.length == 0)
     })
   })
 
@@ -795,7 +786,7 @@ describe('RequestData', () => {
 
 describe('UserEIDs', () => {
   const userEids = new UserEIDs()
-  const eids = [{ testId: 1111 }]
+  const eids = [{ 'testId': 1111 }]
 
   describe('processBidRequestData', () => {
     it('Processes bid request without eids', () => {
@@ -819,7 +810,7 @@ describe('UserEIDs', () => {
       expect(qs).to.include('ntv_pb_eid=')
       try {
         expect(JSON.parse(value)).to.be.equal(eids)
-      } catch (err) {}
+      } catch (err) { }
     })
   })
 })
@@ -837,83 +828,12 @@ describe('buildRequestUrl', () => {
   })
 
   it('Returns baseUrl + QS params if QS strings passed', () => {
-    const url = buildRequestUrl(baseUrl, [
-      'ntv_ptd=123456&ntv_test=true',
-      'ntv_foo=bar',
-    ])
-    expect(url).to.be.equal(
-      `${baseUrl}?ntv_ptd=123456&ntv_test=true&ntv_foo=bar`
-    )
+    const url = buildRequestUrl(baseUrl, ['ntv_ptd=123456&ntv_test=true', 'ntv_foo=bar'])
+    expect(url).to.be.equal(`${baseUrl}?ntv_ptd=123456&ntv_test=true&ntv_foo=bar`)
   })
 
   it('Returns baseUrl + QS params if mixed QS strings passed', () => {
-    const url = buildRequestUrl(baseUrl, [
-      'ntv_ptd=123456&ntv_test=true',
-      '',
-      '',
-      'ntv_foo=bar',
-    ])
-    expect(url).to.be.equal(
-      `${baseUrl}?ntv_ptd=123456&ntv_test=true&ntv_foo=bar`
-    )
-  })
-})
-
-describe('Prebid Video', function () {
-  it('should handle video bid requests', function () {
-    const videoBidRequest = {
-      bidder: 'nativo',
-      params: {
-        video: {
-          mimes: ['video/mp4'],
-          protocols: [2, 3, 5, 6],
-          playbackmethod: [1, 2],
-          skip: 1,
-          skipafter: 5,
-        },
-      },
-    }
-
-    const isValid = spec.isBidRequestValid(videoBidRequest)
-    expect(isValid).to.be.true
-  })
-})
-
-describe('Prebid Native', function () {
-  it('should handle native bid requests', function () {
-    const nativeBidRequest = {
-      bidder: 'nativo',
-      params: {
-        native: {
-          title: {
-            required: true,
-            len: 80,
-          },
-          image: {
-            required: true,
-            sizes: [150, 50],
-          },
-          sponsoredBy: {
-            required: true,
-          },
-          clickUrl: {
-            required: true,
-          },
-          privacyLink: {
-            required: false,
-          },
-          body: {
-            required: true,
-          },
-          icon: {
-            required: true,
-            sizes: [50, 50],
-          },
-        },
-      },
-    }
-
-    const isValid = spec.isBidRequestValid(nativeBidRequest)
-    expect(isValid).to.be.true
+    const url = buildRequestUrl(baseUrl, ['ntv_ptd=123456&ntv_test=true', '', '', 'ntv_foo=bar'])
+    expect(url).to.be.equal(`${baseUrl}?ntv_ptd=123456&ntv_test=true&ntv_foo=bar`)
   })
 })

@@ -2,10 +2,6 @@ import { isInteger } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- */
-
 const BIDDER_CODE = 'lifestreet';
 const ADAPTER_VERSION = '$prebid.version$';
 
@@ -23,10 +19,10 @@ function boolToString(value) {
  */
 function template(strings, ...keys) {
   return function(...values) {
-    const dict = values[values.length - 1] || {};
-    const result = [strings[0]];
+    let dict = values[values.length - 1] || {};
+    let result = [strings[0]];
     keys.forEach(function(key, i) {
-      const value = isInteger(key) ? values[key] : dict[key];
+      let value = isInteger(key) ? values[key] : dict[key];
       result.push(value, strings[i + 1]);
     });
     return result.join('');
@@ -39,8 +35,8 @@ function template(strings, ...keys) {
  * @param {BidRequest} bid The bid params to use for formatting a request
  */
 function formatBidRequest(bid, bidderRequest = {}) {
-  const { params } = bid;
-  const { referer } = (bidderRequest.refererInfo || {});
+  const {params} = bid;
+  const {referer} = (bidderRequest.refererInfo || {});
   let url = urlTemplate({
     adapter: 'prebid',
     slot: params.slot,
@@ -90,7 +86,7 @@ export const spec = {
   supportedMediaTypes: [BANNER, VIDEO],
 
   isBidRequestValid: (bid = {}) => {
-    const { params = {} } = bid;
+    const {params = {}} = bid;
     return !!(params.slot && params.adkey && params.ad_size);
   },
 
@@ -102,7 +98,7 @@ export const spec = {
 
   interpretResponse: (serverResponse, bidRequest) => {
     const bidResponses = [];
-    const response = serverResponse.body;
+    let response = serverResponse.body;
     if (!isResponseValid(response)) {
       return bidResponses;
     }

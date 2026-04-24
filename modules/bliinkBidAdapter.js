@@ -1,8 +1,9 @@
+// eslint-disable-next-line prebid/validate-imports
+// eslint-disable-next-line prebid/validate-imports
 import { registerBidder } from '../src/adapters/bidderFactory.js'
 import { config } from '../src/config.js'
-import { _each, canAccessWindowTop, deepAccess, deepSetValue, getDomLoadingDuration, getWindowSelf, getWindowTop } from '../src/utils.js'
+import {_each, deepAccess, deepSetValue} from '../src/utils.js'
 export const BIDDER_CODE = 'bliink'
-export const GVL_ID = 658
 export const BLIINK_ENDPOINT_ENGINE = 'https://engine.bliink.io/prebid'
 
 export const BLIINK_ENDPOINT_COOKIE_SYNC_IFRAME = 'https://tag.bliink.io/usersync.html'
@@ -14,7 +15,6 @@ const BANNER = 'banner'
 window.bliinkBid = window.bliinkBid || {};
 const supportedMediaTypes = [BANNER, VIDEO]
 const aliasBidderCode = ['bk']
-const CURRENCY = 'EUR';
 
 /**
  * @description get coppa value from config
@@ -49,8 +49,9 @@ export function getEffectiveConnectionType() {
  */
 export function getUserIds(validBidRequests) {
   /** @type {Object} */
-  if (validBidRequests?.[0]?.userIdAsEids) {
-    return validBidRequests[0].userIdAsEids;
+  const firstBidRequest = validBidRequests?.[0]
+  if (firstBidRequest?.userIds) {
+    return firstBidRequest.userIds
   }
 }
 export function getMetaList(name) {
@@ -122,7 +123,7 @@ export function getKeywords() {
 }
 
 /**
- * @param bidResponse
+ * @param bidRequest
  * @return {({cpm, netRevenue: boolean, requestId, width: number, currency, ttl: number, creativeId, height: number}&{mediaType: string, vastXml})|null}
  */
 export const buildBid = (bidResponse) => {
@@ -150,7 +151,7 @@ export const buildBid = (bidResponse) => {
   }
   return Object.assign(bid, {
     cpm: bidResponse.price,
-    currency: bidResponse.currency || CURRENCY,
+    currency: bidResponse.currency || 'EUR',
     creativeId: deepAccess(bidResponse, 'extras.deal_id'),
     requestId: deepAccess(bidResponse, 'extras.transaction_id'),
     width: deepAccess(bidResponse, `creative.${bid.mediaType}.width`) || 1,
@@ -179,59 +180,37 @@ export const isBidRequestValid = (bid) => {
  */
 export const buildRequests = (validBidRequests, bidderRequest) => {
   if (!validBidRequests || !bidderRequest || !bidderRequest.bids) return null
-  const w = (canAccessWindowTop()) ? getWindowTop() : getWindowSelf();
-  const domLoadingDuration = getDomLoadingDuration(w).toString();
+
   const tags = bidderRequest.bids.map((bid) => {
-    let bidFloor;
-    const sizes = bid.sizes.map((size) => ({ w: size[0], h: size[1] }));
-    const mediaTypes = Object.keys(bid.mediaTypes)
-    if (typeof bid.getFloor === 'function') {
-      bidFloor = bid.getFloor({
-        currency: CURRENCY,
-        mediaType: mediaTypes[0],
-        size: sizes[0]
-      });
-    }
     const id = bid.params.tagId
-    const request = {
+    return {
       sizes: bid.sizes.map((size) => ({ w: size[0], h: size[1] })),
       id,
       // TODO: bidId is globally unique, is it a good choice for transaction ID (vs ortb2Imp.ext.tid)?
       transactionId: bid.bidId,
-      mediaTypes: mediaTypes,
+      mediaTypes: Object.keys(bid.mediaTypes),
       imageUrl: deepAccess(bid, 'params.imageUrl', ''),
       videoUrl: deepAccess(bid, 'params.videoUrl', ''),
       refresh: (window.bliinkBid[id] = (window.bliinkBid[id] ?? -1) + 1) || undefined,
-    }
-    if (bidFloor) {
-      request.bidFloor = bidFloor
-    }
-    return request;
+    };
   });
 
-  const request = {
+  let request = {
     tags,
     pageTitle: document.title,
-    pageUrl: deepAccess(bidderRequest, 'refererInfo.page').replace(/\?.*$/, ''),
+    pageUrl: deepAccess(bidderRequest, 'refererInfo.page'),
     pageDescription: getMetaValue(META_DESCRIPTION),
     keywords: getKeywords().join(','),
     ect: getEffectiveConnectionType(),
   };
 
-  const schain = deepAccess(validBidRequests[0], 'ortb2.source.ext.schain')
-  const eids = getUserIds(validBidRequests)
-  const device = bidderRequest.ortb2?.device
+  const schain = deepAccess(validBidRequests[0], 'schain')
+  const userIds = getUserIds(validBidRequests)
   if (schain) {
     request.schain = schain
   }
-  if (domLoadingDuration > -1) {
-    request.domLoadingDuration = domLoadingDuration
-  }
-  if (device) {
-    request.device = device
-  }
-  if (eids) {
-    request.eids = eids
+  if (userIds) {
+    request.userIds = userIds
   }
   const gdprConsent = deepAccess(bidderRequest, 'gdprConsent');
   if (!!gdprConsent && gdprConsent.gdprApplies) {
@@ -255,6 +234,7 @@ export const buildRequests = (validBidRequests, bidderRequest) => {
  * @description Parse the response (from buildRequests) and generate one or more bid objects.
  *
  * @param serverResponse
+ * @param request
  * @return
  */
 const interpretResponse = (serverResponse) => {
@@ -275,7 +255,7 @@ const interpretResponse = (serverResponse) => {
  * @return {[{type: string, url: string}]|*[]}
  */
 const getUserSyncs = (syncOptions, serverResponses, gdprConsent, uspConsent) => {
-  const syncs = [];
+  let syncs = [];
   if (syncOptions.pixelEnabled && serverResponses.length > 0) {
     let gdprParams = ''
     let uspConsentStr = ''
@@ -309,11 +289,10 @@ const getUserSyncs = (syncOptions, serverResponses, gdprConsent, uspConsent) => 
 };
 
 /**
- * @type {{interpretResponse: typeof interpretResponse, code: string, aliases: string[], getUserSyncs: typeof getUserSyncs, buildRequests: typeof buildRequests, isBidRequestValid: typeof isBidRequestValid}}
+ * @type {{interpretResponse: interpretResponse, code: string, aliases: string[], getUserSyncs: getUserSyncs, buildRequests: buildRequests, onTimeout: onTimeout, onSetTargeting: onSetTargeting, isBidRequestValid: isBidRequestValid, onBidWon: onBidWon}}
  */
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVL_ID,
   aliases: aliasBidderCode,
   supportedMediaTypes: supportedMediaTypes,
   isBidRequestValid,

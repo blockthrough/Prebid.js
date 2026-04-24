@@ -1,10 +1,8 @@
-import { config } from '../src/config.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { deepClone, parseQueryStringParameters, parseSizesInput } from '../src/utils.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { getBoundingClientRect } from '../libraries/boundingClientRect/boundingClientRect.js';
-import { getConnectionInfo } from '../libraries/connectionInfo/connectionUtils.js';
-import { getAdUnitElement } from '../src/utils/adUnits.js';
+import {config} from '../src/config.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {parseQueryStringParameters, parseSizesInput} from '../src/utils.js';
+import {find, includes} from '../src/polyfill.js';
+import {getStorageManager} from '../src/storageManager.js';
 
 const BIDDER_CODE = 'widespace';
 const WS_ADAPTER_VERSION = '2.0.1';
@@ -13,7 +11,7 @@ const LS_KEYS = {
   LC_UID: 'wsLcuid',
   CUST_DATA: 'wsCustomData'
 };
-export const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+export const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 let preReqTime = 0;
 
@@ -30,7 +28,7 @@ export const spec = {
   },
 
   buildRequests: function (validBidRequests, bidderRequest) {
-    const serverRequests = [];
+    let serverRequests = [];
     const REQUEST_SERVER_URL = getEngineUrl();
     const DEMO_DATA_PARAMS = ['gender', 'country', 'region', 'postal', 'city', 'yob'];
     const PERF_DATA = getData(LS_KEYS.PERF_DATA).map(perfData => JSON.parse(perfData));
@@ -46,7 +44,7 @@ export const spec = {
     }
 
     validBidRequests.forEach((bid, i) => {
-      const data = {
+      let data = {
         'screenWidthPx': screen && screen.width,
         'screenHeightPx': screen && screen.height,
         'adSpaceHttpRefUrl': getTopWindowReferrer(),
@@ -54,7 +52,7 @@ export const spec = {
         'inFrame': 1,
         'sid': bid.params.sid,
         'lcuid': LC_UID,
-        'vol': isInHostileIframe ? '' : visibleOnLoad(getAdUnitElement(bid)),
+        'vol': isInHostileIframe ? '' : visibleOnLoad(document.getElementById(bid.adUnitCode)),
         'gdprCmp': bidderRequest && bidderRequest.gdprConsent ? 1 : 0,
         'hb': '1',
         'hb.cd': CUST_DATA ? encodedParamValue(CUST_DATA) : '',
@@ -84,22 +82,22 @@ export const spec = {
       }
 
       // Include connection info if available
-      const connection = getConnectionInfo();
-      if (connection?.type && connection.downlinkMax != null) {
-        data['netinfo.type'] = connection.type;
-        data['netinfo.downlinkMax'] = connection.downlinkMax;
+      const CONNECTION = navigator.connection || navigator.webkitConnection;
+      if (CONNECTION && CONNECTION.type && CONNECTION.downlinkMax) {
+        data['netinfo.type'] = CONNECTION.type;
+        data['netinfo.downlinkMax'] = CONNECTION.downlinkMax;
       }
 
       // Include debug data when available
       if (!isInHostileIframe) {
-        data.forceAdId = (((window.top.location.hash.split('&')) || []).find(
-          val => val.includes('WS_DEBUG_FORCEADID')
+        data.forceAdId = (find(window.top.location.hash.split('&'),
+          val => includes(val, 'WS_DEBUG_FORCEADID')
         ) || '').split('=')[1];
       }
 
       // GDPR Consent info
       if (data.gdprCmp) {
-        const { gdprApplies, consentString, vendorData } = bidderRequest.gdprConsent;
+        const {gdprApplies, consentString, vendorData} = bidderRequest.gdprConsent;
         const hasGlobalScope = vendorData && vendorData.hasGlobalScope;
         data.gdprApplies = gdprApplies ? 1 : gdprApplies === undefined ? '' : 0;
         data.gdprConsentData = consentString;
@@ -129,7 +127,7 @@ export const spec = {
   interpretResponse: function (serverResponse, request) {
     const responseTime = Date.now() - preReqTime;
     const successBids = serverResponse.body || [];
-    const bidResponses = [];
+    let bidResponses = [];
     successBids.forEach((bid) => {
       storeData({
         'perf_status': 'OK',
@@ -163,7 +161,7 @@ export const spec = {
     userSyncs = serverResponses.reduce((allSyncPixels, response) => {
       if (response && response.body && response.body[0]) {
         (response.body[0].syncPixels || []).forEach((url) => {
-          allSyncPixels.push({ type: 'image', url });
+          allSyncPixels.push({type: 'image', url});
         });
       }
       return allSyncPixels;
@@ -186,7 +184,7 @@ function storeData(data, name, stringify = true) {
 }
 
 function getData(name, remove = true) {
-  const data = [];
+  let data = [];
   return data;
 }
 
@@ -196,8 +194,8 @@ function pixelSyncPossibility() {
 }
 
 function visibleOnLoad(element) {
-  if (element) {
-    const topPos = getBoundingClientRect(element).top;
+  if (element && element.getBoundingClientRect) {
+    const topPos = element.getBoundingClientRect().top;
     return topPos < screen.height && topPos >= window.top.pageYOffset ? 1 : 0;
   }
   return '';
@@ -214,7 +212,7 @@ function getLcuid() {
 }
 
 function encodedParamValue(value) {
-  const requiredStringify = typeof deepClone(value) === 'object';
+  const requiredStringify = typeof JSON.parse(JSON.stringify(value)) === 'object';
   return encodeURIComponent(requiredStringify ? JSON.stringify(value) : value);
 }
 

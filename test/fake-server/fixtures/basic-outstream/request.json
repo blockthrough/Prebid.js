@@ -19,7 +19,6 @@
         "prebid": true,
         "disable_psa": true,
         "video": {
-          "context": 4,
           "skippable": true,
           "playback_method": 2
         },
@@ -40,7 +39,6 @@
         "prebid": true,
         "disable_psa": true,
         "video": {
-          "context": 4,
           "skippable": true,
           "playback_method": 2
         },
