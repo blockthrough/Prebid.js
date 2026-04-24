@@ -5,14 +5,20 @@
  * @requires module:modules/userId
  */
 
-import {ajax} from '../src/ajax.js';
-import {submodule} from '../src/hook.js';
-import {includes} from '../src/polyfill.js';
-import {getRefererInfo} from '../src/refererDetection.js';
-import {getStorageManager} from '../src/storageManager.js';
-import {formatQS, isPlainObject, logError, parseUrl} from '../src/utils.js';
-import {uspDataHandler, gppDataHandler} from '../src/adapterManager.js';
-import {MODULE_TYPE_UID} from '../src/activities/modules.js';
+import { ajax } from '../src/ajax.js';
+import { submodule } from '../src/hook.js';
+
+import { getRefererInfo } from '../src/refererDetection.js';
+import { getStorageManager, STORAGE_TYPE_COOKIES, STORAGE_TYPE_LOCALSTORAGE } from '../src/storageManager.js';
+import { formatQS, isNumber, isPlainObject, logError, parseUrl } from '../src/utils.js';
+import { MODULE_TYPE_UID } from '../src/activities/modules.js';
+
+/**
+ * @typedef {import('../modules/userId/index.js').Submodule} Submodule
+ * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
+ * @typedef {import('../modules/userId/index.js').ConsentData} ConsentData
+ * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
+ */
 
 const MODULE_NAME = 'connectId';
 const STORAGE_EXPIRY_DAYS = 365;
@@ -26,18 +32,36 @@ const PLACEHOLDER = '__PIXEL_ID__';
 const UPS_ENDPOINT = `https://ups.analytics.yahoo.com/ups/${PLACEHOLDER}/fed`;
 const OVERRIDE_OPT_OUT_KEY = 'connectIdOptOut';
 const INPUT_PARAM_KEYS = ['pixelId', 'he', 'puid'];
-export const storage = getStorageManager({moduleType: MODULE_TYPE_UID, moduleName: MODULE_NAME});
+const O_AND_O_DOMAINS = [
+  'yahoo.com',
+  'aol.com',
+  'aol.ca',
+  'aol.de',
+  'aol.co.uk',
+  'engadget.com',
+  'techcrunch.com',
+  'autoblog.com',
+];
+export const storage = getStorageManager({ moduleType: MODULE_TYPE_UID, moduleName: MODULE_NAME });
 
 /**
+ * Stores the ConnectID object in browser storage according to storage configuration
  * @function
- * @param {Object} obj
+ * @param {Object} obj - The ID object to store
+ * @param {Object} [storageConfig={}] - Storage configuration
+ * @param {string} [storageConfig.type] - Storage type: 'cookie', 'html5', or 'cookie&html5'
  */
-function storeObject(obj) {
+function storeObject(obj, storageConfig = {}) {
   const expires = Date.now() + STORAGE_DURATION;
-  if (storage.cookiesAreEnabled()) {
+  const storageType = storageConfig.type || '';
+
+  const useCookie = !storageType || storageType.includes(STORAGE_TYPE_COOKIES);
+  const useLocalStorage = !storageType || storageType.includes(STORAGE_TYPE_LOCALSTORAGE);
+
+  if (useCookie && storage.cookiesAreEnabled()) {
     setEtldPlusOneCookie(MODULE_NAME, JSON.stringify(obj), new Date(expires), getSiteHostname());
   }
-  if (storage.localStorageIsEnabled()) {
+  if (useLocalStorage && storage.localStorageIsEnabled()) {
     storage.setDataInLocalStorage(MODULE_NAME, JSON.stringify(obj));
   }
 }
@@ -94,8 +118,17 @@ function getIdFromLocalStorage() {
   return null;
 }
 
-function syncLocalStorageToCookie() {
-  if (!storage.cookiesAreEnabled()) {
+/**
+ * Syncs ID from localStorage to cookie if storage configuration allows
+ * @function
+ * @param {Object} [storageConfig={}] - Storage configuration
+ * @param {string} [storageConfig.type] - Storage type: 'cookie', 'html5', or 'cookie&html5'
+ */
+function syncLocalStorageToCookie(storageConfig = {}) {
+  const storageType = storageConfig.type || '';
+  const useCookie = !storageType || storageType.includes(STORAGE_TYPE_COOKIES);
+
+  if (!useCookie || !storage.cookiesAreEnabled()) {
     return;
   }
   const value = getIdFromLocalStorage();
@@ -104,19 +137,28 @@ function syncLocalStorageToCookie() {
 }
 
 function isStale(storedIdData) {
-  if (isPlainObject(storedIdData) && storedIdData.lastSynced &&
-    (storedIdData.lastSynced + VALID_ID_DURATION) <= Date.now()) {
+  if (isOAndOTraffic()) {
     return true;
+  } else if (isPlainObject(storedIdData) && storedIdData.lastSynced) {
+    const validTTL = storedIdData.ttl || VALID_ID_DURATION;
+    return storedIdData.lastSynced + validTTL <= Date.now();
   }
   return false;
 }
 
-function getStoredId() {
+/**
+ * Retrieves stored ConnectID from cookie or localStorage
+ * @function
+ * @param {Object} [storageConfig={}] - Storage configuration
+ * @param {string} [storageConfig.type] - Storage type: 'cookie', 'html5', or 'cookie&html5'
+ * @returns {Object|null} The stored ID object or null if not found
+ */
+function getStoredId(storageConfig = {}) {
   let storedId = getIdFromCookie();
   if (!storedId) {
     storedId = getIdFromLocalStorage();
     if (storedId && !isStale(storedId)) {
-      syncLocalStorageToCookie();
+      syncLocalStorageToCookie(storageConfig);
     }
   }
   return storedId;
@@ -125,6 +167,17 @@ function getStoredId() {
 function getSiteHostname() {
   const pageInfo = parseUrl(getRefererInfo().page);
   return pageInfo.hostname;
+}
+
+function isOAndOTraffic() {
+  let referer = getRefererInfo().ref;
+
+  if (referer) {
+    referer = parseUrl(referer).hostname;
+    const subDomains = referer.split('.');
+    referer = subDomains.slice(subDomains.length - 2, subDomains.length).join('.');
+  }
+  return O_AND_O_DOMAINS.indexOf(referer) >= 0;
 }
 
 /** @type {Submodule} */
@@ -148,7 +201,7 @@ export const connectIdSubmodule = {
       return undefined;
     }
     return (isPlainObject(value) && (value.connectId || value.connectid))
-      ? {connectId: value.connectId || value.connectid} : undefined;
+      ? { connectId: value.connectId || value.connectid } : undefined;
   },
   /**
    * Gets the Yahoo ConnectID
@@ -162,13 +215,14 @@ export const connectIdSubmodule = {
       return;
     }
     const params = config.params || {};
+    const storageConfig = config.storage || {};
     if (!params ||
         (typeof params.pixelId === 'undefined' && typeof params.endpoint === 'undefined')) {
       logError(`${MODULE_NAME} module: configuration requires the 'pixelId'.`);
       return;
     }
 
-    const storedId = getStoredId();
+    const storedId = getStoredId(storageConfig);
 
     let shouldResync = isStale(storedId);
 
@@ -184,21 +238,21 @@ export const connectIdSubmodule = {
       }
       if (!shouldResync) {
         storedId.lastUsed = Date.now();
-        storeObject(storedId);
-        return {id: storedId};
+        storeObject(storedId, storageConfig);
+        return { id: storedId };
       }
     }
 
-    const uspString = uspDataHandler.getConsentData() || '';
+    const uspString = consentData.usp || '';
     const data = {
       v: '1',
-      '1p': includes([1, '1', true], params['1p']) ? '1' : '0',
-      gdpr: connectIdSubmodule.isEUConsentRequired(consentData) ? '1' : '0',
-      gdpr_consent: connectIdSubmodule.isEUConsentRequired(consentData) ? consentData.consentString : '',
+      '1p': [1, '1', true].includes(params['1p']) ? '1' : '0',
+      gdpr: connectIdSubmodule.isEUConsentRequired(consentData?.gdpr) ? '1' : '0',
+      gdpr_consent: connectIdSubmodule.isEUConsentRequired(consentData?.gdpr) ? consentData.gdpr.consentString : '',
       us_privacy: uspString
     };
 
-    const gppConsent = gppDataHandler.getConsentData();
+    const gppConsent = consentData.gpp;
     if (gppConsent) {
       data.gpp = `${gppConsent.gppString ? gppConsent.gppString : ''}`;
       if (Array.isArray(gppConsent.applicableSections)) {
@@ -206,13 +260,13 @@ export const connectIdSubmodule = {
       }
     }
 
-    let topmostLocation = getRefererInfo().topmostLocation;
+    const topmostLocation = getRefererInfo().topmostLocation;
     if (typeof topmostLocation === 'string') {
       data.url = topmostLocation.split('?')[0];
     }
 
     INPUT_PARAM_KEYS.forEach(key => {
-      if (typeof params[key] != 'undefined') {
+      if (typeof params[key] !== 'undefined') {
         data[key] = params[key];
       }
     });
@@ -238,7 +292,14 @@ export const connectIdSubmodule = {
                 responseObj.puid = params.puid || responseObj.puid;
                 responseObj.lastSynced = Date.now();
                 responseObj.lastUsed = Date.now();
-                storeObject(responseObj);
+                if (isNumber(responseObj.ttl)) {
+                  let validTTLMiliseconds = responseObj.ttl * 60 * 60 * 1000;
+                  if (validTTLMiliseconds > VALID_ID_DURATION) {
+                    validTTLMiliseconds = VALID_ID_DURATION;
+                  }
+                  responseObj.ttl = validTTLMiliseconds;
+                }
+                storeObject(responseObj, storageConfig);
               } else {
                 logError(`${MODULE_NAME} module: UPS response returned an invalid payload ${response}`);
               }
@@ -254,10 +315,10 @@ export const connectIdSubmodule = {
         }
       };
       const endpoint = UPS_ENDPOINT.replace(PLACEHOLDER, params.pixelId);
-      let url = `${params.endpoint || endpoint}?${formatQS(data)}`;
-      connectIdSubmodule.getAjaxFn()(url, callbacks, null, {method: 'GET', withCredentials: true});
+      const url = `${params.endpoint || endpoint}?${formatQS(data)}`;
+      connectIdSubmodule.getAjaxFn()(url, callbacks, null, { method: 'GET', withCredentials: true });
     };
-    const result = {callback: resp};
+    const result = { callback: resp };
     if (shouldResync && storedId) {
       result.id = storedId;
     }
@@ -276,12 +337,16 @@ export const connectIdSubmodule = {
 
   /**
    * Utility function that returns a boolean flag indicating if the user
-   * has opeted out via the Yahoo easy-opt-out mechanism.
+   * has opted out via the Yahoo easy-opt-out mechanism.
    * @returns {Boolean}
    */
   userHasOptedOut() {
     try {
-      return localStorage.getItem(OVERRIDE_OPT_OUT_KEY) === '1';
+      if (storage.localStorageIsEnabled()) {
+        return storage.getDataFromLocalStorage(OVERRIDE_OPT_OUT_KEY) === '1';
+      } else {
+        return true;
+      }
     } catch {
       return false;
     }

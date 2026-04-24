@@ -1,32 +1,27 @@
 import concertAnalytics from 'modules/concertAnalyticsAdapter.js';
 import { expect } from 'chai';
-import {expectEvents} from '../../helpers/analytics.js';
-const sinon = require('sinon');
-let adapterManager = require('src/adapterManager').default;
-let events = require('src/events');
-let constants = require('src/constants.json');
+import { expectEvents } from '../../helpers/analytics.js';
+import { EVENTS } from 'src/constants.js';
+import { server } from 'test/mocks/xhr.js';
+
+import sinon from 'sinon';
+const adapterManager = require('src/adapterManager').default;
+const events = require('src/events');
 
 describe('ConcertAnalyticsAdapter', function() {
   let sandbox;
-  let xhr;
-  let requests;
   let clock;
-  let timestamp = 1896134400;
-  let auctionId = '9f894496-10fe-4652-863d-623462bf82b8';
-  let timeout = 1000;
+  const timestamp = 1896134400;
+  const auctionId = '9f894496-10fe-4652-863d-623462bf82b8';
+  const timeout = 1000;
 
   before(function () {
     sandbox = sinon.createSandbox();
-    xhr = sandbox.useFakeXMLHttpRequest();
-    requests = [];
-
-    xhr.onCreate = function (request) {
-      requests.push(request);
-    };
     clock = sandbox.useFakeTimers(1896134400);
   });
 
   after(function () {
+    clock.restore();
     sandbox.restore();
   });
 
@@ -55,11 +50,11 @@ describe('ConcertAnalyticsAdapter', function() {
       clock.tick(3000 + 1000);
 
       const eventsToReport = ['bidResponse', 'bidWon'];
-      for (var i = 0; i < concertAnalytics.eventsStorage.length; i++) {
+      for (let i = 0; i < concertAnalytics.eventsStorage.length; i++) {
         expect(eventsToReport.indexOf(concertAnalytics.eventsStorage[i].event)).to.be.above(-1);
       }
 
-      for (var i = 0; i < eventsToReport.length; i++) {
+      for (let i = 0; i < eventsToReport.length; i++) {
         expect(concertAnalytics.eventsStorage.some(function(event) {
           return event.event === eventsToReport[i]
         })).to.equal(true);
@@ -100,7 +95,6 @@ describe('ConcertAnalyticsAdapter', function() {
     'bidderCode': 'concert',
     'width': 1030,
     'height': 590,
-    'statusMessage': 'Bid available',
     'adId': '642f13fe18ab7dc',
     'requestId': '4062fba2e039919',
     'mediaType': 'banner',
@@ -137,7 +131,6 @@ describe('ConcertAnalyticsAdapter', function() {
     'netRevenue': false,
     'ttl': 360,
     'auctionId': '9f894496-10fe-4652-863d-623462bf82b8',
-    'statusMessage': 'Bid available',
     'responseTimestamp': 1591213790366,
     'requestTimestamp': 1591213790017,
     'bidder': 'concert',
@@ -147,10 +140,10 @@ describe('ConcertAnalyticsAdapter', function() {
   }
 
   function fireBidEvents(events) {
-    events.emit(constants.EVENTS.AUCTION_INIT, {timestamp, auctionId, timeout, adUnits});
-    events.emit(constants.EVENTS.BID_REQUESTED, {bidder: 'concert'});
-    events.emit(constants.EVENTS.BID_RESPONSE, bidResponse);
-    events.emit(constants.EVENTS.AUCTION_END, {});
-    events.emit(constants.EVENTS.BID_WON, bidWon);
+    events.emit(EVENTS.AUCTION_INIT, { timestamp, auctionId, timeout, adUnits });
+    events.emit(EVENTS.BID_REQUESTED, { bidder: 'concert' });
+    events.emit(EVENTS.BID_RESPONSE, bidResponse);
+    events.emit(EVENTS.AUCTION_END, {});
+    events.emit(EVENTS.BID_WON, bidWon);
   }
 });

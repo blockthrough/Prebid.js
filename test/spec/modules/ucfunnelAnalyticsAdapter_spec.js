@@ -3,10 +3,10 @@ import {
   ANALYTICS_VERSION, BIDDER_STATUS
 } from 'modules/ucfunnelAnalyticsAdapter.js';
 
-import {expect} from 'chai';
+import { expect } from 'chai';
 
 const events = require('src/events');
-const constants = require('src/constants.json');
+const constants = require('src/constants.js');
 
 const pbuid = 'pbuid-AA778D8A796AEA7A0843E2BBEB677766';
 const adid = 'test-ad-83444226E44368D1E32E49EEBE6D29';
@@ -89,7 +89,7 @@ describe('ucfunnel Prebid AnalyticsAdapter Testing', function () {
     });
 
     describe('#getCachedAuction()', function() {
-      const existing = {timeoutBids: [{}]};
+      const existing = { timeoutBids: [{}] };
       ucfunnelAnalyticsAdapter.cachedAuctions['test_auction_id'] = existing;
 
       it('should get the existing cached object if it exists', function() {

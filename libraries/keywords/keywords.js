@@ -1,12 +1,12 @@
-import {CLIENT_SECTIONS} from '../../src/fpd/oneClient.js';
-import {deepAccess} from '../../src/utils.js';
+import { CLIENT_SECTIONS } from '../../src/fpd/oneClient.js';
+import { deepAccess } from '../../src/utils.js';
 
 const ORTB_KEYWORDS_PATHS = ['user.keywords'].concat(
   CLIENT_SECTIONS.flatMap((prefix) => ['keywords', 'content.keywords'].map(suffix => `${prefix}.${suffix}`))
 );
 
 /**
- * @param commaSeparatedKeywords: any number of either keyword arrays, or comma-separated keyword strings
+ * @param commaSeparatedKeywords any number of either keyword arrays, or comma-separated keyword strings
  * @returns an array with all unique keywords contained across all inputs
  */
 export function mergeKeywords(...commaSeparatedKeywords) {

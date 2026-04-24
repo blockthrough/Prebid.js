@@ -26,7 +26,7 @@ describe('jixie Adapter', function () {
    * isBidRequestValid
    */
   describe('isBidRequestValid', function () {
-    let bid = {
+    const bid = {
       'bidder': 'jixie',
       'params': {
         'unit': 'prebidsampleunit'
@@ -43,13 +43,13 @@ describe('jixie Adapter', function () {
     });
 
     it('should return false when required params obj does not exist', function () {
-      let bid0 = Object.assign({}, bid);
+      const bid0 = Object.assign({}, bid);
       delete bid0.params;
       expect(spec.isBidRequestValid(bid0)).to.equal(false);
     });
 
     it('should return false when params obj does not contain unit property', function () {
-      let bid1 = Object.assign({}, bid);
+      const bid1 = Object.assign({}, bid);
       bid1.params = { rubbish: '' };
       expect(spec.isBidRequestValid(bid1)).to.equal(false);
     });
@@ -76,8 +76,11 @@ describe('jixie Adapter', function () {
     const jxifoTest1_ = 'fffffbbbbbcccccaaaaae890606aaaaa';
     const jxtdidTest1_ = '222223d1-1111-2222-3333-b9f129299999';
     const jxcompTest1_ = 'AAAAABBBBBCCCCCDDDDDEEEEEUkkZPQfifpkPnnlJhtsa4o+gf4nfqgN5qHiTVX73ymTSbLT9jz1nf+Q7QdxNh9nTad9UaN5pzfHMt/rs1woQw72c1ip+8heZXPfKGZtZP7ldJesYhlo3/0FVcL/wl9ZlAo1jYOEfHo7Y9zFzNXABbbbbb==';
-
+    const ckname1Val_ = 'ckckname1';
+    const ckname2Val_ = 'ckckname2';
     const refJxEids_ = {
+      'pubid1': ckname1Val_,
+      'pubid2': ckname2Val_,
       '_jxtoko': jxtokoTest1_,
       '_jxifo': jxifoTest1_,
       '_jxtdid': jxtdidTest1_,
@@ -86,12 +89,28 @@ describe('jixie Adapter', function () {
 
     // to serve as the object that prebid will call jixie buildRequest with: (param2)
     const bidderRequest_ = {
-      refererInfo: {referer: pageurl_},
+      refererInfo: { referer: pageurl_ },
       auctionId: auctionId_,
-      timeout: timeout_
+      timeout: timeout_,
+      ortb2: {
+        site: {
+          ext: {
+            data: {
+              keyA: 'abcde'
+            }
+          }
+        },
+        user: {
+          ext: {
+            data: {
+              abc: 'def'
+            }
+          }
+        }
+      }
     };
     // to serve as the object that prebid will call jixie buildRequest with: (param1)
-    let bidRequests_ = [
+    const bidRequests_ = [
       {
         'bidder': 'jixie',
         'params': {
@@ -206,6 +225,17 @@ describe('jixie Adapter', function () {
       }
     ];
 
+    const testJixieCfg_ = {
+      genids: [
+        { id: 'pubid1', ck: 'ckname1' },
+        { id: 'pubid2', ck: 'ckname2' },
+        { id: '_jxtoko' },
+        { id: '_jxifo' },
+        { id: '_jxtdid' },
+        { id: '_jxcomp' }
+      ]
+    };
+
     it('should attach valid params to the adserver endpoint (1)', function () {
       // this one we do not intercept the cookie stuff so really don't know
       // what will be in there. so we do not check here (using expect)
@@ -216,7 +246,6 @@ describe('jixie Adapter', function () {
       })
       expect(request.data).to.be.an('string');
       const payload = JSON.parse(request.data);
-      expect(payload).to.have.property('auctionid', auctionId_);
       expect(payload).to.have.property('timeout', timeout_);
       expect(payload).to.have.property('currency', currency_);
       expect(payload).to.have.property('bids').that.deep.equals(refBids_);
@@ -226,8 +255,25 @@ describe('jixie Adapter', function () {
       // similar to above test case but here we force some clientid sessionid values
       // and domain, pageurl
       // get the interceptors ready:
-      let getCookieStub = sinon.stub(storage, 'getCookie');
-      let getLocalStorageStub = sinon.stub(storage, 'getDataFromLocalStorage');
+      const getConfigStub = sinon.stub(config, 'getConfig');
+      getConfigStub.callsFake(function fakeFn(prop) {
+        if (prop === 'jixie') {
+          return testJixieCfg_;
+        }
+        return null;
+      });
+
+      const getCookieStub = sinon.stub(storage, 'getCookie');
+      const getLocalStorageStub = sinon.stub(storage, 'getDataFromLocalStorage');
+      getCookieStub
+        .withArgs('ckname1')
+        .returns(ckname1Val_);
+      getCookieStub
+        .withArgs('ckname2')
+        .returns(ckname2Val_);
+      getCookieStub
+        .withArgs('_jxtoko')
+        .returns(jxtokoTest1_);
       getCookieStub
         .withArgs('_jxtoko')
         .returns(jxtokoTest1_);
@@ -253,7 +299,7 @@ describe('jixie Adapter', function () {
         .withArgs('_jxxs')
         .returns(sessionIdTest1_
         );
-      let miscDimsStub = sinon.stub(jixieaux, 'getMiscDims');
+      const miscDimsStub = sinon.stub(jixieaux, 'getMiscDims');
       miscDimsStub
         .returns({ device: device_, pageurl: pageurl_, domain: domain_, mkeywords: keywords_ });
 
@@ -265,7 +311,6 @@ describe('jixie Adapter', function () {
 
       expect(request.data).to.be.an('string');
       const payload = JSON.parse(request.data);
-      expect(payload).to.have.property('auctionid', auctionId_);
       expect(payload).to.have.property('client_id_c', clientIdTest1_);
       expect(payload).to.have.property('client_id_ls', clientIdTest1_);
       expect(payload).to.have.property('session_id_c', sessionIdTest1_);
@@ -278,15 +323,18 @@ describe('jixie Adapter', function () {
       expect(payload).to.have.property('timeout', timeout_);
       expect(payload).to.have.property('currency', currency_);
       expect(payload).to.have.property('bids').that.deep.equals(refBids_);
+      expect(payload).to.have.property('siteKvs').that.deep.equals(bidderRequest_.ortb2.site.ext.data);
+      expect(payload).to.have.property('userKvs').that.deep.equals(bidderRequest_.ortb2.user.ext.data);
 
       // unwire interceptors
       getCookieStub.restore();
       getLocalStorageStub.restore();
+      getConfigStub.restore();
       miscDimsStub.restore();
     });// it
 
     it('it should popular the pricegranularity when info is available', function () {
-      let content = {
+      const content = {
         'ranges': [{
           'max': 12,
           'increment': 0.5
@@ -297,9 +345,9 @@ describe('jixie Adapter', function () {
         }],
         precision: 1
       };
-      let getConfigStub = sinon.stub(config, 'getConfig');
+      const getConfigStub = sinon.stub(config, 'getConfig');
       getConfigStub.callsFake(function fakeFn(prop) {
-        if (prop == 'priceGranularity') {
+        if (prop === 'priceGranularity') {
           return content;
         }
         return null;
@@ -313,10 +361,10 @@ describe('jixie Adapter', function () {
     });
 
     it('it should popular the device info when it is available', function () {
-      let getConfigStub = sinon.stub(config, 'getConfig');
-      let content = {w: 500, h: 400};
+      const getConfigStub = sinon.stub(config, 'getConfig');
+      const content = { w: 500, h: 400 };
       getConfigStub.callsFake(function fakeFn(prop) {
-        if (prop == 'device') {
+        if (prop === 'device') {
           return content;
         }
         return null;
@@ -339,7 +387,15 @@ describe('jixie Adapter', function () {
           hp: 1
         }]
       };
-      const oneSpecialBidReq = Object.assign({}, bidRequests_[0], { schain: schain });
+      const oneSpecialBidReq = Object.assign({}, bidRequests_[0], {
+        ortb2: {
+          source: {
+            ext: {
+              schain: schain
+            }
+          }
+        }
+      });
       const request = spec.buildRequests([oneSpecialBidReq], bidderRequest_);
       const payload = JSON.parse(request.data);
       expect(payload.schain).to.deep.equal(schain);
@@ -347,19 +403,40 @@ describe('jixie Adapter', function () {
     });
 
     it('it should populate the floor info when available', function () {
-      let oneSpecialBidReq = deepClone(bidRequests_[0]);
-      let request, payload = null;
+      const oneSpecialBidReq = deepClone(bidRequests_[0]);
+      let request; let payload = null;
       // 1 floor is not set
       request = spec.buildRequests([oneSpecialBidReq], bidderRequest_);
       payload = JSON.parse(request.data);
       expect(payload.bids[0].bidFloor).to.not.exist;
 
       // 2 floor is set
-      let getFloorResponse = { currency: 'USD', floor: 2.1 };
+      const getFloorResponse = { currency: 'USD', floor: 2.1 };
       oneSpecialBidReq.getFloor = () => getFloorResponse;
       request = spec.buildRequests([oneSpecialBidReq], bidderRequest_);
       payload = JSON.parse(request.data);
       expect(payload.bids[0].bidFloor).to.exist.and.to.equal(2.1);
+    });
+
+    it('it should populate the aid field when available', function () {
+      const oneSpecialBidReq = deepClone(bidRequests_[0]);
+      // 1 aid is not set in the jixie config
+      let request = spec.buildRequests([oneSpecialBidReq], bidderRequest_);
+      let payload = JSON.parse(request.data);
+      expect(payload.aid).to.eql('');
+
+      // 2 aid is set in the jixie config
+      const getConfigStub = sinon.stub(config, 'getConfig');
+      getConfigStub.callsFake(function fakeFn(prop) {
+        if (prop === 'jixie') {
+          return { aid: '11223344556677889900' };
+        }
+        return null;
+      });
+      request = spec.buildRequests([oneSpecialBidReq], bidderRequest_);
+      payload = JSON.parse(request.data);
+      expect(payload.aid).to.exist.and.to.equal('11223344556677889900');
+      getConfigStub.restore();
     });
 
     it('should populate eids when supported userIds are available', function () {
@@ -425,7 +502,6 @@ describe('jixie Adapter', function () {
     'bids': [
       // video (vast tag url) returned here
       {
-        'trackingUrlBase': 'https://traid.jixie.io/sync/ad?',
         'jxBidId': '62847e4c696edcb-028d5dee-2c83-44e3-bed1-b75002475cdf',
         'requestId': '62847e4c696edcb',
         'cpm': 2.19,
@@ -458,7 +534,6 @@ describe('jixie Adapter', function () {
       // display ad returned here: This one there is advertiserDomains
       // in the response . Will be checked in the unit tests below
       {
-        'trackingUrlBase': 'https://traid.jixie.io/sync/ad?',
         'jxBidId': '600c9ae6fda1acb-028d5dee-2c83-44e3-bed1-b75002475cdf',
         'requestId': '600c9ae6fda1acb',
         'cpm': 1.999,
@@ -495,7 +570,6 @@ describe('jixie Adapter', function () {
       },
       // outstream, jx non-default renderer specified:
       {
-        'trackingUrlBase': 'https://traid.jixie.io/sync/ad?',
         'jxBidId': '99bc539c81b00ce-028d5dee-2c83-44e3-bed1-b75002475cdf',
         'requestId': '99bc539c81b00ce',
         'cpm': 2.99,
@@ -514,7 +588,6 @@ describe('jixie Adapter', function () {
       },
       // outstream, jx default renderer:
       {
-        'trackingUrlBase': 'https://traid.jixie.io/sync/ad?',
         'jxBidId': '61bc539c81b00ce-028d5dee-2c83-44e3-bed1-b75002475cdf',
         'requestId': '61bc539c81b00ce',
         'cpm': 1.99,
@@ -562,14 +635,14 @@ describe('jixie Adapter', function () {
 
   describe('interpretResponse', function () {
     it('handles nobid responses', function () {
-      expect(spec.interpretResponse({body: {}}, {validBidRequests: []}).length).to.equal(0)
-      expect(spec.interpretResponse({body: []}, {validBidRequests: []}).length).to.equal(0)
+      expect(spec.interpretResponse({ body: {} }, { validBidRequests: [] }).length).to.equal(0)
+      expect(spec.interpretResponse({ body: [] }, { validBidRequests: [] }).length).to.equal(0)
     });
 
     it('should get correct bid response', function () {
-      let setCookieSpy = sinon.spy(storage, 'setCookie');
-      let setLocalStorageSpy = sinon.spy(storage, 'setDataInLocalStorage');
-      const result = spec.interpretResponse({body: responseBody_}, requestObj_)
+      const setCookieSpy = sinon.spy(storage, 'setCookie');
+      const setLocalStorageSpy = sinon.spy(storage, 'setDataInLocalStorage');
+      const result = spec.interpretResponse({ body: responseBody_ }, requestObj_)
       expect(setLocalStorageSpy.calledWith('_jxx', '43aacc10-f643-11ea-8a10-c5fe2d394e7e')).to.equal(true);
       expect(setLocalStorageSpy.calledWith('_jxxs', '1600057934-43aacc10-f643-11ea-8a10-c5fe2d394e7e')).to.equal(true);
       expect(setCookieSpy.calledWith('_jxxs', '1600057934-43aacc10-f643-11ea-8a10-c5fe2d394e7e')).to.equal(true);
@@ -585,7 +658,6 @@ describe('jixie Adapter', function () {
       expect(result[0].netRevenue).to.equal(true)
       expect(result[0].ttl).to.equal(300)
       expect(result[0].vastUrl).to.include('https://ad.jixie.io/v1/video?creativeid=')
-      expect(result[0].trackingUrlBase).to.include('sync')
       // We will always make sure the meta->advertiserDomains property is there
       // If no info it is an empty array.
       expect(result[0].meta.advertiserDomains.length).to.equal(0)
@@ -601,7 +673,6 @@ describe('jixie Adapter', function () {
       expect(result[1].ttl).to.equal(300)
       expect(result[1].ad).to.include('jxoutstream')
       expect(result[1].meta.advertiserDomains.length).to.equal(3)
-      expect(result[1].trackingUrlBase).to.include('sync')
 
       // should pick up about using alternative outstream renderer
       expect(result[2].requestId).to.equal('99bc539c81b00ce')
@@ -613,7 +684,6 @@ describe('jixie Adapter', function () {
       expect(result[2].netRevenue).to.equal(true)
       expect(result[2].ttl).to.equal(300)
       expect(result[2].vastXml).to.include('<?xml version="1.0" encoding="UTF-8"?>')
-      expect(result[2].trackingUrlBase).to.include('sync');
       expect(result[2].renderer.id).to.equal('demoslot4-div')
       expect(result[2].meta.advertiserDomains.length).to.equal(0)
       expect(result[2].renderer.url).to.equal(JX_OTHER_OUTSTREAM_RENDERER_URL);
@@ -628,7 +698,6 @@ describe('jixie Adapter', function () {
       expect(result[3].netRevenue).to.equal(true)
       expect(result[3].ttl).to.equal(300)
       expect(result[3].vastXml).to.include('<?xml version="1.0" encoding="UTF-8"?>')
-      expect(result[3].trackingUrlBase).to.include('sync');
       expect(result[3].renderer.id).to.equal('demoslot2-div')
       expect(result[3].meta.advertiserDomains.length).to.equal(0)
       expect(result[3].renderer.url).to.equal(JX_OUTSTREAM_RENDERER_URL)
@@ -657,122 +726,74 @@ describe('jixie Adapter', function () {
       ajaxStub.restore();
     })
 
-    let TRACKINGURL_ = 'https://abc.com/sync?action=bidwon';
+    const TRACKINGURL_ = 'https://abc.com/sync?action=bidwon';
 
     it('Should fire if the adserver trackingUrl flag says so', function() {
       spec.onBidWon({ trackingUrl: TRACKINGURL_ })
       expect(jixieaux.ajax.calledWith(TRACKINGURL_)).to.equal(true);
     })
-
-    it('Should not fire if the adserver response indicates no firing', function() {
-      let called = false;
-      ajaxStub.callsFake(function fakeFn() {
-        called = true;
-      });
-      spec.onBidWon({ notrack: 1 })
-      expect(called).to.equal(false);
-    });
-
-    // A reference to check again:
-    const QPARAMS_ = {
-      action: 'hbbidwon',
-      device: device_,
-      pageurl: encodeURIComponent(pageurl_),
-      domain: encodeURIComponent(domain_),
-      cid: 121,
-      cpid: 99,
-      jxbidid: '62847e4c696edcb-028d5dee-2c83-44e3-bed1-b75002475cdf',
-      auctionid: '028d5dee-2c83-44e3-bed1-b75002475cdf',
-      cpm: 1.11,
-      requestid: '62847e4c696edcb'
-    };
-
-    it('check it is sending the correct ajax url and qparameters', function() {
-      spec.onBidWon({
-        trackingUrlBase: 'https://mytracker.com/sync?',
-        cid: 121,
-        cpid: 99,
-        jxBidId: '62847e4c696edcb-028d5dee-2c83-44e3-bed1-b75002475cdf',
-        auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf',
-        cpm: 1.11,
-        requestId: '62847e4c696edcb'
-      })
-      expect(jixieaux.ajax.calledWith('https://mytracker.com/sync?', null, QPARAMS_)).to.equal(true);
-    });
   }); // describe
 
-  /**
-   * onTimeout
-   */
-  describe('onTimeout', function() {
-    let ajaxStub;
-    let miscDimsStub;
-    beforeEach(function() {
-      ajaxStub = sinon.stub(jixieaux, 'ajax');
-      miscDimsStub = sinon.stub(jixieaux, 'getMiscDims');
-      miscDimsStub
-        .returns({ device: device_, pageurl: pageurl_, domain: domain_, mkeywords: keywords_ });
+  describe('getUserSyncs', function () {
+    it('it should favour iframe over pixel if publisher allows iframe usersync', function () {
+      const syncOptions = {
+        'iframeEnabled': true,
+        'pixelEnabled': true,
+      }
+      const response = {
+        'userSyncs': [
+          {
+            'uf': 'https://syncstuff.jixie.io/',
+            'up': 'https://syncstuff.jixie.io/image.gif'
+          },
+          {
+            'up': 'https://syncstuff.jixie.io/image1.gif'
+          }
+        ]
+      }
+      const result = spec.getUserSyncs(syncOptions, [{ body: response }]);
+      expect(result[0].type).to.equal('iframe')
+      expect(result[1].type).to.equal('image')
     })
 
-    afterEach(function() {
-      miscDimsStub.restore();
-      ajaxStub.restore();
+    it('it should pick pixel if publisher not allow iframe', function () {
+      const syncOptions = {
+        'iframeEnabled': false,
+        'pixelEnabled': true,
+      }
+      const response = {
+        'userSyncs': [
+          {
+            'uf': 'https://syncstuff.jixie.io/',
+            'up': 'https://syncstuff.jixie.io/image.gif'
+          },
+          {
+            'up': 'https://syncstuff.jixie.io/image1.gif'
+          }
+        ]
+      }
+      const result = spec.getUserSyncs(syncOptions, [{ body: response }]);
+      expect(result[0].type).to.equal('image')
+      expect(result[1].type).to.equal('image')
     })
 
-    // reference to check against:
-    const QPARAMS_ = {
-      action: 'hbtimeout',
-      device: device_,
-      pageurl: encodeURIComponent(pageurl_),
-      domain: encodeURIComponent(domain_),
-      auctionid: '028d5dee-2c83-44e3-bed1-b75002475cdf',
-      timeout: 1000,
-      count: 2
-    };
-
-    it('check it is sending the correct ajax url and qparameters', function() {
-      spec.onTimeout([
-        {auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf', timeout: 1000},
-        {auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf', timeout: 1000}
-      ])
-      expect(jixieaux.ajax.calledWith(spec.EVENTS_URL, null, QPARAMS_)).to.equal(true);
+    it('it should return nothing if pub only allow pixel but all usersyncs are iframe only', function () {
+      const syncOptions = {
+        'iframeEnabled': false,
+        'pixelEnabled': true,
+      }
+      const response = {
+        'userSyncs': [
+          {
+            'uf': 'https://syncstuff.jixie.io/',
+          },
+          {
+            'uf': 'https://syncstuff2.jixie.io/',
+          }
+        ]
+      }
+      const result = spec.getUserSyncs(syncOptions, [{ body: response }]);
+      expect(result.length).to.equal(0)
     })
-
-    it('if turned off via config then dont do onTimeout sending of event', function() {
-      let getConfigStub = sinon.stub(config, 'getConfig');
-      getConfigStub.callsFake(function fakeFn(prop) {
-        if (prop == 'jixie') {
-          return { onTimeout: 'off' };
-        }
-        return null;
-      });
-      let called = false;
-      ajaxStub.callsFake(function fakeFn() {
-        called = true;
-      });
-      spec.onTimeout([
-        {auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf', timeout: 1000},
-        {auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf', timeout: 1000}
-      ])
-      expect(called).to.equal(false);
-      getConfigStub.restore();
-    })
-
-    const otherUrl_ = 'https://other.azurewebsites.net/sync/evt?';
-    it('if config specifies a different endpoint then should send there instead', function() {
-      let getConfigStub = sinon.stub(config, 'getConfig');
-      getConfigStub.callsFake(function fakeFn(prop) {
-        if (prop == 'jixie') {
-          return { onTimeoutUrl: otherUrl_ };
-        }
-        return null;
-      });
-      spec.onTimeout([
-        {auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf', timeout: 1000},
-        {auctionId: '028d5dee-2c83-44e3-bed1-b75002475cdf', timeout: 1000}
-      ])
-      expect(jixieaux.ajax.calledWith(otherUrl_, null, QPARAMS_)).to.equal(true);
-      getConfigStub.restore();
-    })
-  });// describe
+  })
 });

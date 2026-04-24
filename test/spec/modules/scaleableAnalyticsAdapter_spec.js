@@ -1,13 +1,13 @@
 import scaleableAnalytics from 'modules/scaleableAnalyticsAdapter.js';
 import { expect } from 'chai';
 import * as events from 'src/events.js';
-import CONSTANTS from 'src/constants.json';
+import { EVENTS } from 'src/constants.js';
 import { server } from 'test/mocks/xhr.js';
 
-const BID_TIMEOUT = CONSTANTS.EVENTS.BID_TIMEOUT;
-const AUCTION_INIT = CONSTANTS.EVENTS.AUCTION_INIT;
-const BID_WON = CONSTANTS.EVENTS.BID_WON;
-const AUCTION_END = CONSTANTS.EVENTS.AUCTION_END;
+const BID_TIMEOUT = EVENTS.BID_TIMEOUT;
+const AUCTION_INIT = EVENTS.AUCTION_INIT;
+const BID_WON = EVENTS.BID_WON;
+const AUCTION_END = EVENTS.AUCTION_END;
 
 describe('Scaleable Analytics Adapter', function() {
   const bidsReceivedObj = {
@@ -55,7 +55,7 @@ describe('Scaleable Analytics Adapter', function() {
 
   const bidObj = MOCK_DATA.bidderRequests[0].bids[0];
 
-  const expectedBidRequests = [{bidder: 'scaleable_adunit_request'}].concat([
+  const expectedBidRequests = [{ bidder: 'scaleable_adunit_request' }].concat([
     {
       bidder: bidObj.bidder,
       params: bidObj.params

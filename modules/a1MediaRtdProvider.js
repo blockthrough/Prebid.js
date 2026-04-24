@@ -4,13 +4,17 @@ import { submodule } from '../src/hook.js';
 import { getStorageManager } from '../src/storageManager.js';
 import { isEmptyStr, mergeDeep } from '../src/utils.js';
 
+/**
+ * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
+ */
+
 const REAL_TIME_MODULE = 'realTimeData';
 const MODULE_NAME = 'a1Media';
 const SCRIPT_URL = 'https://linkback.contentsfeed.com/src';
 export const A1_SEG_KEY = '__a1tg';
 export const A1_AUD_KEY = 'a1_gid';
 
-export const storage = getStorageManager({moduleType: MODULE_TYPE_RTD, moduleName: MODULE_NAME});
+export const storage = getStorageManager({ moduleType: MODULE_TYPE_RTD, moduleName: MODULE_NAME });
 
 /** @type {RtdSubmodule} */
 export const subModuleObj = {
@@ -35,7 +39,7 @@ function loadLbScript(tagname) {
     linkback.l = true;
 
     const scriptUrl = `${SCRIPT_URL}/${tagname}`;
-    loadExternalScript(scriptUrl, MODULE_NAME);
+    loadExternalScript(scriptUrl, MODULE_TYPE_RTD, MODULE_NAME);
   }
 }
 
@@ -60,7 +64,7 @@ function alterBidRequests(reqBidsConfigObj, callback, config, userConsent) {
     ext: {
       segtax: 900
     },
-    segment: a1seg.split(',').map(x => ({id: x}))
+    segment: a1seg.split(',').map(x => ({ id: x }))
   };
 
   const a1UserEid = {

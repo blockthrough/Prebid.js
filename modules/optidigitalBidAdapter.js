@@ -1,7 +1,16 @@
-import {registerBidder} from '../src/adapters/bidderFactory.js';
-import {BANNER} from '../src/mediaTypes.js';
-import {deepAccess, parseSizesInput} from '../src/utils.js';
-import {getAdUnitSizes} from '../libraries/sizeUtils/sizeUtils.js';
+import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { BANNER } from '../src/mediaTypes.js';
+import { deepAccess, isPlainObject, parseSizesInput } from '../src/utils.js';
+import { getAdUnitSizes } from '../libraries/sizeUtils/sizeUtils.js';
+
+/**
+ * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
+ * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
+ * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
+ * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
+ * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
+ * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
+ */
 
 const BIDDER_CODE = 'optidigital';
 const GVL_ID = 915;
@@ -15,11 +24,11 @@ export const spec = {
   gvlid: GVL_ID,
   supportedMediaTypes: [BANNER],
   /**
-     * Determines whether or not the given bid request is valid.
-     *
-     * @param {BidRequest} bid The bid params to validate.
-     * @return boolean True if this is a valid bid, and false otherwise.
-     */
+   * Determines whether or not the given bid request is valid.
+   *
+   * @param {BidRequest} bid The bid params to validate.
+   * @return boolean True if this is a valid bid, and false otherwise.
+   */
   isBidRequestValid: function(bid) {
     let isValid = false;
     if (typeof bid.params !== 'undefined' && bid.params.placementId && bid.params.publisherId) {
@@ -29,11 +38,12 @@ export const spec = {
     return isValid;
   },
   /**
-     * Make a server request from the list of BidRequests.
-     *
-     * @param {validBidRequests[]} - an array of bids
-     * @return ServerRequest Info describing the request to the server.
-     */
+   * Make a server request from the list of BidRequests.
+   *
+   * @param {Array} validBidRequests - an array of bids
+   * @param {Object} bidderRequest
+   * @return {Object} Info describing the request to the server.
+   */
   buildRequests: function(validBidRequests, bidderRequest) {
     if (!validBidRequests || validBidRequests.length === 0 || !bidderRequest || !bidderRequest.bids) {
       return [];
@@ -53,7 +63,8 @@ export const spec = {
       imp: validBidRequests.map(bidRequest => buildImp(bidRequest, ortb2)),
       badv: ortb2.badv || deepAccess(validBidRequests[0], 'params.badv') || [],
       bcat: ortb2.bcat || deepAccess(validBidRequests[0], 'params.bcat') || [],
-      bapp: deepAccess(validBidRequests[0], 'params.bapp') || []
+      bapp: deepAccess(validBidRequests[0], 'params.bapp') || [],
+      device: ortb2.device || {}
     }
 
     if (validBidRequests[0].auctionId) {
@@ -64,17 +75,22 @@ export const spec = {
       payload.pageTemplate = validBidRequests[0].params.pageTemplate;
     }
 
-    if (validBidRequests[0].schain) {
-      payload.schain = validBidRequests[0].schain;
+    const schain = validBidRequests[0]?.ortb2?.source?.ext?.schain;
+    if (schain) {
+      payload.schain = schain;
     }
 
     const gdpr = deepAccess(bidderRequest, 'gdprConsent');
     if (bidderRequest && gdpr) {
       const isConsentString = typeof gdpr.consentString === 'string';
+      const isGdprApplies = typeof gdpr.gdprApplies === 'boolean';
       payload.gdpr = {
         consent: isConsentString ? gdpr.consentString : '',
-        required: true
+        required: isGdprApplies ? gdpr.gdprApplies : false
       };
+      if (gdpr?.addtlConsent) {
+        payload.gdpr.addtlConsent = gdpr.addtlConsent;
+      }
     }
     if (bidderRequest && !gdpr) {
       payload.gdpr = {
@@ -83,12 +99,24 @@ export const spec = {
       }
     }
 
+    if (bidderRequest?.gppConsent?.gppString) {
+      payload.gpp = {
+        consent: bidderRequest.gppConsent.gppString,
+        sid: bidderRequest.gppConsent.applicableSections
+      }
+    } else if (bidderRequest?.ortb2?.regs?.gpp) {
+      payload.gpp = {
+        consent: bidderRequest.ortb2.regs.gpp,
+        sid: bidderRequest.ortb2.regs.gpp_sid
+      }
+    }
+
     if (window.location.href.indexOf('optidigitalTestMode=true') !== -1) {
       payload.testMode = true;
     }
 
     if (bidderRequest && bidderRequest.uspConsent) {
-      payload.uspConsent = bidderRequest.uspConsent;
+      payload.us_privacy = bidderRequest.uspConsent;
     }
 
     if (_getEids(validBidRequests[0])) {
@@ -97,19 +125,25 @@ export const spec = {
       }
     }
 
+    const ortb2SiteKeywords = (bidderRequest?.ortb2?.site?.keywords || '')?.split(',').map(k => k.trim()).filter(k => k !== '').join(',');
+    if (ortb2SiteKeywords) {
+      payload.site = payload.site || {};
+      payload.site.keywords = ortb2SiteKeywords;
+    }
+
     const payloadObject = JSON.stringify(payload);
     return {
       method: 'POST',
-      url: ENDPOINT_URL,
+      url: `${ENDPOINT_URL}/${payload.publisherId}`,
       data: payloadObject
     };
   },
   /**
-     * Unpack the response from the server into a list of bids.
-     *
-     * @param {ServerResponse} serverResponse A successful response from the server.
-     * @return {Bid[]} An array of bids which were nested inside the server.
-     */
+   * Unpack the response from the server into a list of bids.
+   *
+   * @param {ServerResponse} serverResponse A successful response from the server.
+   * @return {Bid[]} An array of bids which were nested inside the server.
+   */
   interpretResponse: function(serverResponse, bidRequest) {
     const bidResponses = [];
     serverResponse = serverResponse.body;
@@ -138,13 +172,13 @@ export const spec = {
   },
 
   /**
-     * Register the user sync pixels which should be dropped after the auction.
-     *
-     * @param {SyncOptions} syncOptions Which user syncs are allowed?
-     * @param {ServerResponse[]} serverResponses List of server's responses.
-     * @return {UserSync[]} The user syncs which should be dropped.
-     */
-  getUserSyncs: function(syncOptions, serverResponses, gdprConsent, uspConsent) {
+   * Register the user sync pixels which should be dropped after the auction.
+   *
+   * @param {SyncOptions} syncOptions Which user syncs are allowed?
+   * @param {ServerResponse[]} serverResponses List of server's responses.
+   * @return {UserSync[]} The user syncs which should be dropped.
+   */
+  getUserSyncs: function(syncOptions, serverResponses, gdprConsent, uspConsent, gppConsent) {
     let syncurl = '';
     if (!isSynced) {
       // Attaching GDPR Consent Params in UserSync url
@@ -152,8 +186,12 @@ export const spec = {
         syncurl += '&gdpr=' + (gdprConsent.gdprApplies ? 1 : 0);
         syncurl += '&gdpr_consent=' + encodeURIComponent(gdprConsent.consentString || '');
       }
-      if (uspConsent && uspConsent.consentString) {
-        syncurl += `&ccpa_consent=${uspConsent.consentString}`;
+      if (uspConsent) {
+        syncurl += '&us_privacy=' + encodeURIComponent(uspConsent);
+      }
+      if (gppConsent?.gppString && gppConsent?.applicableSections?.length) {
+        syncurl += '&gpp=' + encodeURIComponent(gppConsent.gppString);
+        syncurl += '&gpp_sid=' + encodeURIComponent(gppConsent?.applicableSections?.join(','));
       }
 
       if (syncOptions.iframeEnabled) {
@@ -193,14 +231,19 @@ function buildImp(bidRequest, ortb2) {
     CUR = bidRequest.params.currency;
   }
 
-  let bidFloor = _getFloor(bidRequest, floorSizes, CUR);
+  const bidFloor = _getFloor(bidRequest, floorSizes, CUR);
   if (bidFloor) {
     imp.bidFloor = bidFloor;
   }
 
-  let battr = ortb2.battr || deepAccess(bidRequest, 'params.battr');
+  const battr = ortb2.battr || deepAccess(bidRequest, 'params.battr');
   if (battr && Array.isArray(battr) && battr.length) {
     imp.battr = battr;
+  }
+
+  const gpid = deepAccess(bidRequest, 'ortb2Imp.ext.gpid');
+  if (gpid) {
+    imp.gpid = gpid;
   }
 
   return imp;
@@ -214,7 +257,7 @@ function getAdContainer(container) {
 
 function _getFloor (bid, sizes, currency) {
   let floor = null;
-  let size = sizes.length === 1 ? sizes[0] : '*';
+  const size = sizes.length === 1 ? sizes[0] : '*';
   if (typeof bid.getFloor === 'function') {
     try {
       const floorInfo = bid.getFloor({
@@ -222,7 +265,7 @@ function _getFloor (bid, sizes, currency) {
         mediaType: 'banner',
         size: size
       });
-      if (typeof floorInfo === 'object' && floorInfo.currency === CUR && !isNaN(parseFloat(floorInfo.floor))) {
+      if (isPlainObject(floorInfo) && floorInfo.currency === CUR && !isNaN(parseFloat(floorInfo.floor))) {
         floor = parseFloat(floorInfo.floor);
       }
     } catch (err) {}

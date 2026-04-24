@@ -27,16 +27,6 @@ pbjs.setConfig({
                 expires: 60
             }
         }, {
-            name: 'dmdId',
-            storage: {
-                name: 'dmd-dgid',
-                type: 'cookie',
-                expires: 30
-            },
-            params: {
-                api_key: '3fdbe297-3690-4f5c-9e11-ee9186a6d77c', // provided by DMD
-            }
-        }, {
             name: "unifiedId",
             params: {
                 partner: "prebid",
@@ -70,12 +60,6 @@ pbjs.setConfig({
             params: {
                 url: 'https://d9.flashtalking.com/d9core', // required, if not populated ftrack will not run
             }
-        }, {
-            name: 'parrableId',
-            params: {
-                // Replace partner with comma-separated (if more than one) Parrable Partner Client ID(s) for Parrable-aware bid adapters in use
-                partner: "30182847-e426-4ff9-b2b5-9ca1324ea09b"
-            }
         },{
             name: 'identityLink',
             params: {
@@ -96,6 +80,16 @@ pbjs.setConfig({
                 type: 'cookie',
                 name: '_li_pbid',
                 expires: 60
+            }
+        }, {
+            name: 'locId',
+            params: {
+                endpoint: 'https://id.example.com/locid'
+            },
+            storage: {
+                type: 'html5',
+                name: '_locid',
+                expires: 7
             }
         }, {
              name: 'criteo',
@@ -143,7 +137,9 @@ pbjs.setConfig({
                   name: '__adm__admixer',
                   expires: 30
               }
-        },{
+        }, {
+            name: "gemiusId"
+        }, {
              name: "kpuid",
              params:{
                     accountid: 124 // example of account id
@@ -158,6 +154,24 @@ pbjs.setConfig({
         },
         {
             name: "gravitompId"
+        },
+        {
+            name: "mygaruId"
+        },
+        {
+            name: "rediadsId",
+            params: {
+                source: "rediads.com"
+            },
+            storage: {
+                type: "html5",
+                name: "rediads_id",
+                expires: 30,
+                refreshInSeconds: 3600
+            }
+        },
+        {
+            name: "startioId"
         }
         ],
         syncDelay: 5000,
@@ -223,9 +237,7 @@ pbjs.setConfig({
             }
         }, {
             name: 'sharedId',
-            params: {
-                  syncTime: 60 // in seconds, default is 24 hours
-               },
+            params: {},
              storage: {
                 type: 'html5',
                 name: 'sharedid',
@@ -355,6 +367,9 @@ pbjs.setConfig({
         },
         {
             name: 'naveggId',
+        },
+        {
+            name: 'lmpid',
         }],
         syncDelay: 5000
     }
@@ -366,16 +381,15 @@ pbjs.setConfig({
 Example showing how to configure a `params` object to pass directly to bid adapters
 
 ```
-
 pbjs.setConfig({
-userSync: {
-userIds: [{
-name: 'tncId',
-params: {
-providerId: "c8549079-f149-4529-a34b-3fa91ef257d1"
-}
-}],
-syncDelay: 5000
-}
+    userSync: {
+        userIds: [{
+            name: 'tncId',
+            params: {
+              url: 'https://js.tncid.app/remote.min.js' //Optional
+            }
+        }],
+        syncDelay: 5000
+    }
 });
 ```

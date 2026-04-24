@@ -26,12 +26,21 @@ userIdAsEids = [
     },
 
     {
+        source: 'locid.com',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 1
+        }]
+    },
+
+    {
         source: 'adserver.org',
         uids: [{
             id: 'some-random-id-value',
             atype: 1,
             ext: {
-                rtiPartner: 'TDID'
+                rtiPartner: 'TDID',
+                provider: 'liveintent.com'
             }
         }]
     },
@@ -77,13 +86,6 @@ userIdAsEids = [
         uids: [{
             id: 'the-ids-object-stringified',
             atype: 1
-    },
-
-    {
-        source: 'parrable.com',
-        uids: [{
-            id: 'some-random-id-value',
-            atype: 1
         }]
     },
 
@@ -105,7 +107,7 @@ userIdAsEids = [
             segments: ['s1', 's2']
         }
     },
-    
+
     {
         source: 'bidswitch.net',
         uids: [{
@@ -116,7 +118,51 @@ userIdAsEids = [
             }
         }]
     },
-    
+
+    {
+        source: 'liveintent.indexexchange.com',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 3,
+            ext: {
+                provider: 'liveintent.com'
+            }
+        }]
+    },
+
+    {
+        source: 'liveintent.sovrn.com'',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 3,
+            ext: {
+                provider: 'liveintent.com'
+            }
+        }]
+    },
+
+    {
+        source: 'openx.net'',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 3,
+            ext: {
+                provider: 'liveintent.com'
+            }
+        }]
+    },
+
+    {
+        source: 'pubmatic.com'',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 3,
+            ext: {
+                provider: 'liveintent.com'
+            }
+        }]
+    },
+
     {
         source: 'media.net',
         uids: [{
@@ -127,7 +173,7 @@ userIdAsEids = [
             }
         }]
     },
-
+    
     {
         source: 'rubiconproject.com',
         uids: [{
@@ -140,9 +186,28 @@ userIdAsEids = [
     },
 
     {
+        source: 'fpid.liveintent.com',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 1,
+            ext: {
+                provider: 'liveintent.com'
+            }
+        }]
+    },
+
+    {
         source: 'merkleinc.com',
         uids: [{
             id: 'some-random-id-value',
+            atype: 1
+        }]
+    },
+
+    {
+        source: 'rediads.com',
+        uids: [{
+            id: 'ruid_7b9c1d3f-1e2b-4e7b-9e5a-acde12345678',
             atype: 1
         }]
     },
@@ -278,6 +343,27 @@ userIdAsEids = [
         uids: [{
             id: 'some-random-id-value',
             atype: 3
+        }]
+    },
+    {
+        source: 'mygaru.com',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 1
+        }]
+    },
+    {
+        source: 'gemius.com'',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 1
+        }]
+    },
+    {
+        source: 'start.io',
+        uids: [{
+            id: 'some-random-id-value',
+            atype: 1
         }]
     }
 ]

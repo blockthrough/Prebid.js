@@ -1,15 +1,18 @@
-import {deepAccess, getDNT, isArray, logWarn, isFn, isPlainObject} from '../src/utils.js';
-import {config} from '../src/config.js';
-import {registerBidder} from '../src/adapters/bidderFactory.js';
-import {getStorageManager} from '../src/storageManager.js';
-import {BANNER, VIDEO} from '../src/mediaTypes.js';
-import {ajax} from '../src/ajax.js';
-import {getRefererInfo} from '../src/refererDetection.js';
-import {Renderer} from '../src/Renderer.js';
+import { deepAccess, isArray, logWarn, isFn, isPlainObject, logError, logInfo, getWinDimensions } from '../src/utils.js';
+import { config } from '../src/config.js';
+import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { getStorageManager } from '../src/storageManager.js';
+import { BANNER, VIDEO } from '../src/mediaTypes.js';
+import { ajax } from '../src/ajax.js';
+import { getRefererInfo } from '../src/refererDetection.js';
+import { Renderer } from '../src/Renderer.js';
+import { getDNT } from '../libraries/dnt/index.js';
+
+const ADAPTER_VERSION = '2.1.0';
+const PREBID_VERSION = '$prebid.version$';
 
 const BIDDER_CODE = 'jixie';
-export const storage = getStorageManager({bidderCode: BIDDER_CODE});
-const EVENTS_URL = 'https://hbtra.jixie.io/sync/hb?';
+export const storage = getStorageManager({ bidderCode: BIDDER_CODE });
 const JX_OUTSTREAM_RENDERER_URL = 'https://scripts.jixie.media/jxhbrenderer.1.1.min.js';
 const REQUESTS_URL = 'https://hb.jixie.io/v2/hbpost';
 const sidTTLMins_ = 30;
@@ -18,13 +21,13 @@ const sidTTLMins_ = 30;
  * Get bid floor from Price Floors Module
  *
  * @param {Object} bid
- * @returns {float||null}
+ * @returns {(number|null)}
  */
 function getBidFloor(bid) {
   if (!isFn(bid.getFloor)) {
     return null;
   }
-  let floor = bid.getFloor({
+  const floor = bid.getFloor({
     currency: 'USD',
     mediaType: '*',
     size: '*'
@@ -45,8 +48,8 @@ function setIds_(clientId, sessionId) {
     dd = window.location.hostname.match(/[^.]*\.[^.]{2,3}(?:\.[^.]{2,3})?$/mg);
   } catch (err1) {}
   try {
-    let expC = (new Date(new Date().setFullYear(new Date().getFullYear() + 1))).toUTCString();
-    let expS = (new Date(new Date().setMinutes(new Date().getMinutes() + sidTTLMins_))).toUTCString();
+    const expC = (new Date(new Date().setFullYear(new Date().getFullYear() + 1))).toUTCString();
+    const expS = (new Date(new Date().setMinutes(new Date().getMinutes() + sidTTLMins_))).toUTCString();
 
     storage.setCookie('_jxx', clientId, expC, 'None', null);
     storage.setCookie('_jxx', clientId, expC, 'None', dd);
@@ -59,8 +62,18 @@ function setIds_(clientId, sessionId) {
   } catch (error) {}
 }
 
-function fetchIds_() {
-  let ret = {
+/**
+ * fetch some ids from cookie, LS.
+ * @returns
+ */
+const defaultGenIds_ = [
+  { id: '_jxtoko' },
+  { id: '_jxtdid' },
+  { id: '_jxcomp' }
+];
+
+function fetchIds_(cfg) {
+  const ret = {
     client_id_c: '',
     client_id_ls: '',
     session_id_c: '',
@@ -77,9 +90,11 @@ function fetchIds_() {
     if (tmp) ret.client_id_ls = tmp;
     tmp = storage.getDataFromLocalStorage('_jxxs');
     if (tmp) ret.session_id_ls = tmp;
-    ['_jxtoko', '_jxifo', '_jxtdid', '_jxcomp'].forEach(function(n) {
-      tmp = storage.getCookie(n);
-      if (tmp) ret.jxeids[n] = tmp;
+
+    const arr = cfg.genids ? cfg.genids : defaultGenIds_;
+    arr.forEach(function(o) {
+      tmp = storage.getCookie(o.ck ? o.ck : o.id);
+      if (tmp) ret.jxeids[o.id] = tmp;
     });
   } catch (error) {}
   return ret;
@@ -89,20 +104,12 @@ function fetchIds_() {
 // Now changed to an object. yes the backend is able to handle it.
 function getDevice_() {
   const device = config.getConfig('device') || {};
-  device.w = device.w || window.innerWidth;
-  device.h = device.h || window.innerHeight;
+  device.w = device.w || getWinDimensions().innerWidth;
+  device.h = device.h || getWinDimensions().innerHeight;
   device.ua = device.ua || navigator.userAgent;
   device.dnt = getDNT() ? 1 : 0;
   device.language = (navigator && navigator.language) ? navigator.language.split('-')[0] : '';
   return device;
-}
-
-function pingTracking_(endpointOverride, qpobj) {
-  internal.ajax((endpointOverride || EVENTS_URL), null, qpobj, {
-    withCredentials: true,
-    method: 'GET',
-    crossOrigin: true
-  });
 }
 
 function jxOutstreamRender_(bidAd) {
@@ -122,7 +129,7 @@ function createRenderer_(bidAd, scriptUrl, createFcn) {
     id: bidAd.adUnitCode,
     url: scriptUrl,
     loaded: false,
-    config: {'player_height': bidAd.height, 'player_width': bidAd.width},
+    config: { 'player_height': bidAd.height, 'player_width': bidAd.width },
     adUnitCode: bidAd.adUnitCode
   });
   try {
@@ -134,7 +141,7 @@ function createRenderer_(bidAd, scriptUrl, createFcn) {
 }
 
 function getMiscDims_() {
-  let ret = {
+  const ret = {
     pageurl: '',
     domain: '',
     device: 'unknown',
@@ -142,13 +149,13 @@ function getMiscDims_() {
   }
   try {
     // TODO: this should pick refererInfo from bidderRequest
-    let refererInfo_ = getRefererInfo();
+    const refererInfo_ = getRefererInfo();
     // TODO: does the fallback make sense here?
-    let url_ = refererInfo_?.page || window.location.href
+    const url_ = refererInfo_?.page || window.location.href
     ret.pageurl = url_;
     ret.domain = refererInfo_?.domain || window.location.host
     ret.device = getDevice_();
-    let keywords = document.getElementsByTagName('meta')['keywords'];
+    const keywords = document.getElementsByTagName('meta')['keywords'];
     if (keywords && keywords.content) {
       ret.mkeywords = keywords.content;
     }
@@ -166,10 +173,10 @@ export const internal = {
 
 export const spec = {
   code: BIDDER_CODE,
-  EVENTS_URL: EVENTS_URL,
+  disclosureURL: 'local://modules/jixieBidAdapterDisclosure.json',
   supportedMediaTypes: [BANNER, VIDEO],
   isBidRequestValid: function(bid) {
-    if (bid.bidder !== BIDDER_CODE || typeof bid.params === 'undefined') {
+    if (typeof bid.params === 'undefined') {
       return false;
     }
     if (typeof bid.params.unit === 'undefined') {
@@ -181,10 +188,10 @@ export const spec = {
     const currencyObj = config.getConfig('currency');
     const currency = (currencyObj && currencyObj.adServerCurrency) || 'USD';
 
-    let bids = [];
+    const bids = [];
     validBidRequests.forEach(function(one) {
-      let gpid = deepAccess(one, 'ortb2Imp.ext.gpid', deepAccess(one, 'ortb2Imp.ext.data.pbadslot', ''));
-      let tmp = {
+      const gpid = deepAccess(one, 'ortb2Imp.ext.gpid', '');
+      const tmp = {
         bidId: one.bidId,
         adUnitCode: one.adUnitCode,
         mediaTypes: (one.mediaTypes === 'undefined' ? {} : one.mediaTypes),
@@ -192,35 +199,33 @@ export const spec = {
         params: one.params,
         gpid: gpid
       };
-      let bidFloor = getBidFloor(one);
+      const bidFloor = getBidFloor(one);
       if (bidFloor) {
         tmp.bidFloor = bidFloor;
       }
       bids.push(tmp);
     });
-    let jixieCfgBlob = config.getConfig('jixie');
-    if (!jixieCfgBlob) {
-      jixieCfgBlob = {};
-    }
+    const jxCfg = config.getConfig('jixie') || {};
 
-    let ids = fetchIds_();
+    const ids = fetchIds_(jxCfg);
     let eids = [];
-    let miscDims = internal.getMiscDims();
-    let schain = deepAccess(validBidRequests[0], 'schain');
+    const miscDims = internal.getMiscDims();
+    const schain = deepAccess(validBidRequests[0], 'ortb2.source.ext.schain');
 
-    let eids1 = validBidRequests[0].userIdAsEids
+    const eids1 = validBidRequests[0].userIdAsEids;
     // all available user ids are sent to our backend in the standard array layout:
     if (eids1 && eids1.length) {
       eids = eids1;
     }
+
+    const siteKvs = deepAccess(bidderRequest, 'ortb2.site.ext.data');
+    const userKvs = deepAccess(bidderRequest, 'ortb2.user.ext.data');
+
     // we want to send this blob of info to our backend:
-    let pg = config.getConfig('priceGranularity');
-    if (!pg) {
-      pg = {};
-    }
-    let transformedParams = Object.assign({}, {
+    const transformedParams = Object.assign({}, {
       // TODO: fix auctionId leak: https://github.com/prebid/Prebid.js/issues/9781
-      auctionid: bidderRequest.auctionId,
+      auctionid: bidderRequest.auctionId || '',
+      aid: jxCfg.aid || '',
       timeout: bidderRequest.timeout,
       currency: currency,
       timestamp: (new Date()).getTime(),
@@ -231,9 +236,17 @@ export const spec = {
       bids: bids,
       eids: eids,
       schain: schain,
-      pricegranularity: pg,
-      cfg: jixieCfgBlob
+      pricegranularity: (config.getConfig('priceGranularity') || {}),
+      ver: ADAPTER_VERSION,
+      pbjsver: PREBID_VERSION,
+      cfg: jxCfg
     }, ids);
+    if (siteKvs) {
+      transformedParams.siteKvs = siteKvs;
+    }
+    if (userKvs) {
+      transformedParams.userKvs = userKvs;
+    }
     return Object.assign({}, {
       method: 'POST',
       url: REQUESTS_URL,
@@ -243,56 +256,27 @@ export const spec = {
   },
 
   onTimeout: function(timeoutData) {
-    let jxCfgBlob = config.getConfig('jixie');
-    if (jxCfgBlob && jxCfgBlob.onTimeout == 'off') {
-      return;
-    }
-    let url = null;// default
-    if (jxCfgBlob && jxCfgBlob.onTimeoutUrl && typeof jxCfgBlob.onTimeoutUrl == 'string') {
-      url = jxCfgBlob.onTimeoutUrl;
-    }
-    let miscDims = internal.getMiscDims();
-    pingTracking_(url, // no overriding ping URL . just use default
-      {
-        action: 'hbtimeout',
-        device: miscDims.device,
-        pageurl: encodeURIComponent(miscDims.pageurl),
-        domain: encodeURIComponent(miscDims.domain),
-        auctionid: deepAccess(timeoutData, '0.auctionId'),
-        timeout: deepAccess(timeoutData, '0.timeout'),
-        count: timeoutData.length
-      });
+    logError('jixie adapter timed out for the auction.', timeoutData);
   },
 
   onBidWon: function(bid) {
-    if (bid.notrack) {
-      return;
-    }
     if (bid.trackingUrl) {
-      pingTracking_(bid.trackingUrl, {});
-    } else {
-      let miscDims = internal.getMiscDims();
-      pingTracking_((bid.trackingUrlBase ? bid.trackingUrlBase : null), {
-        action: 'hbbidwon',
-        device: miscDims.device,
-        pageurl: encodeURIComponent(miscDims.pageurl),
-        domain: encodeURIComponent(miscDims.domain),
-        cid: bid.cid,
-        cpid: bid.cpid,
-        jxbidid: bid.jxBidId,
-        auctionid: bid.auctionId,
-        cpm: bid.cpm,
-        requestid: bid.requestId
+      internal.ajax(bid.trackingUrl, null, {}, {
+        withCredentials: true,
+        method: 'GET',
+        crossOrigin: true
       });
     }
+    logInfo(
+      `jixie adapter won the auction. Bid id: ${bid.bidId}, Ad Unit Id: ${bid.adUnitId}`
+    );
   },
 
   interpretResponse: function(response, bidRequest) {
     if (response && response.body && isArray(response.body.bids)) {
       const bidResponses = [];
       response.body.bids.forEach(function(oneBid) {
-        let bnd = {};
-
+        const bnd = {};
         Object.assign(bnd, oneBid);
         if (oneBid.osplayer) {
           bnd.adResponse = {
@@ -301,7 +285,7 @@ export const spec = {
             height: oneBid.height,
             width: oneBid.width
           };
-          let rendererScript = (oneBid.osparams.script ? oneBid.osparams.script : JX_OUTSTREAM_RENDERER_URL);
+          const rendererScript = (oneBid.osparams.script ? oneBid.osparams.script : JX_OUTSTREAM_RENDERER_URL);
           bnd.renderer = createRenderer_(oneBid, rendererScript, jxOutstreamRender_);
         }
         // a note on advertiserDomains: our adserver is not responding in
@@ -322,6 +306,21 @@ export const spec = {
       }
       return bidResponses;
     } else { return []; }
+  },
+
+  getUserSyncs: function(syncOptions, serverResponses) {
+    if (!serverResponses.length || !serverResponses[0].body || !serverResponses[0].body.userSyncs) {
+      return false;
+    }
+    const syncs = [];
+    serverResponses[0].body.userSyncs.forEach(function(sync) {
+      if (syncOptions.iframeEnabled) {
+        syncs.push(sync.uf ? { url: sync.uf, type: 'iframe' } : { url: sync.up, type: 'image' });
+      } else if (syncOptions.pixelEnabled && sync.up) {
+        syncs.push({ url: sync.up, type: 'image' })
+      }
+    })
+    return syncs;
   }
 }
 

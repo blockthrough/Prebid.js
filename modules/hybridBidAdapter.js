@@ -1,11 +1,17 @@
-import {_map, deepAccess, isArray, logWarn} from '../src/utils.js';
-import {registerBidder} from '../src/adapters/bidderFactory.js';
-import {auctionManager} from '../src/auctionManager.js';
-import {BANNER, VIDEO} from '../src/mediaTypes.js';
-import {Renderer} from '../src/Renderer.js';
-import {find} from '../src/polyfill.js';
+import { _map, isArray } from '../src/utils.js';
+import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { BANNER, VIDEO } from '../src/mediaTypes.js';
+import { createRenderer, getMediaTypeFromBid, hasVideoMandatoryParams } from '../libraries/hybridVoxUtils/index.js';
+
+/**
+ * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
+ * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
+ * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
+ * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
+ */
 
 const BIDDER_CODE = 'hybrid';
+const GVLID = 206;
 const DSP_ENDPOINT = 'https://hbe198.hybrid.ai/prebidhb';
 const TRAFFIC_TYPE_WEB = 1;
 const PLACEMENT_TYPE_BANNER = 1;
@@ -36,39 +42,6 @@ function buildBidRequests(validBidRequests) {
   })
 }
 
-const outstreamRender = bid => {
-  bid.renderer.push(() => {
-    window.ANOutstreamVideo.renderAd({
-      sizes: [bid.width, bid.height],
-      targetId: bid.adUnitCode,
-      rendererOptions: {
-        showBigPlayButton: false,
-        showProgressBar: 'bar',
-        showVolume: false,
-        allowFullscreen: true,
-        skippable: false,
-        content: bid.vastXml
-      }
-    });
-  });
-}
-
-const createRenderer = (bid) => {
-  const renderer = Renderer.install({
-    targetId: bid.adUnitCode,
-    url: RENDERER_URL,
-    loaded: false
-  });
-
-  try {
-    renderer.setRender(outstreamRender);
-  } catch (err) {
-    logWarn('Prebid Error calling setRender on renderer', err);
-  }
-
-  return renderer;
-}
-
 function buildBid(bidData) {
   const bid = {
     requestId: bidData.bidId,
@@ -79,26 +52,21 @@ function buildBid(bidData) {
     currency: bidData.currency,
     netRevenue: true,
     ttl: TTL,
-    meta: {
-      advertiserDomains: bidData.advertiserDomains || [],
-    }
+    meta: { advertiserDomains: bidData.advertiserDomains || [] }
   };
 
   if (bidData.placement === PLACEMENT_TYPE_VIDEO) {
     bid.vastXml = bidData.content;
     bid.mediaType = VIDEO;
 
-    // TODO: why does this need to iterate through every ad unit?
-    let adUnit = find(auctionManager.getAdUnits(), function (unit) {
-      return unit.transactionId === bidData.transactionId;
-    });
+    const video = bidData.mediaTypes?.video;
 
-    if (adUnit) {
-      bid.width = adUnit.mediaTypes.video.playerSize[0][0];
-      bid.height = adUnit.mediaTypes.video.playerSize[0][1];
+    if (video) {
+      bid.width = video.playerSize[0][0];
+      bid.height = video.playerSize[0][1];
 
-      if (adUnit.mediaTypes.video.context === 'outstream') {
-        bid.renderer = createRenderer(bid);
+      if (video.context === 'outstream') {
+        bid.renderer = createRenderer(bid, RENDERER_URL);
       }
     }
   } else if (bidData.placement === PLACEMENT_TYPE_IN_IMAGE) {
@@ -109,7 +77,7 @@ function buildBid(bidData) {
         actionUrls: {}
       }
     };
-    let actionUrls = bid.inImageContent.content.actionUrls;
+    const actionUrls = bid.inImageContent.content.actionUrls;
     actionUrls.loadUrls = bidData.inImage.loadtrackers || [];
     actionUrls.impressionUrls = bidData.inImage.imptrackers || [];
     actionUrls.scrollActUrls = bidData.inImage.startvisibilitytrackers || [];
@@ -118,7 +86,7 @@ function buildBid(bidData) {
     actionUrls.closeBannerUrls = bidData.inImage.closebannertrackers || [];
 
     if (bidData.inImage.but) {
-      let inImageOptions = bid.inImageContent.content.inImageOptions = {};
+      const inImageOptions = bid.inImageContent.content.inImageOptions = {};
       inImageOptions.hasButton = true;
       inImageOptions.buttonLogoUrl = bidData.inImage.but_logo;
       inImageOptions.buttonProductUrl = bidData.inImage.but_prod;
@@ -134,20 +102,6 @@ function buildBid(bidData) {
   }
 
   return bid;
-}
-
-function getMediaTypeFromBid(bid) {
-  return bid.mediaTypes && Object.keys(bid.mediaTypes)[0]
-}
-
-function hasVideoMandatoryParams(mediaTypes) {
-  const isHasVideoContext = !!mediaTypes.video && (mediaTypes.video.context === 'instream' || mediaTypes.video.context === 'outstream');
-
-  const isPlayerSize =
-    !!deepAccess(mediaTypes, 'video.playerSize') &&
-    isArray(deepAccess(mediaTypes, 'video.playerSize'));
-
-  return isHasVideoContext && isPlayerSize;
 }
 
 function wrapAd(bid, bidData) {
@@ -176,6 +130,7 @@ function wrapAd(bid, bidData) {
 
 export const spec = {
   code: BIDDER_CODE,
+  gvlid: GVLID,
   supportedMediaTypes: [BANNER, VIDEO],
   placementTypes: placementTypes,
 
@@ -200,8 +155,9 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests[]} - an array of bids
-   * @return ServerRequest Info describing the request to the server.
+   * @param {Array} validBidRequests - an array of bids
+   * @param {Object} bidderRequest
+   * @return {Object} Info describing the request to the server.
    */
   buildRequests(validBidRequests, bidderRequest) {
     const payload = {
@@ -236,12 +192,12 @@ export const spec = {
    * @return {Bid[]} An array of bids which were nested inside the server.
    */
   interpretResponse: function(serverResponse, bidRequest) {
-    let bidRequests = JSON.parse(bidRequest.data).bidRequests;
+    const bidRequests = JSON.parse(bidRequest.data).bidRequests;
     const serverBody = serverResponse.body;
 
     if (serverBody && serverBody.bids && isArray(serverBody.bids)) {
       return _map(serverBody.bids, function(bid) {
-        let rawBid = find(bidRequests, function (item) {
+        const rawBid = ((bidRequests) || []).find(function (item) {
           return item.bidId === bid.bidId;
         });
         bid.placement = rawBid.placement;

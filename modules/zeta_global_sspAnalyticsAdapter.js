@@ -1,22 +1,21 @@
-import {logInfo, logError} from '../src/utils.js';
+import { logError } from '../src/utils.js';
 import { ajax } from '../src/ajax.js';
 import adapterManager from '../src/adapterManager.js';
-import CONSTANTS from '../src/constants.json';
+import { EVENTS } from '../src/constants.js';
 
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
+import { config } from '../src/config.js';
+import { parseDomain } from '../src/refererDetection.js';
+import { BANNER, VIDEO } from "../src/mediaTypes.js";
 
 const ZETA_GVL_ID = 833;
 const ADAPTER_CODE = 'zeta_global_ssp';
 const BASE_URL = 'https://ssp.disqus.com/prebid/event';
 const LOG_PREFIX = 'ZetaGlobalSsp-Analytics: ';
 
-const cache = {
-  auctions: {}
-};
-
 /// /////////// VARIABLES ////////////////////////////////////
 
-let publisherId; // int
+let zetaParams;
 
 /// /////////// HELPER FUNCTIONS /////////////////////////////
 
@@ -28,94 +27,158 @@ function sendEvent(eventType, event) {
   );
 }
 
-function getZetaParams(event) {
-  if (event.adUnits) {
-    for (const i in event.adUnits) {
-      const unit = event.adUnits[i];
-      if (unit.bids) {
-        for (const j in unit.bids) {
-          const bid = unit.bids[j];
-          if (bid.bidder === ADAPTER_CODE && bid.params) {
-            return bid.params;
-          }
-        }
-      }
-    }
-  }
-  return null;
-}
-
 /// /////////// ADAPTER EVENT HANDLER FUNCTIONS //////////////
 
 function adRenderSucceededHandler(args) {
-  let eventType = CONSTANTS.EVENTS.AD_RENDER_SUCCEEDED
-  logInfo(LOG_PREFIX + 'handle ' + eventType + ' event');
-
-  // set zetaParams from cache
-  if (args.bid && args.bid.auctionId) {
-    const zetaParams = cache.auctions[args.bid.auctionId];
-    if (zetaParams) {
-      args.bid.params = [ zetaParams ];
+  const page = config.getConfig('pageUrl') || args.doc?.location?.host + args.doc?.location?.pathname;
+  const event = {
+    zetaParams: zetaParams,
+    domain: parseDomain(page, { noLeadingWww: true }),
+    page: page,
+    bid: {
+      adId: args.bid?.adId,
+      requestId: args.bid?.requestId,
+      auctionId: args.bid?.auctionId,
+      creativeId: args.bid?.creativeId,
+      bidder: args.bid?.bidderCode,
+      dspId: args.bid?.dspId,
+      mediaType: args.bid?.mediaType,
+      size: args.bid?.size,
+      adomain: args.bid?.adserverTargeting?.hb_adomain,
+      timeToRespond: args.bid?.timeToRespond,
+      cpm: args.bid?.cpm,
+      adUnitCode: args.bid?.adUnitCode,
+      floorData: args.bid?.floorData
+    },
+    device: {
+      ua: navigator.userAgent
     }
   }
-
-  sendEvent(eventType, args);
+  sendEvent(EVENTS.AD_RENDER_SUCCEEDED, event);
 }
 
 function auctionEndHandler(args) {
-  let eventType = CONSTANTS.EVENTS.AUCTION_END;
-  logInfo(LOG_PREFIX + 'handle ' + eventType + ' event');
+  const event = {
+    zetaParams: zetaParams,
+    bidderRequests: args.bidderRequests?.map(br => ({
+      bidderCode: br?.bidderCode,
+      domain: br?.refererInfo?.domain,
+      page: br?.refererInfo?.page,
+      bids: br?.bids?.map(b => {
+        const mediaType = b?.mediaTypes?.video ? VIDEO : (b?.mediaTypes?.banner ? BANNER : undefined);
+        let floor;
+        if (typeof b?.getFloor === 'function') {
+          try {
+            const floorInfo = b.getFloor({
+              currency: 'USD',
+              mediaType: mediaType,
+              size: '*'
+            });
+            if (floorInfo && !isNaN(parseFloat(floorInfo.floor))) {
+              floor = parseFloat(floorInfo.floor);
+            }
+          } catch (e) {
+            // ignore floor lookup errors
+          }
+        }
 
-  // save zetaParams to cache
-  const zetaParams = getZetaParams(args);
-  if (zetaParams && args.auctionId) {
-    cache.auctions[args.auctionId] = zetaParams;
+        return {
+          bidId: b?.bidId,
+          auctionId: b?.auctionId,
+          bidder: b?.bidder,
+          mediaType: mediaType,
+          sizes: b?.sizes,
+          device: b?.ortb2?.device,
+          adUnitCode: b?.adUnitCode,
+          floor: floor
+        };
+      })
+    })),
+    bidsReceived: args.bidsReceived?.map(br => ({
+      adId: br?.adId,
+      requestId: br?.requestId,
+      creativeId: br?.creativeId,
+      bidder: br?.bidder,
+      mediaType: br?.mediaType,
+      size: br?.size,
+      adomain: br?.adserverTargeting?.hb_adomain,
+      timeToRespond: br?.timeToRespond,
+      cpm: br?.cpm,
+      adUnitCode: br?.adUnitCode,
+      dspId: br?.dspId
+    }))
   }
+  sendEvent(EVENTS.AUCTION_END, event);
+}
 
-  sendEvent(eventType, args);
+function bidTimeoutHandler(args) {
+  const event = {
+    zetaParams: zetaParams,
+    domain: args.find(t => t?.ortb2?.site?.domain)?.ortb2?.site?.domain,
+    page: args.find(t => t?.ortb2?.site?.page)?.ortb2?.site?.page,
+    timeouts: args.map(t => {
+      const mediaType = t?.mediaTypes?.video ? VIDEO : (t?.mediaTypes?.banner ? BANNER : undefined);
+      let floor;
+      if (typeof t?.getFloor === 'function') {
+        try {
+          const floorInfo = t.getFloor({
+            currency: 'USD',
+            mediaType: mediaType,
+            size: '*'
+          });
+          if (floorInfo && !isNaN(parseFloat(floorInfo.floor))) {
+            floor = parseFloat(floorInfo.floor);
+          }
+        } catch (e) {
+          // ignore floor lookup errors
+        }
+      }
+      return {
+        bidId: t?.bidId,
+        auctionId: t?.auctionId,
+        bidder: t?.bidder,
+        mediaType: mediaType,
+        sizes: t?.sizes,
+        timeout: t?.timeout,
+        device: t?.ortb2?.device,
+        adUnitCode: t?.adUnitCode,
+        floor: floor
+      }
+    })
+  }
+  sendEvent(EVENTS.BID_TIMEOUT, event);
 }
 
 /// /////////// ADAPTER DEFINITION ///////////////////////////
 
-let baseAdapter = adapter({ analyticsType: 'endpoint' });
-let zetaAdapter = Object.assign({}, baseAdapter, {
+const baseAdapter = adapter({ analyticsType: 'endpoint' });
+const zetaAdapter = Object.assign({}, baseAdapter, {
 
   enableAnalytics(config = {}) {
-    let error = false;
-
-    if (typeof config.options === 'object') {
-      if (config.options.sid) {
-        publisherId = Number(config.options.sid);
-      }
+    if (config.options && config.options.sid) {
+      zetaParams = config.options;
+      baseAdapter.enableAnalytics.call(this, config);
     } else {
       logError(LOG_PREFIX + 'Config not found');
-      error = true;
-    }
-
-    if (!publisherId) {
-      logError(LOG_PREFIX + 'Missing sid (publisher id)');
-      error = true;
-    }
-
-    if (error) {
       logError(LOG_PREFIX + 'Analytics is disabled due to error(s)');
-    } else {
-      baseAdapter.enableAnalytics.call(this, config);
     }
   },
 
   disableAnalytics() {
-    publisherId = undefined;
+    zetaParams = undefined;
     baseAdapter.disableAnalytics.apply(this, arguments);
   },
 
   track({ eventType, args }) {
     switch (eventType) {
-      case CONSTANTS.EVENTS.AD_RENDER_SUCCEEDED:
+      case EVENTS.AD_RENDER_SUCCEEDED:
         adRenderSucceededHandler(args);
         break;
-      case CONSTANTS.EVENTS.AUCTION_END:
+      case EVENTS.AUCTION_END:
         auctionEndHandler(args);
+        break;
+      case EVENTS.BID_TIMEOUT:
+        bidTimeoutHandler(args);
         break;
     }
   }

@@ -3,7 +3,7 @@ import analyticsAdapter, { command as analyticsCommand, COMMAND } from 'modules/
 import { AUCTION_COMPLETED } from 'src/auction.js';
 import { expect } from 'chai';
 import * as events from 'src/events.js';
-import CONSTANTS from 'src/constants.json';
+import { EVENTS } from 'src/constants.js';
 import * as utils from 'src/utils.js';
 import { loadExternalScriptStub } from 'test/mocks/adloaderStub.js';
 
@@ -40,11 +40,12 @@ describe('Adloox Analytics Adapter', function () {
     }
   };
 
-  adapterManager.registerAnalyticsAdapter({
-    code: analyticsAdapterName,
-    adapter: analyticsAdapter
-  });
   describe('enableAnalytics', function () {
+    afterEach(function () {
+      analyticsAdapter.disableAnalytics();
+      expect(analyticsAdapter.context).is.null;
+    });
+
     describe('invalid options', function () {
       it('should require options', function (done) {
         adapterManager.enableAnalytics({
@@ -68,6 +69,32 @@ describe('Adloox Analytics Adapter', function () {
         done();
       });
 
+      it('should accept subdomains of adlooxtracking.com for options.js', function (done) {
+        const analyticsOptionsLocal = utils.deepClone(analyticsOptions);
+        analyticsOptionsLocal.js = 'https://test.adlooxtracking.com/test.js';
+
+        adapterManager.enableAnalytics({
+          provider: analyticsAdapterName,
+          options: analyticsOptionsLocal
+        });
+        expect(analyticsAdapter.context).is.not.null;
+
+        done();
+      });
+
+      it('should reject non-subdomains of adlooxtracking.com for options.js', function (done) {
+        const analyticsOptionsLocal = utils.deepClone(analyticsOptions);
+        analyticsOptionsLocal.js = 'https://example.com/test.js';
+
+        adapterManager.enableAnalytics({
+          provider: analyticsAdapterName,
+          options: analyticsOptionsLocal
+        });
+        expect(analyticsAdapter.context).is.null;
+
+        done();
+      });
+
       it('should reject non-function options.toselector', function (done) {
         const analyticsOptionsLocal = utils.deepClone(analyticsOptions);
         analyticsOptionsLocal.toselector = esplode;
@@ -81,7 +108,7 @@ describe('Adloox Analytics Adapter', function () {
         done();
       });
 
-      [ 'client', 'clientid', 'platformid', 'tagid' ].forEach(function (o) {
+      ['client', 'clientid', 'platformid', 'tagid'].forEach(function (o) {
         it('should require options.' + o, function (done) {
           const analyticsOptionsLocal = utils.deepClone(analyticsOptions);
           delete analyticsOptionsLocal[o];
@@ -113,7 +140,7 @@ describe('Adloox Analytics Adapter', function () {
 
   describe('process', function () {
     beforeEach(function() {
-      sandbox = sinon.sandbox.create();
+      sandbox = sinon.createSandbox();
 
       sandbox.stub(events, 'getEvents').returns([]);
 
@@ -139,14 +166,14 @@ describe('Adloox Analytics Adapter', function () {
 
         const uri = utils.parseUrl(analyticsAdapter.url(analyticsOptions.js));
         const isLinkPreloadAsScript = function(arg) {
-          const href_uri = utils.parseUrl(arg.href);	// IE11 requires normalisation (hostname always includes port)
+          const href_uri = utils.parseUrl(arg.href);  // IE11 requires normalisation (hostname always includes port)
           return arg.tagName === 'LINK' && arg.getAttribute('rel') === 'preload' && arg.getAttribute('as') === 'script' && href_uri.href === uri.href;
         };
 
-        events.emit(CONSTANTS.EVENTS.AUCTION_END, auctionDetails);
+        events.emit(EVENTS.AUCTION_END, auctionDetails);
         expect(insertElementStub.calledWith(sinon.match(isLinkPreloadAsScript))).to.true;
 
-        events.emit(CONSTANTS.EVENTS.AUCTION_END, auctionDetails);
+        events.emit(EVENTS.AUCTION_END, auctionDetails);
         expect(insertElementStub.callCount).to.equal(1);
 
         done();
@@ -167,9 +194,9 @@ describe('Adloox Analytics Adapter', function () {
         const querySelectorStub = sandbox.stub(document, 'querySelector');
         querySelectorStub.withArgs(`#${bid.adUnitCode}`).returns(slot);
 
-        events.emit(CONSTANTS.EVENTS.BID_WON, bid);
+        events.emit(EVENTS.BID_WON, bid);
 
-        const [urlInserted, moduleCode] = loadExternalScriptStub.getCall(0).args;
+        const [urlInserted, _, moduleCode] = loadExternalScriptStub.getCall(0).args;
 
         expect(urlInserted.substr(0, url.length)).to.equal(url);
         expect(moduleCode).to.equal(analyticsAdapterName);
@@ -196,7 +223,7 @@ describe('Adloox Analytics Adapter', function () {
         const querySelectorStub = sandbox.stub(document, 'querySelector');
         querySelectorStub.withArgs(`#${bid.adUnitCode}`).returns(slot);
 
-        events.emit(CONSTANTS.EVENTS.BID_WON, bidIgnore);
+        events.emit(EVENTS.BID_WON, bidIgnore);
 
         expect(parent.querySelector('script')).is.null;
 
@@ -222,7 +249,7 @@ describe('Adloox Analytics Adapter', function () {
         const data = {
           url: 'https://example.com?',
           args: [
-            [ 'client', '%%client%%' ]
+            ['client', '%%client%%']
           ],
           bid: bid,
           ids: true
@@ -238,7 +265,7 @@ describe('Adloox Analytics Adapter', function () {
 
       it('should inject tracking event', function (done) {
         const data = {
-          eventType: CONSTANTS.EVENTS.BID_WON,
+          eventType: EVENTS.BID_WON,
           args: bid
         };
 

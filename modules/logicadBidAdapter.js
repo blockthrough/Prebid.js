@@ -1,5 +1,5 @@
-import {registerBidder} from '../src/adapters/bidderFactory.js';
-import {BANNER, NATIVE} from '../src/mediaTypes.js';
+import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { BANNER, NATIVE } from '../src/mediaTypes.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
 import { deepAccess } from '../src/utils.js';
 
@@ -31,18 +31,22 @@ export const spec = {
   },
   interpretResponse: function (serverResponse, bidderRequest) {
     serverResponse = serverResponse.body;
+
     const bids = [];
+
     if (!serverResponse || serverResponse.error) {
       return bids;
     }
+
     serverResponse.seatbid.forEach(function (seatbid) {
       bids.push(seatbid.bid);
     })
+
     return bids;
   },
   getUserSyncs: function (syncOptions, serverResponses) {
     if (serverResponses.length > 0 && serverResponses[0].body.userSync &&
-      syncOptions.pixelEnabled && serverResponses[0].body.userSync.type == 'image') {
+      syncOptions.pixelEnabled && serverResponses[0].body.userSync.type === 'image') {
       return [{
         type: 'image',
         url: serverResponses[0].body.userSync.url
@@ -52,34 +56,41 @@ export const spec = {
   },
 };
 
-function newBidRequest(bid, bidderRequest) {
+function newBidRequest(bidRequest, bidderRequest) {
+  const bid = {
+    adUnitCode: bidRequest.adUnitCode,
+    bidId: bidRequest.bidId,
+    transactionId: bidRequest.ortb2Imp?.ext?.tid,
+    sizes: bidRequest.sizes,
+    params: bidRequest.params,
+    mediaTypes: bidRequest.mediaTypes,
+  }
+
   const data = {
     // TODO: fix auctionId leak: https://github.com/prebid/Prebid.js/issues/9781
-    auctionId: bid.auctionId,
-    bidderRequestId: bid.bidderRequestId,
-    bids: [{
-      adUnitCode: bid.adUnitCode,
-      bidId: bid.bidId,
-      transactionId: bid.ortb2Imp?.ext?.tid,
-      sizes: bid.sizes,
-      params: bid.params,
-      mediaTypes: bid.mediaTypes
-    }],
+    auctionId: bidRequest.auctionId,
+    bidderRequestId: bidRequest.bidderRequestId,
+    bids: [bid],
     prebidJsVersion: '$prebid.version$',
     // TODO: is 'page' the right value here?
     referrer: bidderRequest.refererInfo.page,
     auctionStartTime: bidderRequest.auctionStart,
-    eids: bid.userIdAsEids,
+    eids: bidRequest.userIdAsEids,
   };
 
-  const sua = deepAccess(bid, 'ortb2.device.sua');
+  const sua = deepAccess(bidRequest, 'ortb2.device.sua');
   if (sua) {
     data.sua = sua;
   }
 
-  const userData = deepAccess(bid, 'ortb2.user.data');
+  const userData = deepAccess(bidRequest, 'ortb2.user.data');
   if (userData) {
     data.userData = userData;
+  }
+
+  const schain = bidRequest?.ortb2?.source?.ext?.schain;
+  if (schain) {
+    data.schain = schain;
   }
 
   return data;

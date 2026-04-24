@@ -1,9 +1,10 @@
-import { timestamp, logInfo, getWindowTop } from '../src/utils.js';
-import {ajax} from '../src/ajax.js';
+import { timestamp, logInfo } from '../src/utils.js';
+import { ajax } from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
-import CONSTANTS from '../src/constants.json';
+import { EVENTS } from '../src/constants.js';
 import adapterManager from '../src/adapterManager.js';
 import { getGlobal } from '../src/prebidGlobal.js';
+import { getAdUnitElement } from '../src/utils/adUnits.js';
 
 const ANALYTICSTYPE = 'endpoint';
 const URL = 'https://lwadm.com/analytics/10';
@@ -15,24 +16,25 @@ const TIMEOUTSENT = 8;
 const ADRENDERFAILEDSENT = 16;
 
 let initOptions;
-let prebidGlobal = getGlobal();
+const prebidGlobal = getGlobal();
 export const BID_WON_TIMEOUT = 500;
+const CACHE_CLEANUP_DELAY = BID_WON_TIMEOUT * 3;
 
 const cache = {
   auctions: {}
 };
 
-let livewrappedAnalyticsAdapter = Object.assign(adapter({EMPTYURL, ANALYTICSTYPE}), {
-  track({eventType, args}) {
+const livewrappedAnalyticsAdapter = Object.assign(adapter({ EMPTYURL, ANALYTICSTYPE }), {
+  track({ eventType, args }) {
     const time = timestamp();
     logInfo('LIVEWRAPPED_EVENT:', [eventType, args]);
 
     switch (eventType) {
-      case CONSTANTS.EVENTS.AUCTION_INIT:
+      case EVENTS.AUCTION_INIT:
         logInfo('LIVEWRAPPED_AUCTION_INIT:', args);
-        cache.auctions[args.auctionId] = {bids: {}, bidAdUnits: {}};
+        cache.auctions[args.auctionId] = { bids: {}, bidAdUnits: {} };
         break;
-      case CONSTANTS.EVENTS.BID_REQUESTED:
+      case EVENTS.BID_REQUESTED:
         logInfo('LIVEWRAPPED_BID_REQUESTED:', args);
         cache.auctions[args.auctionId].timeStamp = args.start;
 
@@ -40,14 +42,14 @@ let livewrappedAnalyticsAdapter = Object.assign(adapter({EMPTYURL, ANALYTICSTYPE
           cache.auctions[args.auctionId].gdprApplies = args.gdprConsent ? args.gdprConsent.gdprApplies : undefined;
           cache.auctions[args.auctionId].gdprConsent = args.gdprConsent ? args.gdprConsent.consentString : undefined;
           let lwFloor;
-          let container = document.getElementById(bidRequest.adUnitCode);
+          const container = getAdUnitElement(bidRequest);
           let adUnitId = container ? container.getAttribute('data-adunitid') : undefined;
           adUnitId = adUnitId != null ? adUnitId : undefined;
 
           if (bidRequest.lwflr) {
             lwFloor = bidRequest.lwflr.flr;
 
-            let buyerFloor = bidRequest.lwflr.bflrs ? bidRequest.lwflr.bflrs[bidRequest.bidder] : undefined;
+            const buyerFloor = bidRequest.lwflr.bflrs ? bidRequest.lwflr.bflrs[bidRequest.bidder] : undefined;
 
             lwFloor = buyerFloor || lwFloor;
           }
@@ -73,18 +75,19 @@ let livewrappedAnalyticsAdapter = Object.assign(adapter({EMPTYURL, ANALYTICSTYPE
         });
         logInfo(livewrappedAnalyticsAdapter.requestEvents);
         break;
-      case CONSTANTS.EVENTS.BID_RESPONSE:
+      case EVENTS.BID_RESPONSE:
         logInfo('LIVEWRAPPED_BID_RESPONSE:', args);
 
-        let bidResponse = cache.auctions[args.auctionId].bids[args.requestId];
-        bidResponse.isBid = args.getStatusCode() === CONSTANTS.STATUS.GOOD;
+        const bidResponse = cache.auctions[args.auctionId].bids[args.requestId];
+        if (bidResponse.cpm > args.cpm) break; // For now we only store the highest bid
+        bidResponse.isBid = true;
         bidResponse.width = args.width;
         bidResponse.height = args.height;
         bidResponse.cpm = args.cpm;
         bidResponse.originalCpm = prebidGlobal.convertCurrency(args.originalCpm, args.originalCurrency, args.currency);
         bidResponse.ttr = args.timeToRespond;
         bidResponse.readyToSend = 1;
-        bidResponse.mediaType = args.mediaType == 'native' ? 2 : (args.mediaType == 'video' ? 4 : 1);
+        bidResponse.mediaType = getMediaTypeEnum(args.mediaType);
         bidResponse.floorData = args.floorData;
         bidResponse.meta = args.meta;
 
@@ -101,45 +104,50 @@ let livewrappedAnalyticsAdapter = Object.assign(adapter({EMPTYURL, ANALYTICSTYPE
             };
         }
         break;
-      case CONSTANTS.EVENTS.BIDDER_DONE:
+      case EVENTS.BIDDER_DONE:
         logInfo('LIVEWRAPPED_BIDDER_DONE:', args);
         args.bids.forEach(doneBid => {
-          let bid = cache.auctions[doneBid.auctionId].bids[doneBid.bidId || doneBid.requestId];
+          const bid = cache.auctions[doneBid.auctionId].bids[doneBid.bidId || doneBid.requestId];
           if (!bid.ttr) {
             bid.ttr = time - bid.start;
           }
           bid.readyToSend = 1;
         });
         break;
-      case CONSTANTS.EVENTS.BID_WON:
+      case EVENTS.BID_WON:
         logInfo('LIVEWRAPPED_BID_WON:', args);
-        let wonBid = cache.auctions[args.auctionId].bids[args.requestId];
+        const wonBid = cache.auctions[args.auctionId].bids[args.requestId];
         wonBid.won = true;
+        wonBid.width = args.width;
+        wonBid.height = args.height;
+        wonBid.cpm = args.cpm;
+        wonBid.originalCpm = prebidGlobal.convertCurrency(args.originalCpm, args.originalCurrency, args.currency);
+        wonBid.mediaType = getMediaTypeEnum(args.mediaType);
         wonBid.floorData = args.floorData;
         wonBid.rUp = args.rUp;
         wonBid.meta = args.meta;
         wonBid.dealId = args.dealId;
-        if (wonBid.sendStatus != 0) {
+        if (wonBid.sendStatus !== 0) {
           livewrappedAnalyticsAdapter.sendEvents();
         }
         break;
-      case CONSTANTS.EVENTS.AD_RENDER_FAILED:
+      case EVENTS.AD_RENDER_FAILED:
         logInfo('LIVEWRAPPED_AD_RENDER_FAILED:', args);
-        let adRenderFailedBid = cache.auctions[args.bid.auctionId].bids[args.bid.requestId];
+        const adRenderFailedBid = cache.auctions[args.bid.auctionId].bids[args.bid.requestId];
         adRenderFailedBid.adRenderFailed = true;
         adRenderFailedBid.reason = args.reason;
         adRenderFailedBid.message = args.message;
-        if (adRenderFailedBid.sendStatus != 0) {
+        if (adRenderFailedBid.sendStatus !== 0) {
           livewrappedAnalyticsAdapter.sendEvents();
         }
         break;
-      case CONSTANTS.EVENTS.BID_TIMEOUT:
+      case EVENTS.BID_TIMEOUT:
         logInfo('LIVEWRAPPED_BID_TIMEOUT:', args);
         args.forEach(timeout => {
           cache.auctions[timeout.auctionId].bids[timeout.bidId].timeout = true;
         });
         break;
-      case CONSTANTS.EVENTS.AUCTION_END:
+      case EVENTS.AUCTION_END:
         logInfo('LIVEWRAPPED_AUCTION_END:', args);
         setTimeout(() => {
           livewrappedAnalyticsAdapter.sendEvents();
@@ -171,24 +179,28 @@ livewrappedAnalyticsAdapter.sendEvents = function() {
     timeouts: getTimeouts(sentRequests.gdpr, sentRequests.auctionIds),
     bidAdUnits: getbidAdUnits(),
     rf: getAdRenderFailed(sentRequests.auctionIds),
-    rcv: getAdblockerRecovered()
+    ext: initOptions.ext
   };
 
-  if (events.requests.length == 0 &&
-      events.responses.length == 0 &&
-      events.wins.length == 0 &&
-      events.timeouts.length == 0 &&
-      events.rf.length == 0) {
+  if (events.requests.length === 0 &&
+      events.responses.length === 0 &&
+      events.wins.length === 0 &&
+      events.timeouts.length === 0 &&
+      events.rf.length === 0) {
     return;
   }
 
-  ajax(initOptions.endpoint || URL, undefined, JSON.stringify(events), {method: 'POST'});
+  ajax(initOptions.endpoint || URL, undefined, JSON.stringify(events), { method: 'POST' });
+
+  setTimeout(() => {
+    sentRequests.auctionIds.forEach(id => {
+      delete cache.auctions[id];
+    });
+  }, CACHE_CLEANUP_DELAY);
 };
 
-function getAdblockerRecovered() {
-  try {
-    return getWindowTop().I12C && getWindowTop().I12C.Morph === 1;
-  } catch (e) {}
+function getMediaTypeEnum(mediaType) {
+  return mediaType === 'native' ? 2 : (mediaType === 'video' ? 4 : 1);
 }
 
 function getSentRequests() {
@@ -197,12 +209,12 @@ function getSentRequests() {
   var auctionIds = [];
 
   Object.keys(cache.auctions).forEach(auctionId => {
-    let auction = cache.auctions[auctionId];
-    let gdprPos = getGdprPos(gdpr, auction);
-    let auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
+    const auction = cache.auctions[auctionId];
+    const gdprPos = getGdprPos(gdpr, auction);
+    const auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
 
     Object.keys(cache.auctions[auctionId].bids).forEach(bidId => {
-      let bid = auction.bids[bidId];
+      const bid = auction.bids[bidId];
       if (!(bid.sendStatus & REQUESTSENT)) {
         bid.sendStatus |= REQUESTSENT;
 
@@ -222,7 +234,7 @@ function getSentRequests() {
     });
   });
 
-  return {gdpr: gdpr, auctionIds: auctionIds, sentRequests: sentRequests};
+  return { gdpr: gdpr, auctionIds: auctionIds, sentRequests: sentRequests };
 }
 
 function getResponses(gdpr, auctionIds) {
@@ -230,14 +242,14 @@ function getResponses(gdpr, auctionIds) {
 
   Object.keys(cache.auctions).forEach(auctionId => {
     Object.keys(cache.auctions[auctionId].bids).forEach(bidId => {
-      let auction = cache.auctions[auctionId];
-      let gdprPos = getGdprPos(gdpr, auction);
-      let auctionIdPos = getAuctionIdPos(auctionIds, auctionId)
-      let bid = auction.bids[bidId];
+      const auction = cache.auctions[auctionId];
+      const gdprPos = getGdprPos(gdpr, auction);
+      const auctionIdPos = getAuctionIdPos(auctionIds, auctionId)
+      const bid = auction.bids[bidId];
       if (bid.readyToSend && !(bid.sendStatus & RESPONSESENT) && !bid.timeout) {
         bid.sendStatus |= RESPONSESENT;
 
-        let response = getResponseObject(auction, bid, gdprPos, auctionIdPos);
+        const response = getResponseObject(auction, bid, gdprPos, auctionIdPos);
 
         responses.push(response);
       }
@@ -252,10 +264,10 @@ function getWins(gdpr, auctionIds) {
 
   Object.keys(cache.auctions).forEach(auctionId => {
     Object.keys(cache.auctions[auctionId].bids).forEach(bidId => {
-      let auction = cache.auctions[auctionId];
-      let gdprPos = getGdprPos(gdpr, auction);
-      let auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
-      let bid = auction.bids[bidId];
+      const auction = cache.auctions[auctionId];
+      const gdprPos = getGdprPos(gdpr, auction);
+      const auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
+      const bid = auction.bids[bidId];
 
       if (!(bid.sendStatus & WINSENT) && bid.won) {
         bid.sendStatus |= WINSENT;
@@ -291,14 +303,14 @@ function getWins(gdpr, auctionIds) {
 function getGdprPos(gdpr, auction) {
   var gdprPos = 0;
   for (gdprPos = 0; gdprPos < gdpr.length; gdprPos++) {
-    if (gdpr[gdprPos].gdprApplies == auction.gdprApplies &&
-        gdpr[gdprPos].gdprConsent == auction.gdprConsent) {
+    if (gdpr[gdprPos].gdprApplies === auction.gdprApplies &&
+        gdpr[gdprPos].gdprConsent === auction.gdprConsent) {
       break;
     }
   }
 
-  if (gdprPos == gdpr.length) {
-    gdpr[gdprPos] = {gdprApplies: auction.gdprApplies, gdprConsent: auction.gdprConsent};
+  if (gdprPos === gdpr.length) {
+    gdpr[gdprPos] = { gdprApplies: auction.gdprApplies, gdprConsent: auction.gdprConsent };
   }
 
   return gdprPos;
@@ -307,12 +319,12 @@ function getGdprPos(gdpr, auction) {
 function getAuctionIdPos(auctionIds, auctionId) {
   var auctionIdPos = 0;
   for (auctionIdPos = 0; auctionIdPos < auctionIds.length; auctionIdPos++) {
-    if (auctionIds[auctionIdPos] == auctionId) {
+    if (auctionIds[auctionIdPos] === auctionId) {
       break;
     }
   }
 
-  if (auctionIdPos == auctionIds.length) {
+  if (auctionIdPos === auctionIds.length) {
     auctionIds[auctionIdPos] = auctionId;
   }
 
@@ -347,15 +359,15 @@ function getTimeouts(gdpr, auctionIds) {
   var timeouts = [];
 
   Object.keys(cache.auctions).forEach(auctionId => {
-    let auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
+    const auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
     Object.keys(cache.auctions[auctionId].bids).forEach(bidId => {
-      let auction = cache.auctions[auctionId];
-      let gdprPos = getGdprPos(gdpr, auction);
-      let bid = auction.bids[bidId];
+      const auction = cache.auctions[auctionId];
+      const gdprPos = getGdprPos(gdpr, auction);
+      const bid = auction.bids[bidId];
       if (!(bid.sendStatus & TIMEOUTSENT) && bid.timeout) {
         bid.sendStatus |= TIMEOUTSENT;
 
-        let timeout = getResponseObject(auction, bid, gdprPos, auctionIdPos);
+        const timeout = getResponseObject(auction, bid, gdprPos, auctionIdPos);
 
         timeouts.push(timeout);
       }
@@ -369,10 +381,10 @@ function getAdRenderFailed(auctionIds) {
   var adRenderFails = [];
 
   Object.keys(cache.auctions).forEach(auctionId => {
-    let auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
+    const auctionIdPos = getAuctionIdPos(auctionIds, auctionId);
     Object.keys(cache.auctions[auctionId].bids).forEach(bidId => {
-      let auction = cache.auctions[auctionId];
-      let bid = auction.bids[bidId];
+      const auction = cache.auctions[auctionId];
+      const bid = auction.bids[bidId];
       if (!(bid.sendStatus & ADRENDERFAILEDSENT) && bid.adRenderFailed) {
         bid.sendStatus |= ADRENDERFAILEDSENT;
 
@@ -399,9 +411,9 @@ function getbidAdUnits() {
   var bidAdUnits = [];
 
   Object.keys(cache.auctions).forEach(auctionId => {
-    let auction = cache.auctions[auctionId];
+    const auction = cache.auctions[auctionId];
     Object.keys(auction.bidAdUnits).forEach(adUnit => {
-      let bidAdUnit = auction.bidAdUnits[adUnit];
+      const bidAdUnit = auction.bidAdUnits[adUnit];
       if (!bidAdUnit.sent) {
         bidAdUnit.sent = 1;
 
@@ -422,5 +434,11 @@ adapterManager.registerAnalyticsAdapter({
   adapter: livewrappedAnalyticsAdapter,
   code: 'livewrapped'
 });
+
+export function getAuctionCache() {
+  return cache.auctions;
+}
+
+export { CACHE_CLEANUP_DELAY };
 
 export default livewrappedAnalyticsAdapter;

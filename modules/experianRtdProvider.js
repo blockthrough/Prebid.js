@@ -12,6 +12,12 @@ import {
 } from '../src/utils.js';
 import { ajax } from '../src/ajax.js';
 
+/**
+ * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
+ * @typedef {import('../modules/rtdModule/index.js').SubmoduleConfig} SubmoduleConfig
+ * @typedef {import('../modules/rtdModule/index.js').UserConsentData} UserConsentData
+ */
+
 export const SUBMODULE_NAME = 'experian_rtid';
 export const EXPERIAN_RTID_DATA_KEY = 'experian_rtid_data';
 export const EXPERIAN_RTID_EXPIRATION_KEY = 'experian_rtid_expiration';
@@ -90,10 +96,10 @@ export const experianRtdObj = {
     if (userConsent != null) {
       if (userConsent.gdpr != null) {
         const { gdprApplies, consentString } = userConsent.gdpr;
-        mergeDeep(queryObj, {gdpr: gdprApplies, gdpr_consent: consentString})
+        mergeDeep(queryObj, { gdpr: gdprApplies, gdpr_consent: consentString })
       }
       if (userConsent.uspConsent != null) {
-        mergeDeep(queryObj, {us_privacy: userConsent.uspConsent})
+        mergeDeep(queryObj, { us_privacy: userConsent.uspConsent })
       }
     }
     const consentQueryString = Object.entries(queryObj).map(([key, val]) => `${key}=${val}`).join('&');

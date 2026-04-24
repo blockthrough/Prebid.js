@@ -1,39 +1,30 @@
-import {isEmpty, logError, logWarn, mergeDeep, safeJSONParse} from '../src/utils.js';
-import {getRefererInfo} from '../src/refererDetection.js';
-import {submodule} from '../src/hook.js';
-import {GreedyPromise} from '../src/utils/promise.js';
-import {config} from '../src/config.js';
-import {getCoreStorageManager} from '../src/storageManager.js';
-import {includes} from '../src/polyfill.js';
-import {isActivityAllowed} from '../src/activities/rules.js';
-import {ACTIVITY_ENRICH_UFPD} from '../src/activities/activities.js';
-import {activityParams} from '../src/activities/activityParams.js';
-import {MODULE_TYPE_BIDDER} from '../src/activities/modules.js';
+import { isEmpty, logError, logWarn, mergeDeep, safeJSONParse } from '../src/utils.js';
+import { getRefererInfo } from '../src/refererDetection.js';
+import { submodule } from '../src/hook.js';
+import { PbPromise } from '../src/utils/promise.js';
+import { config } from '../src/config.js';
+import { getCoreStorageManager } from '../src/storageManager.js';
+
+import { isActivityAllowed } from '../src/activities/rules.js';
+import { ACTIVITY_ENRICH_UFPD } from '../src/activities/activities.js';
+import { activityParams } from '../src/activities/activityParams.js';
+import { MODULE_TYPE_BIDDER } from '../src/activities/modules.js';
 
 const MODULE_NAME = 'topicsFpd';
 const DEFAULT_EXPIRATION_DAYS = 21;
 const DEFAULT_FETCH_RATE_IN_DAYS = 1;
 let LOAD_TOPICS_INITIALISE = false;
+let iframeLoadedURL = [];
 
 export function reset() {
   LOAD_TOPICS_INITIALISE = false;
+  iframeLoadedURL = [];
 }
 
-const bidderIframeList = {
-  maxTopicCaller: 2,
-  bidders: [{
-    bidder: 'pubmatic',
-    iframeURL: 'https://ads.pubmatic.com/AdServer/js/topics/topics_frame.html'
-  }, {
-    bidder: 'rtbhouse',
-    iframeURL: 'https://topics.authorizedvault.com/topicsapi.html'
-  }]
-}
 export const coreStorage = getCoreStorageManager(MODULE_NAME);
 export const topicStorageName = 'prebid:topics';
 export const lastUpdated = 'lastUpdated';
 
-const iframeLoadedURL = [];
 const TAXONOMIES = {
   // map from topic taxonomyVersion to IAB segment taxonomy
   '1': 600,
@@ -81,7 +72,7 @@ export function getTopicsData(name, topics, taxonomies = TAXONOMIES) {
               segtax: taxonomies[taxonomyVersion],
               segclass: modelVersion
             },
-            segment: topics.map((topic) => ({id: topic.topic.toString()}))
+            segment: topics.map((topic) => ({ id: topic.topic.toString() }))
           };
           if (name != null) {
             datum.name = name;
@@ -101,13 +92,13 @@ export function getTopics(doc = document) {
 
   try {
     if (isTopicsSupported(doc)) {
-      topics = GreedyPromise.resolve(doc.browsingTopics());
+      topics = PbPromise.resolve(doc.browsingTopics());
     }
   } catch (e) {
     logError('Could not call topics API', e);
   }
   if (topics == null) {
-    topics = GreedyPromise.resolve([]);
+    topics = PbPromise.resolve([]);
   }
 
   return topics;
@@ -115,7 +106,7 @@ export function getTopics(doc = document) {
 
 const topicsData = getTopics().then((topics) => getTopicsData(getRefererInfo().domain, topics));
 
-export function processFpd(config, {global}, {data = topicsData} = {}) {
+export function processFpd(config, { global }, { data = topicsData } = {}) {
   if (!LOAD_TOPICS_INITIALISE) {
     loadTopicsForBidders();
     LOAD_TOPICS_INITIALISE = true;
@@ -129,7 +120,7 @@ export function processFpd(config, {global}, {data = topicsData} = {}) {
         }
       });
     }
-    return {global};
+    return { global };
   });
 }
 
@@ -137,13 +128,13 @@ export function processFpd(config, {global}, {data = topicsData} = {}) {
  * function to fetch the cached topic data from storage for bidders and return it
  */
 export function getCachedTopics() {
-  let cachedTopicData = [];
-  const topics = config.getConfig('userSync.topics') || bidderIframeList;
-  const bidderList = topics.bidders || [];
-  let storedSegments = new Map(safeJSONParse(coreStorage.getDataFromLocalStorage(topicStorageName)));
+  const cachedTopicData = [];
+  const topics = config.getConfig('userSync.topics');
+  const bidderList = topics?.bidders || [];
+  const storedSegments = new Map(safeJSONParse(coreStorage.getDataFromLocalStorage(topicStorageName)));
   storedSegments && storedSegments.forEach((value, cachedBidder) => {
     // Check bidder exist in config for cached bidder data and then only retrieve the cached data
-    let bidderConfigObj = bidderList.find(({bidder}) => cachedBidder === bidder)
+    const bidderConfigObj = bidderList.find(({ bidder }) => cachedBidder === bidder)
     if (bidderConfigObj && isActivityAllowed(ACTIVITY_ENRICH_UFPD, activityParams(MODULE_TYPE_BIDDER, cachedBidder))) {
       if (!isCachedDataExpired(value[lastUpdated], bidderConfigObj?.expiry || DEFAULT_EXPIRATION_DAYS)) {
         Object.keys(value).forEach((segData) => {
@@ -160,15 +151,15 @@ export function getCachedTopics() {
 }
 
 /**
- * Recieve messages from iframe loaded for bidders to fetch topic
+ * Receive messages from iframe loaded for bidders to fetch topic
  * @param {MessageEvent} evt
  */
 export function receiveMessage(evt) {
   if (evt && evt.data) {
     try {
-      let data = safeJSONParse(evt.data);
-      if (includes(getLoadedIframeURL(), evt.origin) && data && data.segment && !isEmpty(data.segment.topics)) {
-        const {domain, topics, bidder} = data.segment;
+      const data = safeJSONParse(evt.data);
+      if (getLoadedIframeURL().includes(evt.origin) && data && data.segment && !isEmpty(data.segment.topics)) {
+        const { domain, topics, bidder } = data.segment;
         const iframeTopicsData = getTopicsData(domain, topics);
         iframeTopicsData && storeInLocalStorage(bidder, iframeTopicsData);
       }
@@ -177,9 +168,10 @@ export function receiveMessage(evt) {
 }
 
 /**
-Function to store Topics data recieved from iframe in storage(name: "prebid:topics")
-* @param {Topics} topics
-*/
+Function to store Topics data received from iframe in storage(name: "prebid:topics")
+ * @param {string} bidder
+ * @param {object} topics
+ */
 export function storeInLocalStorage(bidder, topics) {
   const storedSegments = new Map(safeJSONParse(coreStorage.getDataFromLocalStorage(topicStorageName)));
   const topicsObj = {
@@ -202,10 +194,19 @@ function isCachedDataExpired(storedTime, cacheTime) {
 }
 
 /**
-* Function to get random bidders based on count passed with array of bidders
-**/
-function getRandomBidders(arr, count) {
-  return ([...arr].sort(() => 0.5 - Math.random())).slice(0, count)
+ * Function to get random bidders based on count passed with array of bidders
+ */
+function getRandomAllowedConfigs(arr, count) {
+  const configs = [];
+  for (const config of [...arr].sort(() => 0.5 - Math.random())) {
+    if (config.bidder && isActivityAllowed(ACTIVITY_ENRICH_UFPD, activityParams(MODULE_TYPE_BIDDER, config.bidder))) {
+      configs.push(config);
+    }
+    if (configs.length >= count) {
+      break;
+    }
+  }
+  return configs;
 }
 
 /**
@@ -220,14 +221,14 @@ function listenMessagesFromTopicIframe() {
  */
 export function loadTopicsForBidders(doc = document) {
   if (!isTopicsSupported(doc)) return;
-  const topics = config.getConfig('userSync.topics') || bidderIframeList;
+  const topics = config.getConfig('userSync.topics');
 
   if (topics) {
     listenMessagesFromTopicIframe();
-    const randomBidders = getRandomBidders(topics.bidders || [], topics.maxTopicCaller || 1)
+    const randomBidders = getRandomAllowedConfigs(topics.bidders || [], topics.maxTopicCaller || 1)
     randomBidders && randomBidders.forEach(({ bidder, iframeURL, fetchUrl, fetchRate }) => {
       if (bidder && iframeURL) {
-        let ifrm = doc.createElement('iframe');
+        const ifrm = doc.createElement('iframe');
         ifrm.name = 'ifrm_'.concat(bidder);
         ifrm.src = ''.concat(iframeURL, '?bidder=').concat(bidder);
         ifrm.style.display = 'none';
@@ -236,17 +237,17 @@ export function loadTopicsForBidders(doc = document) {
       }
 
       if (bidder && fetchUrl) {
-        let storedSegments = new Map(safeJSONParse(coreStorage.getDataFromLocalStorage(topicStorageName)));
+        const storedSegments = new Map(safeJSONParse(coreStorage.getDataFromLocalStorage(topicStorageName)));
         const bidderLsEntry = storedSegments.get(bidder);
 
         if (!bidderLsEntry || (bidderLsEntry && isCachedDataExpired(bidderLsEntry[lastUpdated], fetchRate || DEFAULT_FETCH_RATE_IN_DAYS))) {
-          window.fetch(`${fetchUrl}?bidder=${bidder}`, {browsingTopics: true})
+          window.fetch(`${fetchUrl}?bidder=${bidder}`, { browsingTopics: true })
             .then(response => {
               return response.json();
             })
             .then(data => {
               if (data && data.segment && !isEmpty(data.segment.topics)) {
-                const {domain, topics, bidder} = data.segment;
+                const { domain, topics, bidder } = data.segment;
                 const fetchTopicsData = getTopicsData(domain, topics);
                 fetchTopicsData && storeInLocalStorage(bidder, fetchTopicsData);
               }

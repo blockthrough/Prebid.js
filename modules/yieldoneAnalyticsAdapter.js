@@ -1,7 +1,7 @@
 import { isArray, deepClone } from '../src/utils.js';
-import {ajax} from '../src/ajax.js';
+import { ajax } from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
-import CONSTANTS from '../src/constants.json';
+import { EVENTS } from '../src/constants.js';
 import adapterManager from '../src/adapterManager.js';
 import { targeting } from '../src/targeting.js';
 import { auctionManager } from '../src/auctionManager.js';
@@ -14,9 +14,9 @@ const requestedBidders = {};
 const requestedBids = {};
 const referrers = {};
 const ignoredEvents = {};
-ignoredEvents[CONSTANTS.EVENTS.BID_ADJUSTMENT] = true;
-ignoredEvents[CONSTANTS.EVENTS.BIDDER_DONE] = true;
-ignoredEvents[CONSTANTS.EVENTS.AUCTION_END] = true;
+ignoredEvents[EVENTS.BID_ADJUSTMENT] = true;
+ignoredEvents[EVENTS.BIDDER_DONE] = true;
+ignoredEvents[EVENTS.AUCTION_END] = true;
 
 let currentAuctionId = '';
 let url = defaultUrl;
@@ -66,10 +66,10 @@ function addAdUnitName(params, map) {
   });
 }
 
-const yieldoneAnalytics = Object.assign(adapter({analyticsType}), {
+const yieldoneAnalytics = Object.assign(adapter({ analyticsType }), {
   getUrl() { return url; },
-  track({eventType, args = {}}) {
-    if (eventType === CONSTANTS.EVENTS.BID_REQUESTED) {
+  track({ eventType, args = {} }) {
+    if (eventType === EVENTS.BID_REQUESTED) {
       const reqBidderId = `${args.bidderCode}_${args.auctionId}`;
       requestedBidders[reqBidderId] = deepClone(args);
       requestedBidders[reqBidderId].bids = [];
@@ -77,17 +77,17 @@ const yieldoneAnalytics = Object.assign(adapter({analyticsType}), {
         requestedBids[`${bid.bidId}_${bid.auctionId}`] = bid;
       });
     }
-    if (eventType === CONSTANTS.EVENTS.BID_TIMEOUT && isArray(args)) {
+    if (eventType === EVENTS.BID_TIMEOUT && isArray(args)) {
       const eventsStorage = yieldoneAnalytics.eventsStorage;
       const reqBidders = {};
       args.forEach((bid) => {
         const reqBidId = `${bid.bidId}_${bid.auctionId}`;
         const reqBidderId = `${bid.bidder}_${bid.auctionId}`;
-        if (!eventsStorage[bid.auctionId]) eventsStorage[bid.auctionId] = {events: []};
+        if (!eventsStorage[bid.auctionId]) eventsStorage[bid.auctionId] = { events: [] };
         if ((requestedBidders[reqBidderId] || reqBidders[bid.bidder]) && requestedBids[reqBidId]) {
           if (!reqBidders[bid.bidder]) {
             reqBidders[bid.bidder] = requestedBidders[reqBidderId];
-            eventsStorage[bid.auctionId].events.push({eventType, params: reqBidders[bid.bidder]});
+            eventsStorage[bid.auctionId].events.push({ eventType, params: reqBidders[bid.bidder] });
             delete requestedBidders[reqBidderId];
           }
           reqBidders[bid.bidder].bids.push(requestedBids[reqBidId]);
@@ -98,7 +98,7 @@ const yieldoneAnalytics = Object.assign(adapter({analyticsType}), {
       currentAuctionId = args.auctionId || currentAuctionId;
       if (currentAuctionId) {
         const eventsStorage = yieldoneAnalytics.eventsStorage;
-        if (!eventsStorage[currentAuctionId]) eventsStorage[currentAuctionId] = {events: []};
+        if (!eventsStorage[currentAuctionId]) eventsStorage[currentAuctionId] = { events: [] };
         // TODO: is 'page' the right value here?
         const referrer = args.refererInfo && args.refererInfo.page;
         if (referrer && referrers[currentAuctionId] !== referrer) {
@@ -114,18 +114,18 @@ const yieldoneAnalytics = Object.assign(adapter({analyticsType}), {
           });
         }
         if (!ignoredEvents[eventType]) {
-          eventsStorage[currentAuctionId].events.push({eventType, params});
+          eventsStorage[currentAuctionId].events.push({ eventType, params });
         }
 
         if (
-          eventType === CONSTANTS.EVENTS.AUCTION_END || eventType === CONSTANTS.EVENTS.BID_WON
+          eventType === EVENTS.AUCTION_END || eventType === EVENTS.BID_WON
         ) {
           params.adServerTargeting = targeting.getAllTargeting(
             auctionManager.getAdUnitCodes(),
             auctionManager.getBidsReceived()
           );
           if (yieldoneAnalytics.eventsStorage[currentAuctionId] && yieldoneAnalytics.eventsStorage[currentAuctionId].events.length) {
-            yieldoneAnalytics.eventsStorage[currentAuctionId].page = {url: referrers[currentAuctionId]};
+            yieldoneAnalytics.eventsStorage[currentAuctionId].page = { url: referrers[currentAuctionId] };
             yieldoneAnalytics.eventsStorage[currentAuctionId].pubId = pubId;
             yieldoneAnalytics.eventsStorage[currentAuctionId].wrapper_version = '$prebid.version$';
             const adUnitNameMap = makeAdUnitNameMap();

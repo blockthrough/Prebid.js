@@ -3,9 +3,10 @@ import { config } from 'src/config.js';
 import { BANNER, VIDEO, NATIVE } from 'src/mediaTypes.js';
 import 'modules/currency.js';
 import 'modules/priceFloors.js';
+import { replaceAuctionPrice } from '../../../src/utils.js';
 
 const ortbBlockParams = {
-  battr: [ 13 ],
+  battr: [13],
   bcat: ['IAB1-1']
 };
 const getBidderRequest = (isMulti = false) => {
@@ -21,7 +22,7 @@ const getBidderRequest = (isMulti = false) => {
         mediaTypes: {
           banner: {
             sizes: [
-              [ 320, 100 ],
+              [320, 100],
             ]
           },
           ...(isMulti && {
@@ -31,7 +32,8 @@ const getBidderRequest = (isMulti = false) => {
             native: {
               title: {
                 required: true,
-              }}
+              }
+            }
           })
         },
         ...(isMulti && {
@@ -74,7 +76,8 @@ const getConvertedBidReq = () => {
         },
         bidfloor: 0,
         bidfloorcur: 'JPY',
-        id: '2e9f38ea93bb9e'
+        id: '2e9f38ea93bb9e',
+        secure: 1
       }
     ],
     test: 0,
@@ -102,6 +105,9 @@ const getBidderResponse = () => {
 const bannerAdm = '<div><img src="test_src" /></div>';
 const videoAdm = '<VAST version="3.0">testvast1</VAST>';
 const nativeAdm = '{"ver":"1.2","link":{"url":"test_url"},"assets":[{"id":1,"required":1,"title":{"text":"native_title"}}]}';
+const macroAdm = '<div><img src="http://d11.contentsfeed.com/pixel/${AUCTION_PRICE}" /></div>';
+const macroNurl = 'https://d11.contentsfeed.com/dsp/win/example.com/SITE/a1/${AUCTION_PRICE}';
+const interpretedNurl = `<div style="position:absolute;left:0px;top:0px;visibility:hidden;"><img src="${macroNurl}"></div>`;
 
 describe('a1MediaBidAdapter', function() {
   describe('isValidRequest', function() {
@@ -214,6 +220,30 @@ describe('a1MediaBidAdapter', function() {
         bidderResponse.body.seatbid[0].bid[0].adm = bannerAdm;
         const interpretedRes = spec.interpretResponse(bidderResponse, bidRequest);
         expect(interpretedRes[0].mediaType).equal(BANNER);
+      });
+    });
+
+    describe('resolve the AUCTION_PRICE macro', function() {
+      let bidRequest;
+      beforeEach(function() {
+        const bidderRequest = getBidderRequest(true);
+        bidRequest = spec.buildRequests(bidderRequest.bids, bidderRequest);
+      });
+      it('should return empty array when bid response has not contents', function() {
+        const emptyResponse = { body: '' };
+        const interpretedRes = spec.interpretResponse(emptyResponse, bidRequest);
+        expect(interpretedRes.length).equal(0);
+      });
+      it('should replace macro keyword if is exist', function() {
+        const bidderResponse = getBidderResponse();
+        bidderResponse.body.seatbid[0].bid[0].adm = macroAdm;
+        bidderResponse.body.seatbid[0].bid[0].nurl = macroNurl;
+        const interpretedRes = spec.interpretResponse(bidderResponse, bidRequest);
+
+        const expectedResPrice = 9;
+        const expectedAd = replaceAuctionPrice(interpretedNurl, expectedResPrice) + replaceAuctionPrice(macroAdm, expectedResPrice);
+
+        expect(interpretedRes[0].ad).equal(expectedAd);
       });
     });
   });

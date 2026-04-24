@@ -1,11 +1,9 @@
-import {deepClone, delayExecution} from '../../src/utils.js';
-import CONSTANTS from '../../src/constants.json';
-
-export function makePbsInterceptor({createBid}) {
+export function makePbsInterceptor({ createBid, utils }) {
+  const { deepClone, delayExecution } = utils;
   return function pbsBidInterceptor(next, interceptBids, s2sBidRequest, bidRequests, ajax, {
     onResponse,
     onError,
-    onBid
+    onBid,
   }) {
     let responseArgs;
     const done = delayExecution(() => onResponse(...responseArgs), bidRequests.length + 1)
@@ -16,11 +14,15 @@ export function makePbsInterceptor({createBid}) {
     function addBid(bid, bidRequest) {
       onBid({
         adUnit: bidRequest.adUnitCode,
-        bid: Object.assign(createBid(CONSTANTS.STATUS.GOOD, bidRequest), bid)
+        bid: Object.assign(createBid(bidRequest), { requestBidder: bidRequest.bidder }, bid)
       })
     }
     bidRequests = bidRequests
-      .map((req) => interceptBids({bidRequest: req, addBid, done}).bidRequest)
+      .map((req) => interceptBids({
+        bidRequest: req,
+        addBid,
+        done
+      }).bidRequest)
       .filter((req) => req.bids.length > 0)
 
     if (bidRequests.length > 0) {
@@ -31,7 +33,7 @@ export function makePbsInterceptor({createBid}) {
         unit.bids = unit.bids.filter((bid) => bidIds.has(bid.bid_id));
       })
       s2sBidRequest.ad_units = s2sBidRequest.ad_units.filter((unit) => unit.bids.length > 0);
-      next(s2sBidRequest, bidRequests, ajax, {onResponse: signalResponse, onError, onBid});
+      next(s2sBidRequest, bidRequests, ajax, { onResponse: signalResponse, onError, onBid });
     } else {
       signalResponse(true, []);
     }

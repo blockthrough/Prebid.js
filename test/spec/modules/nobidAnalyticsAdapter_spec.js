@@ -1,9 +1,9 @@
 import nobidAnalytics from 'modules/nobidAnalyticsAdapter.js';
-import {expect} from 'chai';
-import {server} from 'test/mocks/xhr.js';
-let events = require('src/events');
-let adapterManager = require('src/adapterManager').default;
-let constants = require('src/constants.json');
+import { expect } from 'chai';
+import { server } from 'test/mocks/xhr.js';
+import { EVENTS } from 'src/constants.js';
+const events = require('src/events');
+const adapterManager = require('src/adapterManager').default;
 
 const TOP_LOCATION = 'https://www.somesite.com';
 const SITE_ID = 1234;
@@ -46,10 +46,12 @@ describe('NoBid Prebid Analytic', function () {
       });
 
       // Step 2: Send init auction event
-      events.emit(constants.EVENTS.AUCTION_INIT, {config: initOptions,
+      events.emit(EVENTS.AUCTION_INIT, {
+        config: initOptions,
         auctionId: '13',
         timestamp: Date.now(),
-        bidderRequests: [{refererInfo: {topmostLocation: TOP_LOCATION}}]});
+        bidderRequests: [{ refererInfo: { topmostLocation: TOP_LOCATION } }]
+      });
       expect(nobidAnalytics.initOptions).to.have.property('siteId', SITE_ID);
       expect(nobidAnalytics).to.have.property('topLocation', TOP_LOCATION);
 
@@ -77,27 +79,29 @@ describe('NoBid Prebid Analytic', function () {
       });
 
       // Step 2: Send init auction event
-      events.emit(constants.EVENTS.AUCTION_INIT, {config: initOptions,
+      events.emit(EVENTS.AUCTION_INIT, {
+        config: initOptions,
         auctionId: '13',
         timestamp: Date.now(),
-        bidderRequests: [{refererInfo: {topmostLocation: TOP_LOCATION}}]});
-      events.emit(constants.EVENTS.BID_WON, {});
+        bidderRequests: [{ refererInfo: { topmostLocation: TOP_LOCATION } }]
+      });
+      events.emit(EVENTS.BID_WON, {});
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
 
-      events.emit(constants.EVENTS.BID_REQUESTED, {});
+      events.emit(EVENTS.BID_REQUESTED, {});
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
 
-      events.emit(constants.EVENTS.BID_RESPONSE, {});
+      events.emit(EVENTS.BID_RESPONSE, {});
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
 
-      events.emit(constants.EVENTS.BID_TIMEOUT, {});
+      events.emit(EVENTS.BID_TIMEOUT, {});
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
 
-      events.emit(constants.EVENTS.AD_RENDER_SUCCEEDED, {});
+      events.emit(EVENTS.AD_RENDER_SUCCEEDED, {});
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
 
@@ -119,7 +123,6 @@ describe('NoBid Prebid Analytic', function () {
         bidderCode: 'nobid',
         width: 728,
         height: 9,
-        statusMessage: 'Bid available',
         adId: '106d14b7d06b607',
         requestId: '67a7f0e7ea55c4',
         transactionId: 'd58cbeae-92c8-4262-ba8d-0e649cbf5470',
@@ -127,9 +130,9 @@ describe('NoBid Prebid Analytic', function () {
         mediaType: 'banner',
         source: 'client',
         cpm: 6.4,
+        currency: 'EUR',
         creativeId: 'TEST',
         dealId: '',
-        currency: 'USD',
         netRevenue: true,
         ttl: 300,
         ad: 'AD HERE',
@@ -167,13 +170,16 @@ describe('NoBid Prebid Analytic', function () {
         ]
       };
 
-      const requestOutgoing = {
+      const expectedOutgoingRequest = {
+        version: nobidAnalyticsVersion,
         bidderCode: 'nobid',
-        statusMessage: 'Bid available',
         adId: '106d14b7d06b607',
         requestId: '67a7f0e7ea55c4',
         mediaType: 'banner',
         cpm: 6.4,
+        currency: 'EUR',
+        originalCpm: 6.44,
+        originalCurrency: 'USD',
         adUnitCode: 'leaderboard',
         timeToRespond: 545,
         size: '728x90',
@@ -187,26 +193,31 @@ describe('NoBid Prebid Analytic', function () {
       });
 
       // Step 2: Send init auction event
-      events.emit(constants.EVENTS.AUCTION_INIT, {config: initOptions,
+      events.emit(EVENTS.AUCTION_INIT, {
+        config: initOptions,
         auctionId: '13',
         timestamp: Date.now(),
-        bidderRequests: [{refererInfo: {topmostLocation: TOP_LOCATION}}]});
+        bidderRequests: [{ refererInfo: { topmostLocation: TOP_LOCATION } }]
+      });
 
       // Step 3: Send bid won event
-      events.emit(constants.EVENTS.BID_WON, requestIncoming);
+      events.emit(EVENTS.BID_WON, requestIncoming);
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
       const bidWonRequest = JSON.parse(server.requests[0].requestBody);
-      expect(bidWonRequest).to.have.property('bidderCode', requestOutgoing.bidderCode);
-      expect(bidWonRequest).to.have.property('statusMessage', requestOutgoing.statusMessage);
-      expect(bidWonRequest).to.have.property('adId', requestOutgoing.adId);
-      expect(bidWonRequest).to.have.property('requestId', requestOutgoing.requestId);
-      expect(bidWonRequest).to.have.property('mediaType', requestOutgoing.mediaType);
-      expect(bidWonRequest).to.have.property('cpm', requestOutgoing.cpm);
-      expect(bidWonRequest).to.have.property('adUnitCode', requestOutgoing.adUnitCode);
-      expect(bidWonRequest).to.have.property('timeToRespond', requestOutgoing.timeToRespond);
-      expect(bidWonRequest).to.have.property('size', requestOutgoing.size);
-      expect(bidWonRequest).to.have.property('topLocation', requestOutgoing.topLocation);
+      expect(bidWonRequest).to.have.property('version', nobidAnalyticsVersion);
+      expect(bidWonRequest).to.have.property('bidderCode', expectedOutgoingRequest.bidderCode);
+      expect(bidWonRequest).to.have.property('adId', expectedOutgoingRequest.adId);
+      expect(bidWonRequest).to.have.property('requestId', expectedOutgoingRequest.requestId);
+      expect(bidWonRequest).to.have.property('mediaType', expectedOutgoingRequest.mediaType);
+      expect(bidWonRequest).to.have.property('cpm', expectedOutgoingRequest.cpm);
+      expect(bidWonRequest).to.have.property('currency', expectedOutgoingRequest.currency);
+      expect(bidWonRequest).to.have.property('originalCpm', expectedOutgoingRequest.originalCpm);
+      expect(bidWonRequest).to.have.property('originalCurrency', expectedOutgoingRequest.originalCurrency);
+      expect(bidWonRequest).to.have.property('adUnitCode', expectedOutgoingRequest.adUnitCode);
+      expect(bidWonRequest).to.have.property('timeToRespond', expectedOutgoingRequest.timeToRespond);
+      expect(bidWonRequest).to.have.property('size', expectedOutgoingRequest.size);
+      expect(bidWonRequest).to.have.property('topLocation', expectedOutgoingRequest.topLocation);
       expect(bidWonRequest).to.not.have.property('pbCg');
 
       done();
@@ -297,17 +308,16 @@ describe('NoBid Prebid Analytic', function () {
             bidderCode: 'nobid',
             width: 728,
             height: 90,
-            statusMessage: 'Bid available',
             adId: '95781b6ae5ef2f',
             requestId: '6ef0277f36c8df',
             transactionId: 'bcda424d-f4f4-419b-acf9-1808d2dd22b1',
             auctionId: '4c056b3c-f1a6-46bd-8d82-58c15b22fcfa',
             mediaType: 'banner',
             source: 'client',
-            cpm: 6.44,
+            cpm: 5.93,
+            currency: 'EUR',
             creativeId: 'TEST',
             dealId: '',
-            currency: 'USD',
             netRevenue: true,
             ttl: 300,
             ad: '',
@@ -336,7 +346,7 @@ describe('NoBid Prebid Analytic', function () {
         timeout: 3000
       };
 
-      const requestOutgoing = {
+      const expectedOutgoingRequest = {
         auctionId: '4c056b3c-f1a6-46bd-8d82-58c15b22fcfa',
         bidderRequests: [
           {
@@ -344,7 +354,6 @@ describe('NoBid Prebid Analytic', function () {
             bidderRequestId: '7c1940bb285731',
             bids: [
               {
-                bidder: 'nobid',
                 params: { siteId: SITE_ID },
                 mediaTypes: { banner: { sizes: [[728, 90]] } },
                 adUnitCode: 'leaderboard',
@@ -365,7 +374,10 @@ describe('NoBid Prebid Analytic', function () {
             width: 728,
             height: 90,
             mediaType: 'banner',
-            cpm: 6.44,
+            cpm: 5.93,
+            currency: 'EUR',
+            originalCpm: 6.44,
+            originalCurrency: 'USD',
             adUnitCode: 'leaderboard'
           }
         ]
@@ -378,60 +390,170 @@ describe('NoBid Prebid Analytic', function () {
       });
 
       // Step 2: Send init auction event
-      events.emit(constants.EVENTS.AUCTION_INIT, {config: initOptions,
+      events.emit(EVENTS.AUCTION_INIT, {
+        config: initOptions,
         auctionId: '13',
         timestamp: Date.now(),
-        bidderRequests: [{refererInfo: {topmostLocation: `${TOP_LOCATION}_something`}}]});
+        bidderRequests: [{ refererInfo: { topmostLocation: `${TOP_LOCATION}_something` } }]
+      });
 
       // Step 3: Send bid won event
-      events.emit(constants.EVENTS.AUCTION_END, requestIncoming);
+      events.emit(EVENTS.AUCTION_END, requestIncoming);
       clock.tick(5000);
       expect(server.requests).to.have.length(1);
       const auctionEndRequest = JSON.parse(server.requests[0].requestBody);
-      expect(auctionEndRequest).to.have.property('auctionId', requestOutgoing.auctionId);
+      expect(auctionEndRequest).to.have.property('version', nobidAnalyticsVersion);
+      expect(auctionEndRequest).to.have.property('pbver', '$prebid.version$');
+      expect(auctionEndRequest).to.have.property('auctionId', expectedOutgoingRequest.auctionId);
       expect(auctionEndRequest.bidderRequests).to.have.length(1);
-      expect(auctionEndRequest.bidderRequests[0]).to.have.property('bidderCode', requestOutgoing.bidderRequests[0].bidderCode);
+      expect(auctionEndRequest.bidderRequests[0].bidderCode).to.equal(expectedOutgoingRequest.bidderRequests[0].bidderCode);
       expect(auctionEndRequest.bidderRequests[0].bids).to.have.length(1);
-      expect(auctionEndRequest.bidderRequests[0].bids[0]).to.have.property('bidder', requestOutgoing.bidderRequests[0].bids[0].bidder);
-      expect(auctionEndRequest.bidderRequests[0].bids[0]).to.have.property('adUnitCode', requestOutgoing.bidderRequests[0].bids[0].adUnitCode);
-      expect(auctionEndRequest.bidderRequests[0].bids[0].params).to.have.property('siteId', requestOutgoing.bidderRequests[0].bids[0].params.siteId);
-      expect(auctionEndRequest.bidderRequests[0].refererInfo).to.have.property('topmostLocation', requestOutgoing.bidderRequests[0].refererInfo.topmostLocation);
+      expect(typeof auctionEndRequest.bidderRequests[0].bids[0].bidder).to.equal('undefined');
+      expect(auctionEndRequest.bidderRequests[0].bids[0].adUnitCode).to.equal(expectedOutgoingRequest.bidderRequests[0].bids[0].adUnitCode);
+      expect(typeof auctionEndRequest.bidderRequests[0].bids[0].params).to.equal('undefined');
+      expect(typeof auctionEndRequest.bidderRequests[0].bids[0].src).to.equal('undefined');
+      expect(auctionEndRequest.bidderRequests[0].refererInfo.topmostLocation).to.equal(expectedOutgoingRequest.bidderRequests[0].refererInfo.topmostLocation);
+      expect(auctionEndRequest.bidsReceived).to.have.length(1);
+      expect(auctionEndRequest.bidsReceived[0].bidderCode).to.equal(expectedOutgoingRequest.bidsReceived[0].bidderCode);
+      expect(auctionEndRequest.bidsReceived[0].width).to.equal(expectedOutgoingRequest.bidsReceived[0].width);
+      expect(auctionEndRequest.bidsReceived[0].height).to.equal(expectedOutgoingRequest.bidsReceived[0].height);
+      expect(auctionEndRequest.bidsReceived[0].mediaType).to.equal(expectedOutgoingRequest.bidsReceived[0].mediaType);
+      expect(auctionEndRequest.bidsReceived[0].cpm).to.equal(expectedOutgoingRequest.bidsReceived[0].cpm);
+      expect(auctionEndRequest.bidsReceived[0].currency).to.equal(expectedOutgoingRequest.bidsReceived[0].currency);
+      expect(auctionEndRequest.bidsReceived[0].originalCpm).to.equal(expectedOutgoingRequest.bidsReceived[0].originalCpm);
+      expect(auctionEndRequest.bidsReceived[0].originalCurrency).to.equal(expectedOutgoingRequest.bidsReceived[0].originalCurrency);
+      expect(auctionEndRequest.bidsReceived[0].adUnitCode).to.equal(expectedOutgoingRequest.bidsReceived[0].adUnitCode);
+      expect(typeof auctionEndRequest.bidsReceived[0].source).to.equal('undefined');
 
       done();
     });
 
     it('Analytics disabled test', function (done) {
       let disabled;
-      nobidAnalytics.processServerResponse(JSON.stringify({disabled: false}));
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled: 0 }));
       disabled = nobidAnalytics.isAnalyticsDisabled();
       expect(disabled).to.equal(false);
-      events.emit(constants.EVENTS.AUCTION_END, {auctionId: '1234567890'});
+      events.emit(EVENTS.AUCTION_END, { auctionId: '1234567890' });
       clock.tick(1000);
       expect(server.requests).to.have.length(1);
-      events.emit(constants.EVENTS.AUCTION_END, {auctionId: '12345678901'});
+      events.emit(EVENTS.AUCTION_END, { auctionId: '12345678901' });
       clock.tick(1000);
       expect(server.requests).to.have.length(2);
 
       nobidAnalytics.processServerResponse('disabled: true');
-      events.emit(constants.EVENTS.AUCTION_END, {auctionId: '12345678902'});
+      events.emit(EVENTS.AUCTION_END, { auctionId: '12345678902' });
       clock.tick(1000);
       expect(server.requests).to.have.length(3);
 
-      nobidAnalytics.processServerResponse(JSON.stringify({disabled: true}));
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled: 1 }));
       disabled = nobidAnalytics.isAnalyticsDisabled();
       expect(disabled).to.equal(true);
-      events.emit(constants.EVENTS.AUCTION_END, {auctionId: '12345678902'});
+      events.emit(EVENTS.AUCTION_END, { auctionId: '12345678902' });
       clock.tick(5000);
       expect(server.requests).to.have.length(3);
 
       nobidAnalytics.retentionSeconds = 5;
-      nobidAnalytics.processServerResponse(JSON.stringify({disabled: true}));
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled: 1 }));
       clock.tick(1000);
       disabled = nobidAnalytics.isAnalyticsDisabled();
       expect(disabled).to.equal(true);
       clock.tick(6000);
       disabled = nobidAnalytics.isAnalyticsDisabled();
       expect(disabled).to.equal(false);
+
+      done();
+    });
+  });
+
+  describe('Analytics disabled event type test', function () {
+    beforeEach(function () {
+      sinon.stub(events, 'getEvents').returns([]);
+      clock = sinon.useFakeTimers(Date.now());
+    });
+
+    afterEach(function () {
+      events.getEvents.restore();
+      clock.restore();
+    });
+
+    after(function () {
+      nobidAnalytics.disableAnalytics();
+    });
+
+    it('Analytics disabled event type test', function (done) {
+      // Initialize adapter
+      const initOptions = { options: { siteId: SITE_ID } };
+      nobidAnalytics.enableAnalytics(initOptions);
+      adapterManager.enableAnalytics({ provider: 'nobid', options: initOptions });
+
+      let eventType = EVENTS.AUCTION_END;
+      let disabled;
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled: 0 }));
+      disabled = nobidAnalytics.isAnalyticsDisabled();
+      expect(disabled).to.equal(false);
+      events.emit(eventType, { auctionId: '1234567890' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(1);
+      events.emit(eventType, { auctionId: '12345678901' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(2);
+
+      server.requests.length = 0;
+      expect(server.requests).to.have.length(0);
+
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled_auctionEnd: 1 }));
+      disabled = nobidAnalytics.isAnalyticsDisabled(eventType);
+      expect(disabled).to.equal(true);
+      events.emit(eventType, { auctionId: '1234567890' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(0);
+
+      server.requests.length = 0;
+
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled_auctionEnd: 0 }));
+      disabled = nobidAnalytics.isAnalyticsDisabled(eventType);
+      expect(disabled).to.equal(false);
+      events.emit(EVENTS.AUCTION_END, { auctionId: '1234567890' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(1);
+
+      server.requests.length = 0;
+      expect(server.requests).to.have.length(0);
+
+      eventType = EVENTS.BID_WON;
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled_bidWon: 1 }));
+      disabled = nobidAnalytics.isAnalyticsDisabled(eventType);
+      expect(disabled).to.equal(true);
+      events.emit(eventType, { bidderCode: 'nobid' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(0);
+
+      server.requests.length = 0;
+      expect(server.requests).to.have.length(0);
+
+      eventType = EVENTS.AUCTION_END;
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled: 1 }));
+      disabled = nobidAnalytics.isAnalyticsDisabled(eventType);
+      expect(disabled).to.equal(true);
+      events.emit(eventType, { auctionId: '1234567890' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(0);
+
+      server.requests.length = 0;
+      expect(server.requests).to.have.length(0);
+
+      eventType = EVENTS.AUCTION_END;
+      nobidAnalytics.processServerResponse(JSON.stringify({ disabled_auctionEnd: 1, disabled_bidWon: 0 }));
+      disabled = nobidAnalytics.isAnalyticsDisabled(eventType);
+      expect(disabled).to.equal(true);
+      events.emit(eventType, { auctionId: '1234567890' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(0);
+      disabled = nobidAnalytics.isAnalyticsDisabled(EVENTS.BID_WON);
+      expect(disabled).to.equal(false);
+      events.emit(EVENTS.BID_WON, { bidderCode: 'nobid' });
+      clock.tick(1000);
+      expect(server.requests).to.have.length(1);
 
       done();
     });
@@ -456,28 +578,29 @@ describe('NoBid Prebid Analytic', function () {
       let active = nobidCarbonizer.isActive();
       expect(active).to.equal(false);
 
-      active = nobidCarbonizer.isActive(JSON.stringify({carbonizer_active: false}));
+      nobidAnalytics.processServerResponse(JSON.stringify({ carbonizer_active: false }));
+      active = nobidCarbonizer.isActive();
       expect(active).to.equal(false);
 
-      nobidAnalytics.processServerResponse(JSON.stringify({carbonizer_active: true}));
+      nobidAnalytics.processServerResponse(JSON.stringify({ carbonizer_active: true }));
       active = nobidCarbonizer.isActive();
       expect(active).to.equal(true);
 
       const previousRetention = nobidAnalytics.retentionSeconds;
       nobidAnalytics.retentionSeconds = 3;
-      nobidAnalytics.processServerResponse(JSON.stringify({carbonizer_active: true}));
-      const stored = nobidCarbonizer.getStoredLocalData();
-      expect(stored).to.contain(`{"carbonizer_active":true,"ts":`);
+      nobidAnalytics.processServerResponse(JSON.stringify({ carbonizer_active: true }));
+      let stored = nobidCarbonizer.getStoredLocalData();
+      expect(stored[nobidAnalytics.ANALYTICS_DATA_NAME]).to.contain(`{"carbonizer_active":true,"ts":`);
       clock.tick(5000);
-      active = nobidCarbonizer.isActive(adunits, true);
+      active = nobidCarbonizer.isActive();
       expect(active).to.equal(false);
 
       nobidAnalytics.retentionSeconds = previousRetention;
-      nobidAnalytics.processServerResponse(JSON.stringify({carbonizer_active: true}));
-      active = nobidCarbonizer.isActive(adunits, true);
+      nobidAnalytics.processServerResponse(JSON.stringify({ carbonizer_active: true }));
+      active = nobidCarbonizer.isActive();
       expect(active).to.equal(true);
 
-      let adunits = [
+      const adunits = [
         {
           bids: [
             { bidder: 'bidder1' },
@@ -486,6 +609,10 @@ describe('NoBid Prebid Analytic', function () {
         }
       ]
       nobidCarbonizer.carbonizeAdunits(adunits, true);
+      stored = nobidCarbonizer.getStoredLocalData();
+      expect(stored[nobidAnalytics.ANALYTICS_DATA_NAME]).to.contain('{"carbonizer_active":true,"ts":');
+      expect(stored[nobidAnalytics.ANALYTICS_OPT_NAME]).to.contain('{"bidder1":1,"bidder2":1}');
+      clock.tick(5000);
       expect(adunits[0].bids.length).to.equal(0);
 
       done();

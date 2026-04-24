@@ -6,8 +6,15 @@
  */
 
 import { logError } from '../src/utils.js';
-import {ajax} from '../src/ajax.js';
-import {submodule} from '../src/hook.js'
+import { ajax } from '../src/ajax.js';
+import { submodule } from '../src/hook.js'
+import { UID1_EIDS } from '../libraries/uid1Eids/uid1Eids.js';
+
+/**
+ * @typedef {import('../modules/userId/index.js').Submodule} Submodule
+ * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
+ * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
+ */
 
 const MODULE_NAME = 'unifiedId';
 
@@ -64,20 +71,17 @@ export const unifiedIdSubmodule = {
           callback();
         }
       };
-      ajax(url, callbacks, undefined, {method: 'GET', withCredentials: true});
+      ajax(url, callbacks, undefined, { method: 'GET', withCredentials: true });
     };
-    return {callback: resp};
+    return { callback: resp };
   },
   eids: {
-    'tdid': {
-      source: 'adserver.org',
-      atype: 1,
-      getUidExt: function() {
-        return {
-          rtiPartner: 'TDID'
-        };
-      }
-    },
+    tdid: {
+      ...UID1_EIDS.tdid,
+      mm: 4,
+      inserter: 'adserver.org',
+      matcher: 'adserver.org'
+    }
   }
 };
 

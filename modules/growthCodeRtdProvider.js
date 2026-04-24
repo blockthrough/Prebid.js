@@ -9,7 +9,7 @@ import {
 } from '../src/utils.js';
 import * as ajax from '../src/ajax.js';
 import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
-import {tryAppendQueryString} from '../libraries/urlUtils/urlUtils.js';
+import { tryAppendQueryString } from '../libraries/urlUtils/urlUtils.js';
 
 const MODULE_NAME = 'growthCodeRtd';
 const LOG_PREFIX = 'GrowthCodeRtd: ';
@@ -56,34 +56,38 @@ function init(config, userConsent) {
   }
 
   const configParams = (config && config.params) || {};
-  let expiresAt = parseInt(storage.getDataFromLocalStorage(RTD_EXPIRE_KEY, null));
+  const expiresAt = parseInt(storage.getDataFromLocalStorage(RTD_EXPIRE_KEY, null));
 
   items = tryParse(storage.getDataFromLocalStorage(RTD_CACHE_KEY, null));
 
-  return callServer(configParams, items, expiresAt, userConsent);
+  if (configParams.pid === undefined) {
+    return true; // Die gracefully
+  } else {
+    return callServer(configParams, items, expiresAt, userConsent);
+  }
 }
 function callServer(configParams, items, expiresAt, userConsent) {
   // Expire Cache
-  let now = Math.trunc(Date.now() / 1000);
+  const now = Math.trunc(Date.now() / 1000);
   if ((!isNaN(expiresAt)) && (now > expiresAt)) {
     expiresAt = NaN;
     storage.removeDataFromLocalStorage(RTD_CACHE_KEY, null)
     storage.removeDataFromLocalStorage(RTD_EXPIRE_KEY, null)
   }
   if ((items === null) && (isNaN(expiresAt))) {
-    let gcid = localStorage.getItem('gcid')
+    const gcid = storage.getDataFromLocalStorage('gcid')
 
     let url = configParams.url ? configParams.url : ENDPOINT_URL;
     url = tryAppendQueryString(url, 'pid', configParams.pid);
     url = tryAppendQueryString(url, 'u', window.location.href);
     url = tryAppendQueryString(url, 'gcid', gcid);
-    if ((userConsent !== null) && (userConsent.gdpr !== null) && (userConsent.gdpr.consentData.getTCData.tcString)) {
-      url = tryAppendQueryString(url, 'tcf', userConsent.gdpr.consentData.getTCData.tcString)
+    if ((userConsent !== null) && (userConsent.gdpr !== null) && (userConsent.gdpr.consentString)) {
+      url = tryAppendQueryString(url, 'tcf', userConsent.gdpr.consentString)
     }
 
     ajax.ajaxBuilder()(url, {
       success: response => {
-        let respJson = tryParse(response);
+        const respJson = tryParse(response);
         // If response is a valid json and should save is true
         if (respJson && respJson.results >= 1) {
           storage.setDataInLocalStorage(RTD_CACHE_KEY, JSON.stringify(respJson.items), null);
@@ -95,7 +99,7 @@ function callServer(configParams, items, expiresAt, userConsent) {
       error: error => {
         logError(LOG_PREFIX + 'ID fetch encountered an error', error);
       }
-    }, undefined, {method: 'GET', withCredentials: true})
+    }, undefined, { method: 'GET', withCredentials: true })
   }
 
   return true;
@@ -105,8 +109,8 @@ function addData(reqBidsConfigObj, items) {
   let merge = false
 
   for (let j = 0; j < items.length; j++) {
-    let item = items[j]
-    let data = JSON.parse(item.parameters);
+    const item = items[j]
+    const data = JSON.parse(item.parameters);
     if (item['attachment_point'] === 'data') {
       mergeDeep(reqBidsConfigObj.ortb2Fragments.bidder, data)
       merge = true

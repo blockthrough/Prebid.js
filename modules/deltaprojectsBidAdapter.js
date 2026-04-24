@@ -1,5 +1,6 @@
-import {registerBidder} from '../src/adapters/bidderFactory.js';
-import {BANNER} from '../src/mediaTypes.js';
+import { getCurrencyFromBidderRequest } from '../libraries/ortb2Utils/currency.js';
+import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { BANNER } from '../src/mediaTypes.js';
 import {
   _each,
   _map,
@@ -8,19 +9,18 @@ import {
   isFn,
   isNumber,
   logError,
-  logWarn
+  logWarn,
+  setOnAny
 } from '../src/utils.js';
-import {config} from '../src/config.js';
 
 export const BIDDER_CODE = 'deltaprojects';
+const GVLID = 209;
 export const BIDDER_ENDPOINT_URL = 'https://d5p.de17a.com/dogfight/prebid';
 export const USERSYNC_URL = 'https://userservice.de17a.com/getuid/prebid';
 
-/** -- isBidRequestValid --**/
+/** -- isBidRequestValid -- */
 function isBidRequestValid(bid) {
   if (!bid) return false;
-
-  if (bid.bidder !== BIDDER_CODE) return false;
 
   // publisher id is required
   const publisherId = deepAccess(bid, 'params.publisherId')
@@ -32,9 +32,9 @@ function isBidRequestValid(bid) {
   return true;
 }
 
-/** -- Build requests --**/
+/** -- Build requests -- */
 function buildRequests(validBidRequests, bidderRequest) {
-  /** == shared ==**/
+  /** == shared == */
   // -- build id
   const id = bidderRequest.bidderRequestId;
 
@@ -58,22 +58,22 @@ function buildRequests(validBidRequests, bidderRequest) {
   }
 
   // -- build user, reg
-  let user = { ext: {} };
+  const user = { ext: {} };
   const regs = { ext: {} };
   const gdprConsent = bidderRequest && bidderRequest.gdprConsent;
   if (gdprConsent) {
     user.ext = { consent: gdprConsent.consentString };
-    if (typeof gdprConsent.gdprApplies == 'boolean') {
+    if (typeof gdprConsent.gdprApplies === 'boolean') {
       regs.ext.gdpr = gdprConsent.gdprApplies ? 1 : 0
     }
   }
 
   // -- build tmax
-  let tmax = (bidderRequest && bidderRequest.timeout > 0) ? bidderRequest.timeout : undefined;
+  const tmax = (bidderRequest && bidderRequest.timeout > 0) ? bidderRequest.timeout : undefined;
 
   // build bid specific
   return validBidRequests.map(validBidRequest => {
-    const openRTBRequest = buildOpenRTBRequest(validBidRequest, id, site, device, user, tmax, regs);
+    const openRTBRequest = buildOpenRTBRequest(validBidRequest, bidderRequest, id, site, device, user, tmax, regs);
     return {
       method: 'POST',
       url: BIDDER_ENDPOINT_URL,
@@ -84,9 +84,9 @@ function buildRequests(validBidRequests, bidderRequest) {
   });
 }
 
-function buildOpenRTBRequest(validBidRequest, id, site, device, user, tmax, regs) {
+function buildOpenRTBRequest(validBidRequest, bidderRequest, id, site, device, user, tmax, regs) {
   // build cur
-  const currency = config.getConfig('currency.adServerCurrency') || deepAccess(validBidRequest, 'params.currency');
+  const currency = getCurrencyFromBidderRequest(bidderRequest) || deepAccess(validBidRequest, 'params.currency');
   const cur = currency && [currency];
 
   // build impression
@@ -146,7 +146,7 @@ function buildImpressionBanner(bid, bannerMediaType) {
   };
 }
 
-/** -- Interpret response --**/
+/** -- Interpret response -- */
 function interpretResponse(serverResponse) {
   if (!serverResponse.body) {
     logWarn('Response body is invalid, return !!');
@@ -189,7 +189,7 @@ function interpretResponse(serverResponse) {
   return bidResponses;
 }
 
-/** -- On Bid Won -- **/
+/** -- On Bid Won -- */
 function onBidWon(bid) {
   let cpm = bid.cpm;
   if (bid.currency && bid.currency !== bid.originalCurrency && typeof bid.getCpmInNewCurrency === 'function') {
@@ -200,7 +200,7 @@ function onBidWon(bid) {
   bid.ad = bid.ad.replace(wonPriceMacroPatten, wonPrice);
 }
 
-/** -- Get user syncs --**/
+/** -- Get user syncs -- */
 function getUserSyncs(syncOptions, serverResponses, gdprConsent) {
   const syncs = []
 
@@ -223,23 +223,13 @@ function getUserSyncs(syncOptions, serverResponses, gdprConsent) {
   return syncs;
 }
 
-/** -- Get bid floor --**/
+/** -- Get bid floor -- */
 export function getBidFloor(bid, mediaType, size, currency) {
   if (isFn(bid.getFloor)) {
     const bidFloorCurrency = currency || 'USD';
-    const bidFloor = bid.getFloor({currency: bidFloorCurrency, mediaType: mediaType, size: size});
-    if (isNumber(bidFloor.floor)) {
+    const bidFloor = bid.getFloor({ currency: bidFloorCurrency, mediaType: mediaType, size: size });
+    if (isNumber(bidFloor?.floor)) {
       return bidFloor;
-    }
-  }
-}
-
-/** -- Helper methods --**/
-function setOnAny(collection, key) {
-  for (let i = 0, result; i < collection.length; i++) {
-    result = deepAccess(collection[i], key);
-    if (result) {
-      return result;
     }
   }
 }
@@ -247,6 +237,7 @@ function setOnAny(collection, key) {
 /** -- Register -- */
 export const spec = {
   code: BIDDER_CODE,
+  gvlid: GVLID,
   supportedMediaTypes: [BANNER],
   isBidRequestValid,
   buildRequests,

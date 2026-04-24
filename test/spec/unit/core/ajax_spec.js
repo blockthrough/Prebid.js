@@ -1,7 +1,8 @@
-import {dep, attachCallbacks, fetcherFactory, toFetchRequest} from '../../../../src/ajax.js';
-import {config} from 'src/config.js';
-import {server} from '../../../mocks/xhr.js';
-import {sandbox} from 'sinon';
+import { attachCallbacks, dep, fetcherFactory, toFetchRequest } from '../../../../src/ajax.js';
+import { config } from 'src/config.js';
+import { server } from '../../../mocks/xhr.js';
+import * as utils from 'src/utils.js';
+import { logError } from 'src/utils.js';
 
 const EXAMPLE_URL = 'https://www.example.com';
 
@@ -47,7 +48,7 @@ describe('fetcherFactory', () => {
   Object.entries({
     'disableAjaxTimeout is set'() {
       const fetcher = fetcherFactory(1000);
-      config.setConfig({disableAjaxTimeout: true});
+      config.setConfig({ disableAjaxTimeout: true });
       return fetcher;
     },
     'timeout is null'() {
@@ -72,7 +73,7 @@ describe('fetcherFactory', () => {
     describe(`using ${t}`, () => {
       it('calls request, passing origin', () => {
         const request = sinon.stub();
-        const fetch = fetcherFactory(1000, {request});
+        const fetch = fetcherFactory(1000, { request });
         fetch(resource);
         sinon.assert.calledWith(request, expectedOrigin);
       });
@@ -83,7 +84,7 @@ describe('fetcherFactory', () => {
       }).forEach(([t, method]) => {
         it(`calls done on ${t}, passing origin`, () => {
           const done = sinon.stub();
-          const fetch = fetcherFactory(1000, {done});
+          const fetch = fetcherFactory(1000, { done });
           const req = fetch(resource).catch(() => null).then(() => {
             sinon.assert.calledWith(done, expectedOrigin);
           });
@@ -134,7 +135,7 @@ describe('toFetchRequest', () => {
     },
     'simple GET': {
       url: EXAMPLE_URL,
-      data: {p1: 'v1', p2: 'v2'},
+      data: { p1: 'v1', p2: 'v2' },
       options: {
         method: 'GET',
       },
@@ -168,7 +169,7 @@ describe('toFetchRequest', () => {
         }
       }
     }
-  }).forEach(([t, {url, data, options, expect: {request, text, headers}}]) => {
+  }).forEach(([t, { url, data, options, expect: { request, text, headers } }]) => {
     it(`can build ${t}`, () => {
       const req = toFetchRequest(url, data, options);
       return req.text().then(body => {
@@ -184,28 +185,30 @@ describe('toFetchRequest', () => {
     });
   });
 
-  describe('browsingTopics', () => {
-    Object.entries({
-      'browsingTopics = true': [{browsingTopics: true}, true],
-      'browsingTopics = false': [{browsingTopics: false}, false],
-      'browsingTopics is undef': [{}, false]
-    }).forEach(([t, [opts, shouldBeSet]]) => {
-      describe(`when options has ${t}`, () => {
-        const sandbox = sinon.createSandbox();
-        afterEach(() => {
-          sandbox.restore();
-        });
+  describe('chrome options', () => {
+    ['browsingTopics'].forEach(option => {
+      Object.entries({
+        [`${option} = true`]: [{ [option]: true }, true],
+        [`${option} = false`]: [{ [option]: false }, false],
+        [`${option} undef`]: [{}, false]
+      }).forEach(([t, [opts, shouldBeSet]]) => {
+        describe(`when options has ${t}`, () => {
+          const sandbox = sinon.createSandbox();
+          afterEach(() => {
+            sandbox.restore();
+          });
 
-        it(`should ${!shouldBeSet ? 'not ' : ''}be set when in a secure context`, () => {
-          sandbox.stub(window, 'isSecureContext').get(() => true);
-          toFetchRequest(EXAMPLE_URL, null, opts);
-          sinon.assert.calledWithMatch(dep.makeRequest, sinon.match.any, {browsingTopics: shouldBeSet ? true : undefined});
-        });
-        it(`should not be set when not in a secure context`, () => {
-          sandbox.stub(window, 'isSecureContext').get(() => false);
-          toFetchRequest(EXAMPLE_URL, null, opts);
-          sinon.assert.calledWithMatch(dep.makeRequest, sinon.match.any, {browsingTopics: undefined});
-        });
+          it(`should ${!shouldBeSet ? 'not ' : ''}be set when in a secure context`, () => {
+            sandbox.stub(window, 'isSecureContext').get(() => true);
+            toFetchRequest(EXAMPLE_URL, null, opts);
+            sinon.assert.calledWithMatch(dep.makeRequest, sinon.match.any, { [option]: shouldBeSet ? true : undefined });
+          });
+          it(`should not be set when not in a secure context`, () => {
+            sandbox.stub(window, 'isSecureContext').get(() => false);
+            toFetchRequest(EXAMPLE_URL, null, opts);
+            sinon.assert.calledWithMatch(dep.makeRequest, sinon.match.any, { [option]: undefined });
+          });
+        })
       })
     })
   })
@@ -218,7 +221,7 @@ describe('attachCallbacks', () => {
   });
 
   function responseFactory(body, props) {
-    props = Object.assign({headers: sampleHeaders, url: EXAMPLE_URL}, props);
+    props = Object.assign({ headers: sampleHeaders, url: EXAMPLE_URL }, props);
     return function () {
       return {
         response: Object.defineProperties(new Response(body, props), {
@@ -231,7 +234,7 @@ describe('attachCallbacks', () => {
     };
   }
 
-  function expectNullXHR(response) {
+  function expectNullXHR(response, reason) {
     return new Promise((resolve, reject) => {
       attachCallbacks(Promise.resolve(response), {
         success: () => {
@@ -245,7 +248,8 @@ describe('attachCallbacks', () => {
             statusText: '',
             responseText: '',
             response: '',
-            responseXML: null
+            responseXML: null,
+            reason
           });
           expect(xhr.getResponseHeader('any')).to.be.null;
           resolve();
@@ -255,17 +259,29 @@ describe('attachCallbacks', () => {
   }
 
   it('runs error callback on rejections', () => {
-    return expectNullXHR(Promise.reject(new Error()));
+    const err = new Error();
+    return expectNullXHR(Promise.reject(err), err);
   });
+
+  it('sets timedOut = true on fetch timeout', (done) => {
+    const ctl = new AbortController();
+    ctl.abort();
+    attachCallbacks(fetch('/', { signal: ctl.signal }), {
+      error(_, xhr) {
+        expect(xhr.timedOut).to.be.true;
+        done();
+      }
+    });
+  })
 
   Object.entries({
     '2xx response': {
       success: true,
-      makeResponse: responseFactory('body', {status: 200, statusText: 'OK'})
+      makeResponse: responseFactory('body', { status: 200, statusText: 'OK' })
     },
     '2xx response with no body': {
       success: true,
-      makeResponse: responseFactory(null, {status: 204, statusText: 'No content'})
+      makeResponse: responseFactory(null, { status: 204, statusText: 'No content' })
     },
     '2xx response with XML': {
       success: true,
@@ -273,7 +289,7 @@ describe('attachCallbacks', () => {
       makeResponse: responseFactory('<?xml><root><tag /></root>', {
         status: 200,
         statusText: 'OK',
-        headers: {'content-type': 'application/xml;charset=UTF8'}
+        headers: { 'content-type': 'application/xml;charset=UTF8' }
       })
     },
     '2xx response with HTML': {
@@ -282,20 +298,20 @@ describe('attachCallbacks', () => {
       makeResponse: responseFactory('<html lang="en"><p></p></html>', {
         status: 200,
         statusText: 'OK',
-        headers: {'content-type': 'text/html;charset=UTF-8'}
+        headers: { 'content-type': 'text/html;charset=UTF-8' }
       })
     },
     '304 response': {
       success: true,
-      makeResponse: responseFactory(null, {status: 304, statusText: 'Moved permanently'})
+      makeResponse: responseFactory(null, { status: 304, statusText: 'Moved permanently' })
     },
     '4xx response': {
       success: false,
-      makeResponse: responseFactory('body', {status: 400, statusText: 'Invalid request'})
+      makeResponse: responseFactory('body', { status: 400, statusText: 'Invalid request' })
     },
     '5xx response': {
       success: false,
-      makeResponse: responseFactory('body', {status: 503, statusText: 'Gateway error'})
+      makeResponse: responseFactory('body', { status: 503, statusText: 'Gateway error' })
     },
     '4xx response with XML': {
       success: false,
@@ -308,17 +324,28 @@ describe('attachCallbacks', () => {
         }
       })
     }
-  }).forEach(([t, {success, makeResponse, xml}]) => {
+  }).forEach(([t, { success, makeResponse, xml }]) => {
     const cbType = success ? 'success' : 'error';
 
     describe(`for ${t}`, () => {
-      let response, body;
+      let sandbox, response, body;
       beforeEach(() => {
-        ({response, body} = makeResponse());
+        sandbox = sinon.createSandbox();
+        sandbox.spy(utils, 'logError');
+        ({ response, body } = makeResponse());
       });
 
+      afterEach(() => {
+        sandbox.restore();
+      })
+
       function checkXHR(xhr) {
-        sinon.assert.match(xhr, {
+        utils.logError.resetHistory();
+        const serialized = JSON.parse(JSON.stringify(xhr))
+        // serialization of `responseXML` should not generate console messages
+        sinon.assert.notCalled(utils.logError);
+
+        sinon.assert.match(serialized, {
           readyState: XMLHttpRequest.DONE,
           status: response.status,
           statusText: response.statusText,
@@ -330,7 +357,7 @@ describe('attachCallbacks', () => {
         if (xml) {
           expect(xhr.responseXML.querySelectorAll('*').length > 0).to.be.true;
         } else {
-          expect(xhr.responseXML).to.not.exist;
+          expect(serialized.responseXML).to.not.exist;
         }
         Array.from(response.headers.entries()).forEach(([name, value]) => {
           expect(xhr.getResponseHeader(name)).to.eql(value);
@@ -356,8 +383,9 @@ describe('attachCallbacks', () => {
       });
 
       it(`runs error callback if body cannot be retrieved`, () => {
-        response.text = () => Promise.reject(new Error());
-        return expectNullXHR(response);
+        const err = new Error();
+        response.text = () => Promise.reject(err);
+        return expectNullXHR(response, err);
       });
 
       if (success) {
@@ -374,29 +402,27 @@ describe('attachCallbacks', () => {
 
   describe('callback exceptions', () => {
     Object.entries({
-      success: responseFactory(null, {status: 204}),
-      error: responseFactory('', {status: 400}),
+      success: responseFactory(null, { status: 204 }),
+      error: responseFactory('', { status: 400 }),
     }).forEach(([cbType, makeResponse]) => {
       it(`do not choke ${cbType} callbacks`, () => {
-        const {response} = makeResponse();
-        return new Promise((resolve) => {
-          const result = {success: false, error: false};
-          attachCallbacks(Promise.resolve(response), {
-            success() {
-              result.success = true;
-              throw new Error();
-            },
-            error() {
-              result.error = true;
-              throw new Error();
-            }
+        const { response } = makeResponse();
+        const result = { success: false, error: false };
+        return attachCallbacks(Promise.resolve(response), {
+          success() {
+            result.success = true;
+            throw new Error();
+          },
+          error() {
+            result.error = true;
+            throw new Error();
+          }
+        }).catch(() => null)
+          .then(() => {
+            Object.entries(result).forEach(([typ, ran]) => {
+              expect(ran).to.be[typ === cbType ? 'true' : 'false'];
+            });
           });
-          setTimeout(() => resolve(result), 20);
-        }).then(result => {
-          Object.entries(result).forEach(([typ, ran]) => {
-            expect(ran).to.be[typ === cbType ? 'true' : 'false']
-          })
-        });
       });
     });
   });

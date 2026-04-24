@@ -1,7 +1,7 @@
 import { expect } from 'chai'
 import { spec } from 'modules/rakutenBidAdapter/index.js'
 import { newBidder } from 'src/adapters/bidderFactory.js'
-import {config} from '../../../src/config.js';
+import { config } from '../../../src/config.js';
 
 describe('rakutenBidAdapter', function() {
   const adapter = newBidder(spec);
@@ -23,7 +23,7 @@ describe('rakutenBidAdapter', function() {
   });
 
   describe('isBidRequestValid', () => {
-    let bid = {
+    const bid = {
       bidder: 'rakuten',
       params: {
         adSpotId: '56789'
@@ -40,10 +40,10 @@ describe('rakutenBidAdapter', function() {
     });
 
     it('should return false when required params are not passed', () => {
-      let bid = Object.assign({}, bid);
-      delete bid.params;
-      bid.params = {};
-      expect(spec.isBidRequestValid(bid)).to.equal(false)
+      const invalidBid = Object.assign({}, bid);
+      delete invalidBid.params;
+      invalidBid.params = {};
+      expect(spec.isBidRequestValid(invalidBid)).to.equal(false)
     })
   });
 
@@ -161,10 +161,10 @@ describe('rakutenBidAdapter', function() {
         pixelEnabled: true
       }
     });
-    it('sucess usersync url', function () {
+    it('success usersync url', function () {
       const result = [];
-      result.push({type: 'image', url: 'https://rdn1.test/sync?uid=9876543210'});
-      result.push({type: 'image', url: 'https://rdn2.test/sync?uid=9876543210'});
+      result.push({ type: 'image', url: 'https://rdn1.test/sync?uid=9876543210' });
+      result.push({ type: 'image', url: 'https://rdn2.test/sync?uid=9876543210' });
       expect(spec.getUserSyncs(syncOptions, syncResponse)).to.deep.equal(result);
     });
   });
