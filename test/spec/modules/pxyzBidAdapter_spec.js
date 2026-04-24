@@ -22,7 +22,7 @@ describe('pxyzBidAdapter', function () {
   });
 
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidder': 'pxyz',
       'params': {
         'placementId': '10433394'
@@ -39,17 +39,17 @@ describe('pxyzBidAdapter', function () {
     });
 
     it('should return false when required params are not passed', function () {
-      const invalidBid = Object.assign({}, bid);
-      delete invalidBid.params;
-      invalidBid.params = {
+      let bid = Object.assign({}, bid);
+      delete bid.params;
+      bid.params = {
         'placementId': 0
       };
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
   });
 
   describe('buildRequests', function () {
-    const bidRequests = [
+    let bidRequests = [
       {
         'bidder': 'pxyz',
         'params': {
@@ -70,7 +70,7 @@ describe('pxyzBidAdapter', function () {
 
       expect(Object.keys(data.imp[0].ext)).to.have.members(['appnexus', 'pxyz']);
       expect([banner.w, banner.h]).to.deep.equal([300, 250]);
-      expect(banner.format).to.deep.equal([{ w: 300, h: 250 }, { w: 300, h: 600 }]);
+      expect(banner.format).to.deep.equal([{w: 300, h: 250}, {w: 300, h: 600}]);
       expect(request.url).to.equal(URL);
       expect(request.method).to.equal('POST');
     });
@@ -143,9 +143,9 @@ describe('pxyzBidAdapter', function () {
   })
 
   describe('interpretResponse', function () {
-    const response = {
+    let response = {
       'id': 'bidd_id',
-      'seatbid': [{
+      'seatbid': [ {
         'bid': [
           {
             'id': '4434762738980910431',
@@ -153,7 +153,7 @@ describe('pxyzBidAdapter', function () {
             'price': 1,
             'adid': '91673066',
             'adm': '<script src=\'pgxyz\'></script>',
-            'adomain': ['pg.xyz'],
+            'adomain': [ 'pg.xyz' ],
             'iurl': 'http://pgxyz.com/cr?id=91673066',
             'cid': 'c_id',
             'crid': 'c_rid',
@@ -175,12 +175,12 @@ describe('pxyzBidAdapter', function () {
       'cur': 'AUD'
     };
 
-    const bidderRequest = {
+    let bidderRequest = {
       'bidderCode': 'pxyz'
     };
 
     it('should get correct bid response', function () {
-      const expectedResponse = [
+      let expectedResponse = [
         {
           'requestId': '221f2bdc1fbc31',
           'cpm': 1,
@@ -197,28 +197,43 @@ describe('pxyzBidAdapter', function () {
           }
         }
       ];
-      const result = spec.interpretResponse({ body: response }, { bidderRequest });
+      let result = spec.interpretResponse({ body: response }, {bidderRequest});
       expect(Object.keys(result[0])).to.have.members(Object.keys(expectedResponse[0]));
       expect(result[0].meta.advertiserDomains).to.deep.equal(expectedResponse[0].meta.advertiserDomains);
     });
 
     it('handles nobid response', function () {
       const response = undefined;
-      const result = spec.interpretResponse({ body: response }, { bidderRequest });
+      let result = spec.interpretResponse({ body: response }, {bidderRequest});
       expect(result.length).to.equal(0);
     });
   });
 
   describe('getUserSyncs', function () {
-    const syncImageUrl = '//ib.adnxs.com/getuidnb?https://ads.playground.xyz/usersync?partner=appnexus&uid=$UID';
-    const syncIframeUrl = '//rtb.gumgum.com/getuid/15801?r=https%3A%2F%2Fads.playground.xyz%2Fusersync%3Fpartner%3Dgumgum%26uid%3D';
-    it('should return one image type user sync pixel', function () {
-      const result = spec.getUserSyncs();
-      expect(result.length).to.equal(2);
-      expect(result[0].type).to.equal('image')
-      expect(result[0].url).to.equal(syncImageUrl);
-      expect(result[1].type).to.equal('iframe')
-      expect(result[1].url).to.equal(syncIframeUrl);
+    const syncUrl = '//ib.adnxs.com/getuidnb?https://ads.playground.xyz/usersync?partner=appnexus&uid=$UID';
+
+    describe('when iframeEnabled is true', function () {
+      const syncOptions = {
+        'iframeEnabled': true
+      }
+      it('should return one image type user sync pixel', function () {
+        let result = spec.getUserSyncs(syncOptions);
+        expect(result.length).to.equal(1);
+        expect(result[0].type).to.equal('image')
+        expect(result[0].url).to.equal(syncUrl);
+      });
+    });
+
+    describe('when iframeEnabled is false', function () {
+      const syncOptions = {
+        'iframeEnabled': false
+      }
+      it('should return one image type user sync pixel', function () {
+        let result = spec.getUserSyncs(syncOptions);
+        expect(result.length).to.equal(1);
+        expect(result[0].type).to.equal('image')
+        expect(result[0].url).to.equal(syncUrl);
+      });
     });
   })
 });

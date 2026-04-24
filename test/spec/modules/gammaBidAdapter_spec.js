@@ -5,12 +5,11 @@ import { newBidder } from 'src/adapters/bidderFactory.js';
 describe('gammaBidAdapter', function() {
   const adapter = newBidder(spec);
 
-  const bid = {
+  let bid = {
     'bidder': 'gamma',
     'params': {
-      siteId: '1398219351',
-      zoneId: '1398219417',
-      region: 'SGP'
+      siteId: '1465446377',
+      zoneId: '1515999290'
     },
     'adUnitCode': 'adunit-code',
     'sizes': [
@@ -20,7 +19,7 @@ describe('gammaBidAdapter', function() {
     'bidderRequestId': '19c0c1efdf37e7',
     'auctionId': '61466567-d482-4a16-96f0-fe5f25ffbdf1',
   };
-  const bidArray = [bid];
+  let bidArray = [bid];
 
   describe('isBidRequestValid', () => {
     it('should return true when required params found', () => {
@@ -28,9 +27,9 @@ describe('gammaBidAdapter', function() {
     });
 
     it('should return false when require params are not passed', () => {
-      const invalidBid = Object.assign({}, bid);
-      invalidBid.params = {};
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      let bid = Object.assign({}, bid);
+      bid.params = {};
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
 
     it('should return false when params not passed correctly', () => {
@@ -79,28 +78,28 @@ describe('gammaBidAdapter', function() {
     })
 
     it('should get the correct bid response', () => {
-      const expectedResponse = [{
+      let expectedResponse = [{
         'requestId': '23beaa6af6cdde',
         'cpm': 0.45,
         'width': 300,
         'height': 250,
         'creativeId': '1515999070',
-        'dealId': 'gax-lvpjgs5b9k4n',
+        'dealId': 'gax-paj2qarjf2g',
         'currency': 'USD',
         'netRevenue': true,
         'ttl': 300,
         'ad': '<!-- adtag -->',
-        'meta': { 'advertiserDomains': ['testdomain.com'] }
+        'meta': {'advertiserDomains': ['testdomain.com']}
       }];
-      const result = spec.interpretResponse(serverResponse);
+      let result = spec.interpretResponse(serverResponse);
       expect(Object.keys(result)).to.deep.equal(Object.keys(expectedResponse));
     });
 
     it('handles empty bid response', () => {
-      const response = {
+      let response = {
         body: {}
       };
-      const result = spec.interpretResponse(response);
+      let result = spec.interpretResponse(response);
       expect(result.length).to.equal(0);
     });
   });

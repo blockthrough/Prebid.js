@@ -3,31 +3,32 @@ import magniteAdapter, {
   getHostNameFromReferer,
   storage,
   rubiConf,
-  detectBrowserFromUa,
-  callPrebidCacheHook
+  detectBrowserFromUa
 } from '../../../modules/magniteAnalyticsAdapter.js';
-import { EVENTS } from 'src/constants.js';
+import CONSTANTS from 'src/constants.json';
 import { config } from 'src/config.js';
 import { server } from 'test/mocks/xhr.js';
 import * as mockGpt from '../integration/faker/googletag.js';
 import { getGlobal } from '../../../src/prebidGlobal.js';
 import { deepAccess } from '../../../src/utils.js';
 
-const events = require('src/events.js');
-const utils = require('src/utils.js');
+let events = require('src/events.js');
+let utils = require('src/utils.js');
 
 const {
-  AUCTION_INIT,
-  AUCTION_END,
-  BID_REQUESTED,
-  BID_RESPONSE,
-  BIDDER_DONE,
-  BID_WON,
-  BID_TIMEOUT,
-  BILLABLE_EVENT,
-  PBS_ANALYTICS,
-  BID_REJECTED
-} = EVENTS;
+  EVENTS: {
+    AUCTION_INIT,
+    AUCTION_END,
+    BID_REQUESTED,
+    BID_RESPONSE,
+    BIDDER_DONE,
+    BID_WON,
+    BID_TIMEOUT,
+    BILLABLE_EVENT,
+    SEAT_NON_BID,
+    BID_REJECTED
+  }
+} = CONSTANTS;
 
 const STUBBED_UUID = '12345678-1234-1234-1234-123456789abc';
 
@@ -168,7 +169,7 @@ const MOCK = {
     getStatusCode: () => 1,
     metrics
   },
-  PBS_ANALYTICS: {
+  SEAT_NON_BID: {
     auctionId: '99785e47-a7c8-4c8a-ae05-ef1c717a4b4d',
     seatnonbid: [{
       seat: 'rubicon',
@@ -239,7 +240,6 @@ const ANALYTICS_MESSAGE = {
   },
   'auctions': [
     {
-      'auctionIndex': 1,
       'auctionId': '99785e47-a7c8-4c8a-ae05-ef1c717a4b4d',
       'auctionStart': 1658868383741,
       'samplingFactor': 1,
@@ -357,7 +357,7 @@ describe('magnite analytics adapter', function () {
     setDataInLocalStorageStub = sinon.stub(storage, 'setDataInLocalStorage');
     localStorageIsEnabledStub = sinon.stub(storage, 'localStorageIsEnabled');
     removeDataFromLocalStorageStub = sinon.stub(storage, 'removeDataFromLocalStorage')
-    sandbox = sinon.createSandbox();
+    sandbox = sinon.sandbox.create();
 
     localStorageIsEnabledStub.returns(true);
 
@@ -389,8 +389,6 @@ describe('magnite analytics adapter', function () {
     localStorageIsEnabledStub.restore();
     removeDataFromLocalStorageStub.restore();
     magniteAdapter.disableAnalytics();
-    clock.runAll();
-    clock.restore();
   });
 
   it('should require accountId', function () {
@@ -550,11 +548,11 @@ describe('magnite analytics adapter', function () {
       performStandardAuction();
 
       expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
+      let request = server.requests[0];
 
       expect(request.url).to.match(/\/\/localhost:9999\/event/);
 
-      const message = JSON.parse(request.requestBody);
+      let message = JSON.parse(request.requestBody);
 
       expect(message).to.deep.equal(ANALYTICS_MESSAGE);
     });
@@ -574,7 +572,7 @@ describe('magnite analytics adapter', function () {
       events.emit(AUCTION_END, MOCK.AUCTION_END);
       clock.tick(rubiConf.analyticsBatchTimeout + 1000);
 
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
       expect(message.auctions[0].bidderOrder).to.deep.equal([
         'rubicon',
         'pubmatic',
@@ -604,22 +602,7 @@ describe('magnite analytics adapter', function () {
       it(`should parse browser from ${testData.expected} user agent correctly`, function () {
         expect(detectBrowserFromUa(testData.ua)).to.equal(testData.expected);
       });
-    });
-
-    it('should increment auctionIndex each auction', function () {
-      // run 3 auctions
-      performStandardAuction();
-      performStandardAuction();
-      performStandardAuction();
-
-      expect(server.requests.length).to.equal(3);
-      server.requests.forEach((request, index) => {
-        const message = JSON.parse(request.requestBody);
-
-        // should be index of array + 1
-        expect(message?.auctions?.[0].auctionIndex).to.equal(index + 1);
-      });
-    });
+    })
 
     it('should pass along 1x1 size if no sizes in adUnit', function () {
       const auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
@@ -632,7 +615,7 @@ describe('magnite analytics adapter', function () {
       events.emit(AUCTION_END, MOCK.AUCTION_END);
       clock.tick(rubiConf.analyticsBatchTimeout + 1000);
 
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
       expect(message.auctions[0].adUnits[0].dimensions).to.deep.equal([
         {
           width: 1,
@@ -641,47 +624,8 @@ describe('magnite analytics adapter', function () {
       ]);
     });
 
-    it('should pass along atag data', function () {
-      const PBS_ANALYTICS_EVENT = {
-        'auctionId': '99785e47-a7c8-4c8a-ae05-ef1c717a4b4d',
-        atag: [{
-          'stage': 'processed-auction-request',
-          'module': 'mgni-timeout-optimization',
-          'analyticstags': [{
-            activities: [{
-              name: 'optimize-tmax',
-              status: 'success',
-              results: [{
-                status: 'success',
-                values: {
-                  'scenario': 'a',
-                  'rule': 'b',
-                  'tmax': 3
-                }
-              }]
-            }]
-          }]
-        }]
-      }
-
-      events.emit(AUCTION_INIT, MOCK.AUCTION_INIT);
-      events.emit(BID_REQUESTED, MOCK.BID_REQUESTED);
-      events.emit(BID_RESPONSE, MOCK.BID_RESPONSE);
-      events.emit(PBS_ANALYTICS, PBS_ANALYTICS_EVENT)
-      events.emit(BIDDER_DONE, MOCK.BIDDER_DONE);
-      events.emit(AUCTION_END, MOCK.AUCTION_END);
-      clock.tick(rubiConf.analyticsBatchTimeout + 1000);
-
-      const message = JSON.parse(server.requests[0].requestBody);
-      expect(message.auctions[0].experiments[0]).to.deep.equal({
-        name: 'a',
-        rule: 'b',
-        value: 3
-      });
-    });
-
     it('should pass along user ids', function () {
-      const auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
+      let auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
       auctionInit.bidderRequests[0].bids[0].userId = {
         criteoId: 'sadfe4334',
         lotamePanoramaId: 'asdf3gf4eg',
@@ -696,7 +640,7 @@ describe('magnite analytics adapter', function () {
       events.emit(AUCTION_END, MOCK.AUCTION_END);
       clock.tick(rubiConf.analyticsBatchTimeout + 1000);
 
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
 
       expect(message.auctions[0].user).to.deep.equal({
         ids: [
@@ -720,7 +664,7 @@ describe('magnite analytics adapter', function () {
         events.emit(AUCTION_INIT, MOCK.AUCTION_INIT);
         events.emit(BID_REQUESTED, MOCK.BID_REQUESTED);
 
-        const bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
+        let bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
         bidResponse.meta = {
           advertiserDomains: test.input
         }
@@ -731,7 +675,7 @@ describe('magnite analytics adapter', function () {
         events.emit(BID_WON, MOCK.BID_WON);
         clock.tick(rubiConf.analyticsBatchTimeout + 1000);
 
-        const message = JSON.parse(server.requests[0].requestBody);
+        let message = JSON.parse(server.requests[0].requestBody);
         expect(message.auctions[0].adUnits[0].bids[0].bidResponse.adomains).to.deep.equal(test.expected);
       });
 
@@ -745,7 +689,7 @@ describe('magnite analytics adapter', function () {
           events.emit(AUCTION_INIT, MOCK.AUCTION_INIT);
           events.emit(BID_REQUESTED, MOCK.BID_REQUESTED);
 
-          const bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
+          let bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
           bidResponse.meta = {
             networkId: test.input
           };
@@ -756,36 +700,8 @@ describe('magnite analytics adapter', function () {
           events.emit(BID_WON, MOCK.BID_WON);
           clock.tick(rubiConf.analyticsBatchTimeout + 1000);
 
-          const message = JSON.parse(server.requests[0].requestBody);
+          let message = JSON.parse(server.requests[0].requestBody);
           expect(message.auctions[0].adUnits[0].bids[0].bidResponse.networkId).to.equal(test.expected);
-        });
-      });
-
-      // meta mediatype handler things
-      [
-        { input: undefined, expected: 'banner', hasOg: false },
-        { input: 'banner', expected: 'banner', hasOg: false },
-        { input: 'video', expected: 'video', hasOg: true }
-      ].forEach((test, index) => {
-        it(`should handle meta mediaType stuff correctly - #${index + 1}`, function () {
-          events.emit(AUCTION_INIT, MOCK.AUCTION_INIT);
-          events.emit(BID_REQUESTED, MOCK.BID_REQUESTED);
-
-          const bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
-          bidResponse.meta = {
-            mediaType: test.input
-          };
-
-          events.emit(BID_RESPONSE, bidResponse);
-          events.emit(BIDDER_DONE, MOCK.BIDDER_DONE);
-          events.emit(AUCTION_END, MOCK.AUCTION_END);
-          events.emit(BID_WON, MOCK.BID_WON);
-          clock.tick(rubiConf.analyticsBatchTimeout + 1000);
-
-          const message = JSON.parse(server.requests[0].requestBody);
-          expect(message.auctions[0].adUnits[0].bids[0].bidResponse.mediaType).to.equal(test.expected);
-          if (test.hasOg) expect(message.auctions[0].adUnits[0].bids[0].bidResponse.ogMediaType).to.equal('banner');
-          else expect(message.auctions[0].adUnits[0].bids[0].bidResponse).to.not.haveOwnProperty('ogMediaType');
         });
       });
     });
@@ -799,18 +715,18 @@ describe('magnite analytics adapter', function () {
       it('should not log any session data if local storage is not enabled', function () {
         localStorageIsEnabledStub.returns(false);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         delete expectedMessage.session;
         delete expectedMessage.fpkvs;
 
         performStandardAuction();
 
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
+        let request = server.requests[0];
 
         expect(request.url).to.match(/\/\/localhost:9999\/event/);
 
-        const message = JSON.parse(request.requestBody);
+        let message = JSON.parse(request.requestBody);
 
         expect(message).to.deep.equal(expectedMessage);
       });
@@ -826,10 +742,10 @@ describe('magnite analytics adapter', function () {
         });
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         expectedMessage.session.pvid = STUBBED_UUID.slice(0, 8);
         expectedMessage.fpkvs = [
           { key: 'source', value: 'fb' },
@@ -852,10 +768,10 @@ describe('magnite analytics adapter', function () {
         });
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         expectedMessage.session.pvid = STUBBED_UUID.slice(0, 8);
         expectedMessage.fpkvs = [
           { key: 'number', value: '24' },
@@ -880,10 +796,10 @@ describe('magnite analytics adapter', function () {
         });
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         expectedMessage.session.pvid = STUBBED_UUID.slice(0, 8);
         expectedMessage.fpkvs = [
           { key: 'source', value: 'other' },
@@ -898,7 +814,7 @@ describe('magnite analytics adapter', function () {
 
       it('should pick up existing localStorage and use its values', function () {
         // set some localStorage
-        const inputlocalStorage = {
+        let inputlocalStorage = {
           id: '987654',
           start: 1519767017881, // 15 mins before "now"
           expires: 1519767039481, // six hours later
@@ -916,10 +832,10 @@ describe('magnite analytics adapter', function () {
         });
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         expectedMessage.session = {
           id: '987654',
           start: 1519767017881,
@@ -953,7 +869,7 @@ describe('magnite analytics adapter', function () {
         sandbox.stub(utils, 'getWindowLocation').returns({ 'search': '?utm_source=fb&utm_click=dog' });
 
         // set some localStorage
-        const inputlocalStorage = {
+        let inputlocalStorage = {
           id: '987654',
           start: 1519766113781, // 15 mins before "now"
           expires: 1519787713781, // six hours later
@@ -971,10 +887,10 @@ describe('magnite analytics adapter', function () {
         });
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         expectedMessage.session = {
           id: '987654',
           start: 1519766113781,
@@ -1011,7 +927,7 @@ describe('magnite analytics adapter', function () {
 
       it('should throw out session if lastSeen > 30 mins ago and create new one', function () {
         // set some localStorage
-        const inputlocalStorage = {
+        let inputlocalStorage = {
           id: '987654',
           start: 1519764313781, // 45 mins before "now"
           expires: 1519785913781, // six hours later
@@ -1030,10 +946,10 @@ describe('magnite analytics adapter', function () {
 
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         // session should match what is already in ANALYTICS_MESSAGE, just need to add pvid
         expectedMessage.session.pvid = expectedPvid;
 
@@ -1062,7 +978,7 @@ describe('magnite analytics adapter', function () {
 
       it('should throw out session if past expires time and create new one', function () {
         // set some localStorage
-        const inputlocalStorage = {
+        let inputlocalStorage = {
           id: '987654',
           start: 1519745353781, // 6 hours before "expires"
           expires: 1519766953781, // little more than six hours ago
@@ -1081,10 +997,10 @@ describe('magnite analytics adapter', function () {
 
         performStandardAuction();
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
         // session should match what is already in ANALYTICS_MESSAGE, just need to add pvid
         expectedMessage.session.pvid = expectedPvid;
 
@@ -1115,24 +1031,24 @@ describe('magnite analytics adapter', function () {
     it('should send gam data if adunit has elementid ortb2 fields', function () {
       // update auction init mock to have the elementids in the adunit
       // and change adUnitCode to be hashes
-      const auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
+      let auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
       auctionInit.adUnits[0].ortb2Imp.ext.data.elementid = [gptSlot0.getSlotElementId()];
       auctionInit.adUnits[0].code = '1a2b3c4d';
 
       // bid request
-      const bidRequested = utils.deepClone(MOCK.BID_REQUESTED);
+      let bidRequested = utils.deepClone(MOCK.BID_REQUESTED);
       bidRequested.bids[0].adUnitCode = '1a2b3c4d';
 
       // bid response
-      const bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
+      let bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
       bidResponse.adUnitCode = '1a2b3c4d';
 
       // bidder done
-      const bidderDone = utils.deepClone(MOCK.BIDDER_DONE);
+      let bidderDone = utils.deepClone(MOCK.BIDDER_DONE);
       bidderDone.bids[0].adUnitCode = '1a2b3c4d';
 
       // bidder done
-      const bidWon = utils.deepClone(MOCK.BID_WON);
+      let bidWon = utils.deepClone(MOCK.BID_WON);
       bidWon.adUnitCode = '1a2b3c4d';
 
       // Run auction
@@ -1151,9 +1067,9 @@ describe('magnite analytics adapter', function () {
       clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
       expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
-      const message = JSON.parse(request.requestBody);
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let request = server.requests[0];
+      let message = JSON.parse(request.requestBody);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
       // new adUnitCodes in payload
       expectedMessage.auctions[0].adUnits[0].adUnitCode = '1a2b3c4d';
@@ -1176,11 +1092,11 @@ describe('magnite analytics adapter', function () {
       clock.tick(2000);
 
       expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
-      const message = JSON.parse(request.requestBody);
+      let request = server.requests[0];
+      let message = JSON.parse(request.requestBody);
 
       // The timestamps should be changed from the default by (set eventDelay (2000) - eventDelay default (500))
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
       expectedMessage.timestamps.eventTime = expectedMessage.timestamps.eventTime + 1500;
       expectedMessage.timestamps.timeSincePageLoad = expectedMessage.timestamps.timeSincePageLoad + 1500;
 
@@ -1190,7 +1106,7 @@ describe('magnite analytics adapter', function () {
     ['seatBidId', 'pbsBidId'].forEach(pbsParam => {
       it(`should overwrite prebid bidId with incoming PBS ${pbsParam}`, function () {
         // bid response
-        const seatBidResponse = utils.deepClone(MOCK.BID_RESPONSE);
+        let seatBidResponse = utils.deepClone(MOCK.BID_RESPONSE);
         seatBidResponse[pbsParam] = 'abc-123-do-re-me';
 
         // Run auction
@@ -1209,9 +1125,9 @@ describe('magnite analytics adapter', function () {
         clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
         // new adUnitCodes in payload
         expectedMessage.auctions[0].adUnits[0].bids[0].bidId = 'abc-123-do-re-me';
@@ -1221,43 +1137,10 @@ describe('magnite analytics adapter', function () {
       });
     });
 
-    it('should not use pbsBidId if the bid was client side cached', function () {
-      // bid response
-      const seatBidResponse = utils.deepClone(MOCK.BID_RESPONSE);
-      seatBidResponse.pbsBidId = 'do-not-use-me';
-
-      // Run auction
-      events.emit(AUCTION_INIT, MOCK.AUCTION_INIT);
-      events.emit(BID_REQUESTED, MOCK.BID_REQUESTED);
-
-      // mock client side cache call
-      callPrebidCacheHook(() => {}, {}, seatBidResponse);
-
-      events.emit(BID_RESPONSE, seatBidResponse);
-      events.emit(BIDDER_DONE, MOCK.BIDDER_DONE);
-      events.emit(AUCTION_END, MOCK.AUCTION_END);
-
-      // emmit gpt events and bidWon
-      mockGpt.emitEvent(gptSlotRenderEnded0.eventName, gptSlotRenderEnded0.params);
-
-      events.emit(BID_WON, MOCK.BID_WON);
-
-      // tick the event delay time plus processing delay
-      clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
-
-      expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
-      const message = JSON.parse(request.requestBody);
-
-      // Expect the ids sent to server to use the original bidId not the pbsBidId thing
-      expect(message.auctions[0].adUnits[0].bids[0].bidId).to.equal(MOCK.BID_RESPONSE.requestId);
-      expect(message.bidsWon[0].bidId).to.equal(MOCK.BID_RESPONSE.requestId);
-    });
-
     [0, '0'].forEach(pbsParam => {
       it(`should generate new bidId if incoming pbsBidId is ${pbsParam}`, function () {
         // bid response
-        const seatBidResponse = utils.deepClone(MOCK.BID_RESPONSE);
+        let seatBidResponse = utils.deepClone(MOCK.BID_RESPONSE);
         seatBidResponse.pbsBidId = pbsParam;
 
         // Run auction
@@ -1276,9 +1159,9 @@ describe('magnite analytics adapter', function () {
         clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
-        const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
+        let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
         // new adUnitCodes in payload
         expectedMessage.auctions[0].adUnits[0].bids[0].bidId = STUBBED_UUID;
@@ -1312,9 +1195,9 @@ describe('magnite analytics adapter', function () {
       clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
       expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
-      const message = JSON.parse(request.requestBody);
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let request = server.requests[0];
+      let message = JSON.parse(request.requestBody);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
       // highest cpm in payload
       expectedMessage.auctions[0].adUnits[0].bids[0].bidResponse.bidPriceUSD = 5.5;
@@ -1335,7 +1218,7 @@ describe('magnite analytics adapter', function () {
       expect(server.requests.length).to.equal(2);
 
       // first is normal analytics event without bidWon
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
       delete expectedMessage.bidsWon;
 
       let message = JSON.parse(server.requests[0].requestBody);
@@ -1344,7 +1227,7 @@ describe('magnite analytics adapter', function () {
       // second is just a bidWon (remove gam and auction event)
       message = JSON.parse(server.requests[1].requestBody);
 
-      const expectedMessage2 = utils.deepClone(ANALYTICS_MESSAGE);
+      let expectedMessage2 = utils.deepClone(ANALYTICS_MESSAGE);
       delete expectedMessage2.auctions;
       delete expectedMessage2.gamRenders;
 
@@ -1373,7 +1256,7 @@ describe('magnite analytics adapter', function () {
       expect(server.requests.length).to.equal(2);
 
       // first is normal analytics event without bidWon or gam
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
       delete expectedMessage.bidsWon;
       delete expectedMessage.gamRenders;
 
@@ -1391,7 +1274,7 @@ describe('magnite analytics adapter', function () {
       // second is gam and bid won
       message = JSON.parse(server.requests[1].requestBody);
 
-      const expectedMessage2 = utils.deepClone(ANALYTICS_MESSAGE);
+      let expectedMessage2 = utils.deepClone(ANALYTICS_MESSAGE);
       // second event should be event delay time after first one
       expectedMessage2.timestamps.eventTime = expectedMessage.timestamps.eventTime + rubiConf.analyticsEventDelay;
       expectedMessage2.timestamps.timeSincePageLoad = expectedMessage.timestamps.timeSincePageLoad + rubiConf.analyticsEventDelay;
@@ -1419,7 +1302,7 @@ describe('magnite analytics adapter', function () {
       expect(server.requests.length).to.equal(3);
 
       // grab expected 3 requests from default message
-      const { auctions, gamRenders, bidsWon, ...rest } = utils.deepClone(ANALYTICS_MESSAGE);
+      let { auctions, gamRenders, bidsWon, ...rest } = utils.deepClone(ANALYTICS_MESSAGE);
 
       // rest of payload should have timestamps changed to be - default eventDelay since we changed it to 0
       rest.timestamps.eventTime = rest.timestamps.eventTime - defaultDelay;
@@ -1431,7 +1314,7 @@ describe('magnite analytics adapter', function () {
         { expectedMessage: { gamRenders, ...rest }, trigger: 'solo-gam' },
         { expectedMessage: { bidsWon, ...rest }, trigger: 'solo-bidWon' },
       ].forEach((stuff, requestNum) => {
-        const message = JSON.parse(server.requests[requestNum].requestBody);
+        let message = JSON.parse(server.requests[requestNum].requestBody);
         stuff.expectedMessage.trigger = stuff.trigger;
         expect(message).to.deep.equal(stuff.expectedMessage);
       });
@@ -1463,9 +1346,9 @@ describe('magnite analytics adapter', function () {
       clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
       expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
-      const message = JSON.parse(request.requestBody);
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let request = server.requests[0];
+      let message = JSON.parse(request.requestBody);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
       // should see error time out bid
       expectedMessage.auctions[0].adUnits[0].bids[0].status = 'error';
@@ -1493,7 +1376,7 @@ describe('magnite analytics adapter', function () {
     ].forEach(test => {
       it(`should correctly pass ${test.name}`, function () {
         // bid response
-        const auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
+        let auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
         utils.deepSetValue(auctionInit, test.adUnitPath, test.input);
 
         // Run auction
@@ -1512,8 +1395,8 @@ describe('magnite analytics adapter', function () {
         clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-        const message = JSON.parse(request.requestBody);
+        let request = server.requests[0];
+        let message = JSON.parse(request.requestBody);
 
         // pattern in payload
         expect(deepAccess(message, test.eventPath)).to.equal(test.input);
@@ -1521,7 +1404,7 @@ describe('magnite analytics adapter', function () {
     });
 
     it('should pass bidderDetail for multibid auctions', function () {
-      const bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
+      let bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
       bidResponse.targetingBidder = 'rubi2';
       bidResponse.originalRequestId = bidResponse.requestId;
       bidResponse.requestId = '1a2b3c4d5e6f7g8h9';
@@ -1536,7 +1419,7 @@ describe('magnite analytics adapter', function () {
       // emmit gpt events and bidWon
       mockGpt.emitEvent(gptSlotRenderEnded0.eventName, gptSlotRenderEnded0.params);
 
-      const bidWon = utils.deepClone(MOCK.BID_WON);
+      let bidWon = utils.deepClone(MOCK.BID_WON);
       bidWon.bidId = bidWon.requestId = '1a2b3c4d5e6f7g8h9';
       bidWon.bidderDetail = 'rubi2';
       events.emit(BID_WON, bidWon);
@@ -1546,9 +1429,9 @@ describe('magnite analytics adapter', function () {
 
       expect(server.requests.length).to.equal(1);
 
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
 
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
       // expect an extra bid added
       expectedMessage.auctions[0].adUnits[0].bids.push({
@@ -1599,14 +1482,12 @@ describe('magnite analytics adapter', function () {
       clock.tick(rubiConf.analyticsEventDelay + rubiConf.analyticsProcessDelay);
 
       expect(server.requests.length).to.equal(1);
-      const request = server.requests[0];
-      const message = JSON.parse(request.requestBody);
-      const expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
+      let request = server.requests[0];
+      let message = JSON.parse(request.requestBody);
+      let expectedMessage = utils.deepClone(ANALYTICS_MESSAGE);
 
       // bid source should be 'server'
       expectedMessage.auctions[0].adUnits[0].bids[0].source = 'server';
-      // if one of bids.source === server should add pbsRequest flag to adUnit
-      expectedMessage.auctions[0].adUnits[0].pbsRequest = 1;
       expectedMessage.bidsWon[0].source = 'server';
       expect(message).to.deep.equal(expectedMessage);
     });
@@ -1631,11 +1512,11 @@ describe('magnite analytics adapter', function () {
         performStandardAuction();
 
         expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
+        let request = server.requests[0];
 
         expect(request.url).to.equal('http://localhost:9999/event');
 
-        const message = JSON.parse(request.requestBody);
+        let message = JSON.parse(request.requestBody);
 
         const AnalyticsMessageWithCustomData = {
           ...ANALYTICS_MESSAGE,
@@ -1825,34 +1706,6 @@ describe('magnite analytics adapter', function () {
         };
         expect(message1.bidsWon).to.deep.equal([expectedMessage1]);
       });
-    });
-    describe('cookieless', () => {
-      afterEach(() => {
-        magniteAdapter.disableAnalytics();
-      })
-      it('should not add cookieless and preserve original rule name', () => {
-        // Set the confs
-        config.setConfig({
-          rubicon: {
-            wrapperName: '1001_general',
-            wrapperFamily: 'general',
-            rule_name: 'desktop-magnite.com',
-          }
-        });
-        performStandardAuction();
-
-        expect(server.requests.length).to.equal(1);
-        const request = server.requests[0];
-
-        expect(request.url).to.match(/\/\/localhost:9999\/event/);
-
-        const message = JSON.parse(request.requestBody);
-        expect(message.wrapper).to.deep.equal({
-          name: '1001_general',
-          family: 'general',
-          rule: 'desktop-magnite.com',
-        });
-      })
     });
   });
 
@@ -2223,7 +2076,7 @@ describe('magnite analytics adapter', function () {
       config.setConfig({ rubicon: { updatePageView: true } });
     });
 
-    it('should add a no-bid bid to the add unit if it receives one from the server', () => {
+    it('should add a no-bid bid to the add unit if it recieves one from the server', () => {
       const bidResponse = utils.deepClone(MOCK.BID_RESPONSE);
       const auctionInit = utils.deepClone(MOCK.AUCTION_INIT);
 
@@ -2238,7 +2091,7 @@ describe('magnite analytics adapter', function () {
       events.emit(AUCTION_END, MOCK.AUCTION_END);
       clock.tick(rubiConf.analyticsBatchTimeout + 1000);
 
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
       expect(utils.generateUUID.called).to.equal(true);
 
       expect(message.auctions[0].adUnits[0].bids[1]).to.deep.equal(
@@ -2270,7 +2123,7 @@ describe('magnite analytics adapter', function () {
     const runNonBidAuction = () => {
       events.emit(AUCTION_INIT, MOCK.AUCTION_INIT);
       events.emit(BID_REQUESTED, MOCK.BID_REQUESTED);
-      events.emit(PBS_ANALYTICS, seatnonbid)
+      events.emit(SEAT_NON_BID, seatnonbid)
       events.emit(BIDDER_DONE, MOCK.BIDDER_DONE);
       events.emit(AUCTION_END, MOCK.AUCTION_END);
       clock.tick(rubiConf.analyticsBatchTimeout + 1000);
@@ -2278,8 +2131,8 @@ describe('magnite analytics adapter', function () {
     const checkStatusAgainstCode = (status, code, error, index) => {
       seatnonbid.seatnonbid[0].nonbid[0].status = code;
       runNonBidAuction();
-      const message = JSON.parse(server.requests[index].requestBody);
-      const bid = message.auctions[0].adUnits[0].bids[1];
+      let message = JSON.parse(server.requests[index].requestBody);
+      let bid = message.auctions[0].adUnits[0].bids[1];
 
       if (error) {
         expect(bid.error).to.deep.equal(error);
@@ -2297,12 +2150,12 @@ describe('magnite analytics adapter', function () {
           accountId: 1001
         }
       });
-      seatnonbid = utils.deepClone(MOCK.PBS_ANALYTICS);
+      seatnonbid = utils.deepClone(MOCK.SEAT_NON_BID);
     });
 
     it('adds seatnonbid info to bids array', () => {
       runNonBidAuction();
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
 
       expect(message.auctions[0].adUnits[0].bids[1]).to.deep.equal(
         {
@@ -2317,12 +2170,12 @@ describe('magnite analytics adapter', function () {
 
     it('adjusts the status according to the status map', () => {
       const statuses = [
-        { code: 0, status: 'no-bid' },
-        { code: 100, status: 'error', error: { code: 'request-error', description: 'general error' } },
-        { code: 101, status: 'error', error: { code: 'timeout-error', description: 'prebid server timeout' } },
-        { code: 200, status: 'rejected' },
-        { code: 202, status: 'rejected' },
-        { code: 301, status: 'rejected-ipf' }
+        {code: 0, status: 'no-bid'},
+        {code: 100, status: 'error', error: {code: 'request-error', description: 'general error'}},
+        {code: 101, status: 'error', error: {code: 'timeout-error', description: 'prebid server timeout'}},
+        {code: 200, status: 'rejected'},
+        {code: 202, status: 'rejected'},
+        {code: 301, status: 'rejected-ipf'}
       ];
       statuses.forEach((info, index) => {
         checkStatusAgainstCode(info.status, info.code, info.error, index);
@@ -2371,7 +2224,7 @@ describe('magnite analytics adapter', function () {
       bidRejectedArgs.rejectionReason = 'Bid does not meet price floor';
 
       runBidRejectedAuction();
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
 
       expect(message.auctions[0].adUnits[0].bids[0]).to.deep.equal({
         bidder: 'rubicon',
@@ -2395,10 +2248,11 @@ describe('magnite analytics adapter', function () {
     });
 
     it('does general rejection', () => {
+      bidRejectedArgs
       bidRejectedArgs.rejectionReason = 'this bid is rejected';
 
       runBidRejectedAuction();
-      const message = JSON.parse(server.requests[0].requestBody);
+      let message = JSON.parse(server.requests[0].requestBody);
 
       expect(message.auctions[0].adUnits[0].bids[0]).to.deep.equal({
         bidder: 'rubicon',

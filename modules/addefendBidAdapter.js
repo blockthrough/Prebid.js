@@ -1,11 +1,10 @@
-import { registerBidder } from '../src/adapters/bidderFactory.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {getGlobal} from '../src/prebidGlobal.js';
 
 const BIDDER_CODE = 'addefend';
-const GVLID = 539;
 
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
   hostname: 'https://addefend-platform.com',
 
   getHostname() {
@@ -17,8 +16,8 @@ export const spec = {
               (bid.params.placementId !== undefined && (typeof bid.params.placementId === 'string')));
   },
   buildRequests: function(validBidRequests, bidderRequest) {
-    const bid = {
-      v: 'v' + '$prebid.version$',
+    let bid = {
+      v: getGlobal().version,
       auctionId: false,
       pageId: false,
       gdpr_applies: bidderRequest.gdprConsent && bidderRequest.gdprConsent.gdprApplies ? bidderRequest.gdprConsent.gdprApplies : 'true',
@@ -29,8 +28,8 @@ export const spec = {
     };
 
     for (var i = 0; i < validBidRequests.length; i++) {
-      const vb = validBidRequests[i];
-      const o = vb.params;
+      let vb = validBidRequests[i];
+      let o = vb.params;
       // TODO: fix auctionId/transactionId leak: https://github.com/prebid/Prebid.js/issues/9781
       bid.auctionId = vb.auctionId;
       o.bidId = vb.bidId;
@@ -46,8 +45,8 @@ export const spec = {
 
       if (vb.sizes && Array.isArray(vb.sizes)) {
         for (var j = 0; j < vb.sizes.length; j++) {
-          const s = vb.sizes[j];
-          if (Array.isArray(s) && s.length === 2) {
+          let s = vb.sizes[j];
+          if (Array.isArray(s) && s.length == 2) {
             o.sizes.push(s[0] + 'x' + s[1]);
           }
         }

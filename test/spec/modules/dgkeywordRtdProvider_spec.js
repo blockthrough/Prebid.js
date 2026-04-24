@@ -91,22 +91,6 @@ describe('Digital Garage Keyword Module', function () {
       expect(dgRtd.getTargetBidderOfDgKeywords(adUnits_no_target)).an('array')
         .that.is.empty;
     });
-    it('convertKeywordsToString method unit test', function () {
-      const keywordsTest = [
-        { keywords: { param1: 'keywords1' }, result: 'param1=keywords1' },
-        { keywords: { param1: 'keywords1', param2: 'keywords2' }, result: 'param1=keywords1,param2=keywords2' },
-        { keywords: { p1: 'k1', p2: 'k2', p: 'k' }, result: 'p1=k1,p2=k2,p=k' },
-        { keywords: { p1: 'k1', p2: 'k2', p: ['k'] }, result: 'p1=k1,p2=k2,p=k' },
-        { keywords: { p1: 'k1', p2: ['k21', 'k22'], p: ['k'] }, result: 'p1=k1,p2=k21,p2=k22,p=k' },
-        { keywords: { p1: ['k11', 'k12', 'k13'], p2: ['k21', 'k22'], p: ['k'] }, result: 'p1=k11,p1=k12,p1=k13,p2=k21,p2=k22,p=k' },
-        { keywords: { p1: [], p2: ['', ''], p: [''] }, result: 'p1,p2,p' },
-        { keywords: { p1: 1, p2: [1, 'k2'], p: '' }, result: 'p1,p2=k2,p' },
-        { keywords: { p1: ['k1', 2, 'k3'], p2: [1, 2], p: 3 }, result: 'p1=k1,p1=k3,p2,p' },
-      ];
-      for (const test of keywordsTest) {
-        expect(dgRtd.convertKeywordsToString(test.keywords)).equal(test.result);
-      }
-    })
     it('should have targets', function () {
       const adUnits_targets = [
         {
@@ -248,9 +232,9 @@ describe('Digital Garage Keyword Module', function () {
       },
     ];
     it('should get profiles error(404).', function (done) {
-      const pbjs = cloneDeep(config);
+      let pbjs = cloneDeep(config);
       pbjs.adUnits = cloneDeep(AD_UNITS);
-      const moduleConfig = cloneDeep(DEF_CONFIG);
+      let moduleConfig = cloneDeep(DEF_CONFIG);
       dgRtd.getDgKeywordsAndSet(
         pbjs,
         () => {
@@ -258,16 +242,16 @@ describe('Digital Garage Keyword Module', function () {
           expect(targets[1].bidder).to.be.equal('dg2');
           expect(targets[1].params.placementId).to.be.equal(99999998);
           expect(targets[1].params.dgkeyword).to.be.an('undefined');
-          expect(targets[1].params.ortb2Imp).to.be.an('undefined');
+          expect(targets[1].params.keywords).to.be.an('undefined');
           targets = pbjs.adUnits[1].bids;
           expect(targets[0].bidder).to.be.equal('dg');
           expect(targets[0].params.placementId).to.be.equal(99999996);
           expect(targets[0].params.dgkeyword).to.be.an('undefined');
-          expect(targets[0].params.ortb2Imp).to.be.an('undefined');
+          expect(targets[0].params.keywords).to.be.an('undefined');
           expect(targets[2].bidder).to.be.equal('dg3');
           expect(targets[2].params.placementId).to.be.equal(99999994);
           expect(targets[2].params.dgkeyword).to.be.an('undefined');
-          expect(targets[2].params.ortb2Imp).to.be.an('undefined');
+          expect(targets[2].params.keywords).to.be.an('undefined');
 
           expect(pbjs.getBidderConfig()).to.be.deep.equal({});
 
@@ -280,10 +264,9 @@ describe('Digital Garage Keyword Module', function () {
       request.respond(404);
     });
     it('should get profiles timeout.', function (done) {
-      const clock = sinon.useFakeTimers();
-      const pbjs = cloneDeep(config);
+      let pbjs = cloneDeep(config);
       pbjs.adUnits = cloneDeep(AD_UNITS);
-      const moduleConfig = cloneDeep(DEF_CONFIG);
+      let moduleConfig = cloneDeep(DEF_CONFIG);
       moduleConfig.params.timeout = 10;
       dgRtd.getDgKeywordsAndSet(
         pbjs,
@@ -292,16 +275,16 @@ describe('Digital Garage Keyword Module', function () {
           expect(targets[1].bidder).to.be.equal('dg2');
           expect(targets[1].params.placementId).to.be.equal(99999998);
           expect(targets[1].params.dgkeyword).to.be.an('undefined');
-          expect(targets[1].params.ortb2Imp).to.be.an('undefined');
+          expect(targets[1].params.keywords).to.be.an('undefined');
           targets = pbjs.adUnits[1].bids;
           expect(targets[0].bidder).to.be.equal('dg');
           expect(targets[0].params.placementId).to.be.equal(99999996);
           expect(targets[0].params.dgkeyword).to.be.an('undefined');
-          expect(targets[0].params.ortb2Imp).to.be.an('undefined');
+          expect(targets[0].params.keywords).to.be.an('undefined');
           expect(targets[2].bidder).to.be.equal('dg3');
           expect(targets[2].params.placementId).to.be.equal(99999994);
           expect(targets[2].params.dgkeyword).to.be.an('undefined');
-          expect(targets[2].params.ortb2Imp).to.be.an('undefined');
+          expect(targets[2].params.keywords).to.be.an('undefined');
 
           expect(pbjs.getBidderConfig()).to.be.deep.equal({});
 
@@ -311,8 +294,7 @@ describe('Digital Garage Keyword Module', function () {
         null
       );
       const request = server.requests[0];
-      if (request) {
-        clock.tick(50);
+      setTimeout(() => {
         if (request) {
           request.respond(
             200,
@@ -320,16 +302,15 @@ describe('Digital Garage Keyword Module', function () {
             JSON.stringify(DUMMY_RESPONSE)
           );
         }
-      }
-      clock.restore();
+      }, 50);
     });
     it('should get profiles ok(200).', function (done) {
-      const pbjs = cloneDeep(config);
+      let pbjs = cloneDeep(config);
       pbjs.adUnits = cloneDeep(AD_UNITS);
       if (IGNORE_SET_ORTB2) {
         pbjs._ignoreSetOrtb2 = true;
       }
-      const moduleConfig = cloneDeep(DEF_CONFIG);
+      let moduleConfig = cloneDeep(DEF_CONFIG);
       dgRtd.getDgKeywordsAndSet(
         pbjs,
         () => {
@@ -337,16 +318,16 @@ describe('Digital Garage Keyword Module', function () {
           expect(targets[1].bidder).to.be.equal('dg2');
           expect(targets[1].params.placementId).to.be.equal(99999998);
           expect(targets[1].params.dgkeyword).to.be.an('undefined');
-          expect(targets[1].ortb2Imp.ext.data.keywords).to.be.deep.equal(dgRtd.convertKeywordsToString(SUCCESS_RESULT));
+          expect(targets[1].params.keywords).to.be.deep.equal(SUCCESS_RESULT);
           targets = pbjs.adUnits[1].bids;
           expect(targets[0].bidder).to.be.equal('dg');
           expect(targets[0].params.placementId).to.be.equal(99999996);
           expect(targets[0].params.dgkeyword).to.be.an('undefined');
-          expect(targets[0].ortb2Imp.ext.data.keywords).to.be.deep.equal(dgRtd.convertKeywordsToString(SUCCESS_RESULT));
+          expect(targets[0].params.keywords).to.be.deep.equal(SUCCESS_RESULT);
           expect(targets[2].bidder).to.be.equal('dg3');
           expect(targets[2].params.placementId).to.be.equal(99999994);
           expect(targets[2].params.dgkeyword).to.be.an('undefined');
-          expect(targets[2].ortb2Imp).to.be.an('undefined');
+          expect(targets[2].params.keywords).to.be.an('undefined');
 
           if (!IGNORE_SET_ORTB2) {
             expect(pbjs.getBidderConfig()).to.be.deep.equal({
@@ -368,12 +349,12 @@ describe('Digital Garage Keyword Module', function () {
     });
     it('change url.', function (done) {
       const dummyUrl = 'https://www.test.com/test'
-      const pbjs = cloneDeep(config);
+      let pbjs = cloneDeep(config);
       pbjs.adUnits = cloneDeep(AD_UNITS);
       if (IGNORE_SET_ORTB2) {
         pbjs._ignoreSetOrtb2 = true;
       }
-      const moduleConfig = cloneDeep(DEF_CONFIG);
+      let moduleConfig = cloneDeep(DEF_CONFIG);
       moduleConfig.params.url = dummyUrl;
       dgRtd.getDgKeywordsAndSet(
         pbjs,
@@ -395,12 +376,12 @@ describe('Digital Garage Keyword Module', function () {
     });
     it('add fpid stored in local strage.', function (done) {
       const uuid = 'uuid_abcdefghijklmnopqrstuvwxyz';
-      const pbjs = cloneDeep(config);
+      let pbjs = cloneDeep(config);
       pbjs.adUnits = cloneDeep(AD_UNITS);
       if (IGNORE_SET_ORTB2) {
         pbjs._ignoreSetOrtb2 = true;
       }
-      const moduleConfig = cloneDeep(DEF_CONFIG);
+      let moduleConfig = cloneDeep(DEF_CONFIG);
       window.localStorage.setItem('ope_fpid', uuid);
       moduleConfig.params.enableReadFpid = true;
       dgRtd.getDgKeywordsAndSet(
@@ -423,12 +404,12 @@ describe('Digital Garage Keyword Module', function () {
     });
     it('disable fpid stored in local strage.', function (done) {
       const uuid = 'uuid_abcdefghijklmnopqrstuvwxyz';
-      const pbjs = cloneDeep(config);
+      let pbjs = cloneDeep(config);
       pbjs.adUnits = cloneDeep(AD_UNITS);
       if (IGNORE_SET_ORTB2) {
         pbjs._ignoreSetOrtb2 = true;
       }
-      const moduleConfig = cloneDeep(DEF_CONFIG);
+      let moduleConfig = cloneDeep(DEF_CONFIG);
       window.localStorage.setItem('ope_fpid', uuid);
       dgRtd.getDgKeywordsAndSet(
         pbjs,

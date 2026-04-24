@@ -7,7 +7,6 @@ import {
   isEmpty,
   isFn,
   isNumber,
-  isPlainObject,
   isStr,
   logError,
   logMessage,
@@ -15,8 +14,8 @@ import {
   triggerPixel,
 } from '../src/utils.js';
 
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER } from '../src/mediaTypes.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER} from '../src/mediaTypes.js';
 
 const BIDDER_CODE = 'mediasniper';
 const DEFAULT_BID_TTL = 360;
@@ -62,7 +61,7 @@ export const spec = {
     deepSetValue(payload, 'id', bidderRequest.bidderRequestId);
 
     validBidRequests.forEach((validBid) => {
-      const bid = deepClone(validBid);
+      let bid = deepClone(validBid);
 
       const imp = createImp(bid);
       payload.imp.push(imp);
@@ -211,7 +210,7 @@ function createImp(bid) {
   }
 
   // Only supports proper mediaTypes definition…
-  for (const mediaType in bid.mediaTypes) {
+  for (let mediaType in bid.mediaTypes) {
     switch (mediaType) {
       case BANNER:
         imp.banner = createBannerImp(bid);
@@ -242,7 +241,7 @@ function createImp(bid) {
  *
  * @param {*} bid a Prebid.js bid (request) object
  * @param {string} mediaType the mediaType or the wildcard '*'
- * @param {string|Array} size the size array or the wildcard '*'
+ * @param {string|array} size the size array or the wildcard '*'
  * @returns {number|boolean}
  */
 function getFloor(bid, mediaType, size = '*') {
@@ -263,7 +262,7 @@ function getFloor(bid, mediaType, size = '*') {
     size,
   });
 
-  return isPlainObject(floor) && !isNaN(floor.floor) && floor.currency === DEFAULT_CURRENCY
+  return !isNaN(floor.floor) && floor.currency === DEFAULT_CURRENCY
     ? floor.floor
     : false;
 }
@@ -271,7 +270,7 @@ function getFloor(bid, mediaType, size = '*') {
 function getMinFloor(bid) {
   const floors = [];
 
-  for (const mediaType in bid.mediaTypes) {
+  for (let mediaType in bid.mediaTypes) {
     const floor = getFloor(bid, mediaType);
 
     if (isNumber(floor)) {
@@ -295,7 +294,7 @@ function getMinFloor(bid) {
  * @returns {object}
  */
 function createBannerImp(bid) {
-  const sizes = bid.mediaTypes.banner.sizes;
+  let sizes = bid.mediaTypes.banner.sizes;
   const params = deepAccess(bid, 'params', {});
 
   const banner = {};

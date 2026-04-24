@@ -1,20 +1,16 @@
 
 name-template: 'Prebid $RESOLVED_VERSION Release'
 tag-template: '$RESOLVED_VERSION'
-autolabeler:
-  - label: 'maintenance'
-    title:
-      - '/^(?!.*(bug|initial|release|fix)).*$/i'
 categories:
   - title: '🚀 New Features'
     label: 'feature'
+  - title: '🛠 Maintenance'
+    label: 'maintenance'    
   - title: '🐛 Bug Fixes'
     labels:
       - 'fix'
       - 'bugfix'
-      - 'bug'
-  - title: '🛠 Maintenance'
-    labels: []
+      - 'bug'      
 change-template: '- $TITLE (#$NUMBER)'
 version-resolver:
   major:

@@ -2,11 +2,10 @@ import { ajax } from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
 import * as utils from '../src/utils.js';
-import { EVENTS } from '../src/constants.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { getRefererInfo } from '../src/refererDetection.js';
-import { MODULE_TYPE_ANALYTICS } from '../src/activities/modules.js';
-import { getViewportSize } from '../libraries/viewport/viewport.js';
+import CONSTANTS from '../src/constants.json';
+import {getStorageManager} from '../src/storageManager.js';
+import {getRefererInfo} from '../src/refererDetection.js';
+import {MODULE_TYPE_ANALYTICS} from '../src/activities/modules.js';
 
 /**
  * hadronAnalyticsAdapter.js - Audigent Hadron Analytics Adapter
@@ -18,14 +17,19 @@ const DEFAULT_PARTNER_ID = 0;
 const AU_GVLID = 561;
 const MODULE_CODE = 'hadronAnalytics';
 
-export const storage = getStorageManager({ moduleType: MODULE_TYPE_ANALYTICS, moduleName: MODULE_CODE });
+export const storage = getStorageManager({moduleType: MODULE_TYPE_ANALYTICS, moduleName: MODULE_CODE});
 
 var viewId = utils.generateUUID();
 
 var partnerId = DEFAULT_PARTNER_ID;
 var eventsToTrack = [];
 
-const { width: x, height: y } = getViewportSize();
+var w = window;
+var d = document;
+var e = d.documentElement;
+var g = d.getElementsByTagName('body')[0];
+var x = w.innerWidth || e.clientWidth || g.clientWidth;
+var y = w.innerHeight || e.clientHeight || g.clientHeight;
 
 var pageView = {
   eventType: 'pageView',
@@ -45,73 +49,78 @@ var eventQueue = [
 
 var startAuction = 0;
 var bidRequestTimeout = 0;
-const analyticsType = 'endpoint';
+let analyticsType = 'endpoint';
 
-const hadronAnalyticsAdapter = Object.assign(adapter({ url: HADRON_ANALYTICS_URL, analyticsType }), {
-  track({ eventType, args }) {
-    args = args ? utils.deepClone(args) : {};
+let hadronAnalyticsAdapter = Object.assign(adapter({url: HADRON_ANALYTICS_URL, analyticsType}), {
+  track({eventType, args}) {
+    args = args ? JSON.parse(JSON.stringify(args)) : {};
     var data = {};
     if (!eventsToTrack.includes(eventType)) return;
     switch (eventType) {
-      case EVENTS.AUCTION_INIT: {
+      case CONSTANTS.EVENTS.AUCTION_INIT: {
         data = args;
         startAuction = data.timestamp;
         bidRequestTimeout = data.timeout;
         break;
       }
 
-      case EVENTS.AUCTION_END: {
+      case CONSTANTS.EVENTS.AUCTION_END: {
         data = args;
         data.start = startAuction;
         data.end = Date.now();
         break;
       }
 
-      case EVENTS.BID_ADJUSTMENT: {
+      case CONSTANTS.EVENTS.BID_ADJUSTMENT: {
         data.bidders = args;
         break;
       }
 
-      case EVENTS.BID_TIMEOUT: {
+      case CONSTANTS.EVENTS.BID_TIMEOUT: {
         data.bidders = args;
         data.duration = bidRequestTimeout;
         break;
       }
 
-      case EVENTS.BID_REQUESTED: {
+      case CONSTANTS.EVENTS.BID_REQUESTED: {
         data = args;
         break;
       }
 
-      case EVENTS.BID_RESPONSE: {
+      case CONSTANTS.EVENTS.BID_RESPONSE: {
         data = args;
         delete data.ad;
         break;
       }
 
-      case EVENTS.BID_WON: {
+      case CONSTANTS.EVENTS.BID_WON: {
         data = args;
         delete data.ad;
         delete data.adUrl;
         break;
       }
 
-      case EVENTS.BIDDER_DONE: {
+      case CONSTANTS.EVENTS.BIDDER_DONE: {
         data = args;
         break;
       }
 
-      case EVENTS.SET_TARGETING: {
+      case CONSTANTS.EVENTS.SET_TARGETING: {
         data.targetings = args;
         break;
       }
 
-      case EVENTS.REQUEST_BIDS: {
+      case CONSTANTS.EVENTS.REQUEST_BIDS: {
         data = args;
         break;
       }
 
-      case EVENTS.AD_RENDER_FAILED: {
+      case CONSTANTS.EVENTS.ADD_AD_UNITS: {
+        data = args;
+        break;
+      }
+
+      case CONSTANTS.EVENTS.AD_RENDER_FAILED: {
         data = args;
         break;
       }
@@ -177,7 +186,7 @@ function sendEvent(event) {
   eventQueue.push(event);
   utils.logInfo(`HADRON_ANALYTICS_EVENT ${event.eventType} `, event);
 
-  if (event.eventType === EVENTS.AUCTION_END) {
+  if (event.eventType === CONSTANTS.EVENTS.AUCTION_END) {
     flush();
   }
 }

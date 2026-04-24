@@ -303,7 +303,7 @@ describe('ReadPeakAdapter', function() {
             consentString: undefined,
           }
         }
-        const request = spec.buildRequests([nativeBidRequest], { ...bidderRequest, ...gdprData });
+        const request = spec.buildRequests([nativeBidRequest], {...bidderRequest, ...gdprData});
 
         const data = JSON.parse(request.data);
 
@@ -327,7 +327,7 @@ describe('ReadPeakAdapter', function() {
             consentString: tcString
           }
         }
-        const request = spec.buildRequests([nativeBidRequest], { ...bidderRequest, ...gdprData });
+        const request = spec.buildRequests([nativeBidRequest], {...bidderRequest, ...gdprData});
 
         const data = JSON.parse(request.data);
 
@@ -376,7 +376,7 @@ describe('ReadPeakAdapter', function() {
           height: 500
         });
         expect(bidResponse.native.clickUrl).to.equal(
-          'http://url.to/target'
+          'http%3A%2F%2Furl.to%2Ftarget'
         );
         expect(bidResponse.native.impressionTrackers).to.contain(
           'http://url.to/pixeltracker'
@@ -465,7 +465,7 @@ describe('ReadPeakAdapter', function() {
             consentString: undefined,
           }
         }
-        const request = spec.buildRequests([bannerBidRequest], { ...bidderRequest, ...gdprData });
+        const request = spec.buildRequests([bannerBidRequest], {...bidderRequest, ...gdprData});
 
         const data = JSON.parse(request.data);
 
@@ -489,7 +489,7 @@ describe('ReadPeakAdapter', function() {
             consentString: tcString
           }
         }
-        const request = spec.buildRequests([bannerBidRequest], { ...bidderRequest, ...gdprData });
+        const request = spec.buildRequests([bannerBidRequest], {...bidderRequest, ...gdprData});
 
         const data = JSON.parse(request.data);
 

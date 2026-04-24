@@ -18,8 +18,8 @@ describe('RetailSpot Adapter', function () {
       consentString: consentString,
       gdprApplies: true
     },
-    refererInfo: { location: referrerUrl, canonicalUrl, domain, topmostLocation: 'fakePageURL' },
-    ortb2: { site: { page: pageUrl, ref: referrerUrl } }
+    refererInfo: {location: referrerUrl, canonicalUrl, domain, topmostLocation: 'fakePageURL'},
+    ortb2: {site: {page: pageUrl, ref: referrerUrl}}
   };
 
   const bidRequestWithSinglePlacement = [
@@ -83,9 +83,9 @@ describe('RetailSpot Adapter', function () {
       },
       'sizes': '300x250',
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x250'] }
+        { 'banner':
+          {'sizes': ['300x250']
+          }
         },
       'transactionId': 'bid_id_0_transaction_id'
     }
@@ -101,9 +101,9 @@ describe('RetailSpot Adapter', function () {
       },
       'sizes': '300x250',
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x250'] }
+        { 'banner':
+          {'sizes': ['300x250']
+          }
         },
       'transactionId': 'bid_id_0_transaction_id'
     },
@@ -116,9 +116,9 @@ describe('RetailSpot Adapter', function () {
       },
       'sizes': [[300, 600]],
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x600'] }
+        { 'banner':
+          {'sizes': ['300x600']
+          }
         },
       'transactionId': 'bid_id_1_transaction_id'
     },
@@ -246,7 +246,7 @@ describe('RetailSpot Adapter', function () {
   ];
   const adapter = newBidder(spec);
 
-  const DEV_URL = 'http://localhost:3030/';
+  const DEV_URL = 'http://localhost:8090/';
 
   describe('inherited functions', function () {
     it('exists and is a function', function () {
@@ -255,7 +255,7 @@ describe('RetailSpot Adapter', function () {
   });
 
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidId': 'bid_id_1',
       'bidder': 'retailspot',
       'placementCode': 'adunit/hb-1',
@@ -266,7 +266,7 @@ describe('RetailSpot Adapter', function () {
       'transactionId': 'bid_id_1_transaction_id'
     };
 
-    const bidWSize = {
+    let bidWSize = {
       'bidId': 'bid_id_1',
       'bidder': 'retailspot',
       'placementCode': 'adunit/hb-1',
@@ -286,27 +286,27 @@ describe('RetailSpot Adapter', function () {
     });
 
     it('should return false when required params are not passed', function () {
-      const invalidBid = Object.assign({}, bid);
-      delete invalidBid.sizes;
+      let bid = Object.assign({}, bid);
+      delete bid.size;
 
-      expect(!!spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(!!spec.isBidRequestValid(bid)).to.equal(false);
     });
 
     it('should return false when required params are not passed', function () {
-      const invalidBid = Object.assign({}, bid);
-      delete invalidBid.params;
-      invalidBid.params = {
+      let bid = Object.assign({}, bid);
+      delete bid.params;
+      bid.params = {
         'placement': 0
       };
-      expect(!!spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(!!spec.isBidRequestValid(bid)).to.equal(false);
     });
   });
 
   describe('buildRequests', function () {
     it('should add gdpr/usp consent information to the request', function () {
-      const consentString = 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==';
-      const uspConsentData = '1YCC';
-      const bidderRequest = {
+      let consentString = 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==';
+      let uspConsentData = '1YCC';
+      let bidderRequest = {
         'auctionId': '1d1a030790a475',
         'bidderRequestId': '22edbae2733bf6',
         'timeout': 3000,
@@ -333,7 +333,7 @@ describe('RetailSpot Adapter', function () {
       const request = spec.buildRequests(bidRequestWithSinglePlacement, bidderRequest);
       const payload = JSON.parse(request.data);
 
-      expect(request.url).to.contain('https://hbapi.retailspotads.com/');
+      expect(request.url).to.contain('https://ssp.retail-spot.io/prebid');
       expect(request.method).to.equal('POST');
 
       expect(payload).to.deep.equal(bidderRequest);
@@ -344,7 +344,7 @@ describe('RetailSpot Adapter', function () {
       const request = spec.buildRequests(bidRequestWithSinglePlacement, bidderRequest);
       const payload = JSON.parse(request.data);
 
-      expect(request.url).to.contain('https://hbapi.retailspotads.com/');
+      expect(request.url).to.contain('https://ssp.retail-spot.io/prebid');
       expect(request.method).to.equal('POST');
 
       expect(payload).to.deep.equal(bidderRequest);
@@ -355,7 +355,7 @@ describe('RetailSpot Adapter', function () {
       const request = spec.buildRequests(bidRequestMultiPlacements, bidderRequest);
       const payload = JSON.parse(request.data);
 
-      expect(request.url).to.contain('https://hbapi.retailspotads.com/');
+      expect(request.url).to.contain('https://ssp.retail-spot.io/prebid');
       expect(request.method).to.equal('POST');
 
       expect(payload).to.deep.equal(bidderRequest);
@@ -377,18 +377,18 @@ describe('RetailSpot Adapter', function () {
     });
 
     it('handles nobid responses', function () {
-      const response = [{
+      let response = [{
         requestId: '123dfsdf',
         placement: '12df1'
       }];
       serverResponse.body = response;
-      const result = spec.interpretResponse(serverResponse, []);
+      let result = spec.interpretResponse(serverResponse, []);
       expect(result).deep.equal([]);
     });
 
     it('receive reponse with single placement', function () {
       serverResponse.body = responseWithSinglePlacement;
-      const result = spec.interpretResponse(serverResponse, { data: '{"bids":' + JSON.stringify(requestDataOnePlacement) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"bids":' + JSON.stringify(requestDataOnePlacement) + '}'});
 
       expect(result.length).to.equal(1);
       expect(result[0].cpm).to.equal(0.5);
@@ -400,7 +400,7 @@ describe('RetailSpot Adapter', function () {
 
     it('receive reponse with multiple placement', function () {
       serverResponse.body = responseWithMultiplePlacements;
-      const result = spec.interpretResponse(serverResponse, { data: '{"bids":' + JSON.stringify(requestDataMultiPlacement) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"bids":' + JSON.stringify(requestDataMultiPlacement) + '}'});
 
       expect(result.length).to.equal(2);
 
@@ -417,7 +417,7 @@ describe('RetailSpot Adapter', function () {
 
     it('receive Vast reponse with Video ad', function () {
       serverResponse.body = responseWithSingleVideo;
-      const result = spec.interpretResponse(serverResponse, { data: '{"bids":' + JSON.stringify(sentBidVideo) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"bids":' + JSON.stringify(sentBidVideo) + '}'});
 
       expect(result.length).to.equal(1);
       expect(result).to.deep.equal(videoResult);

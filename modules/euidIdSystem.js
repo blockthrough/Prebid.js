@@ -6,18 +6,13 @@
  */
 
 import { logInfo, logWarn, deepAccess } from '../src/utils.js';
-import { submodule } from '../src/hook.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { MODULE_TYPE_UID } from '../src/activities/modules.js';
+import {submodule} from '../src/hook.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {MODULE_TYPE_UID} from '../src/activities/modules.js';
 
-import { Uid2GetId, Uid2CodeVersion, extractIdentityFromParams } from '../libraries/uid2IdSystemShared/uid2IdSystem_shared.js';
-
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- * @typedef {import('../modules/userId/index.js').ConsentData} ConsentData
- * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
- */
+// RE below lint exception: UID2 and EUID are separate modules, but the protocol is the same and shared code makes sense here.
+// eslint-disable-next-line prebid/validate-imports
+import { Uid2GetId, Uid2CodeVersion } from './uid2IdSystem_shared.js';
 
 const MODULE_NAME = 'euid';
 const MODULE_REVISION = Uid2CodeVersion;
@@ -40,7 +35,7 @@ function createLogger(logger, prefix) {
 const _logInfo = createLogger(logInfo, LOG_PRE_FIX);
 const _logWarn = createLogger(logWarn, LOG_PRE_FIX);
 
-export const storage = getStorageManager({ moduleType: MODULE_TYPE_UID, moduleName: MODULE_NAME });
+export const storage = getStorageManager({moduleType: MODULE_TYPE_UID, moduleName: MODULE_NAME});
 
 function hasWriteToDeviceConsent(consentData) {
   const gdprApplies = consentData?.gdprApplies === true;
@@ -80,16 +75,16 @@ export const euidIdSubmodule = {
   /**
    * performs action to obtain id and return a value.
    * @function
-   * @param {SubmoduleConfig} [config]
+   * @param {SubmoduleConfig} [configparams]
    * @param {ConsentData|undefined} consentData
-   * @returns {IdResponse}
+   * @returns {euidId}
    */
   getId(config, consentData) {
-    if (consentData?.gdpr?.gdprApplies !== true) {
+    if (consentData?.gdprApplies !== true) {
       logWarn('EUID is intended for use within the EU. The module will not run when GDPR does not apply.');
       return;
     }
-    if (!hasWriteToDeviceConsent(consentData?.gdpr)) {
+    if (!hasWriteToDeviceConsent(consentData)) {
       // The module cannot operate without this permission.
       _logWarn(`Unable to use EUID module due to insufficient consent. The EUID module requires storage permission.`)
       return;
@@ -104,14 +99,6 @@ export const euidIdSubmodule = {
       internalStorage: ADVERTISING_COOKIE
     };
 
-    if (FEATURES.UID2_CSTG) {
-      mappedConfig.cstg = {
-        serverPublicKey: config?.params?.serverPublicKey,
-        subscriptionId: config?.params?.subscriptionId,
-        ...extractIdentityFromParams(config?.params ?? {})
-      }
-    }
-    _logInfo(`EUID configuration loaded and mapped.`, mappedConfig);
     const result = Uid2GetId(mappedConfig, storage, _logInfo, _logWarn);
     _logInfo(`EUID getId returned`, result);
     return result;
@@ -132,10 +119,6 @@ function decodeImpl(value) {
     _logInfo('Found server-only token. Refresh is unavailable for this token.');
     const result = { euid: { id: value } };
     return result;
-  }
-  if (value.latestToken === 'optout') {
-    _logInfo('Found optout token.  Refresh is unavailable for this token.');
-    return { euid: { optout: true } };
   }
   if (Date.now() < value.latestToken.identity_expires) {
     return { euid: { id: value.latestToken.advertising_token } };

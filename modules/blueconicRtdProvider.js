@@ -6,26 +6,22 @@
  * @requires module:modules/realTimeData
  */
 
-import { getStorageManager } from '../src/storageManager.js';
-import { submodule } from '../src/hook.js';
-import { mergeDeep, isPlainObject, logMessage, logError } from '../src/utils.js';
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
+import {getStorageManager} from '../src/storageManager.js';
+import {submodule} from '../src/hook.js';
+import {mergeDeep, isPlainObject, logMessage, logError} from '../src/utils.js';
+import {MODULE_TYPE_RTD} from '../src/activities/modules.js';
 
 const MODULE_NAME = 'realTimeData';
 const SUBMODULE_NAME = 'blueconic';
 
 export const RTD_LOCAL_NAME = 'bcPrebidData';
 
-export const storage = getStorageManager({ moduleType: MODULE_TYPE_RTD, moduleName: SUBMODULE_NAME });
+export const storage = getStorageManager({moduleType: MODULE_TYPE_RTD, moduleName: SUBMODULE_NAME});
 
 /**
- * Try parsing stringified array of data.
- * @param {String} data
- */
+* Try parsing stringified array of data.
+* @param {String} data
+*/
 function parseJson(data) {
   try {
     return JSON.parse(data);
@@ -37,8 +33,9 @@ function parseJson(data) {
 
 /**
  * Add real-time data & merge segments.
- * @param {Object} ortb2
+ * @param {Object} bidConfig
  * @param {Object} rtd
+ * @param {Object} rtdConfig
  */
 export function addRealTimeData(ortb2, rtd) {
   if (isPlainObject(rtd.ortb2)) {
@@ -61,7 +58,7 @@ export function getRealTimeData(reqBidsConfigObj, onDone, rtdConfig, userConsent
       if (!parsedData) {
         return;
       }
-      const userData = { name: 'blueconic', ...parsedData }
+      const userData = {name: 'blueconic', ...parsedData}
       logMessage('blueconicRtdProvider: userData: ', userData);
       const data = {
         ortb2: {
@@ -81,7 +78,7 @@ export function getRealTimeData(reqBidsConfigObj, onDone, rtdConfig, userConsent
 /**
  * Module init
  * @param {Object} provider
- * @param {Object} userConsent
+ * @param {Objkect} userConsent
  * @return {boolean}
  */
 function init(provider, userConsent) {

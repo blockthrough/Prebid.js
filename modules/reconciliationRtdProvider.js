@@ -16,18 +16,15 @@
  * @property {?boolean} allowAccess
  */
 
-import { submodule } from '../src/hook.js';
-import { ajaxBuilder } from '../src/ajax.js';
-import { generateUUID, isGptPubadsDefined, logError, timestamp } from '../src/utils.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
+import {submodule} from '../src/hook.js';
+import {ajaxBuilder} from '../src/ajax.js';
+import {generateUUID, isGptPubadsDefined, logError, timestamp} from '../src/utils.js';
+import {find} from '../src/polyfill.js';
 
 /** @type {Object} */
 const MessageType = {
   IMPRESSION_REQUEST: 'rsdk:impression:req',
-  IMPRESSION_RESPONSE: 'rsdk:impression:res'
+  IMPRESSION_RESPONSE: 'rsdk:impression:res',
 };
 /** @type {ModuleParams} */
 const DEFAULT_PARAMS = {
@@ -84,7 +81,7 @@ function handleAdMessage(e) {
     track.trackPost(_moduleParams.impressionUrl, args);
 
     // Send response back to the Advertiser tag
-    const response = {
+    let response = {
       type: MessageType.IMPRESSION_RESPONSE,
       id: data.id,
       args: Object.assign(
@@ -153,8 +150,8 @@ function getSlotByCode(code) {
     return null;
   }
   return (
-    ((
-      slots) || []).find(
+    find(
+      slots,
       (s) => s.getSlotElementId() === code || s.getAdUnitPath() === code
     ) || null
   );
@@ -173,11 +170,11 @@ export function getSlotByWin(win) {
   }
 
   return (
-    ((slots) || []).find((s) => {
-      const slotElement = document.getElementById(s.getSlotElementId());
+    find(slots, (s) => {
+      let slotElement = document.getElementById(s.getSlotElementId());
 
       if (slotElement) {
-        const slotIframe = slotElement.querySelector('iframe');
+        let slotIframe = slotElement.querySelector('iframe');
 
         if (slotIframe && slotIframe.contentWindow === win) {
           return true;

@@ -1,12 +1,8 @@
-import { _each, deepSetValue, inIframe } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER, NATIVE } from '../src/mediaTypes.js';
+import {_each, deepSetValue, inIframe} from '../src/utils.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER, NATIVE} from '../src/mediaTypes.js';
+import {find} from '../src/polyfill.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- */
 
 const BIDDER_CODE = 'bridgewell';
 const REQUEST_ENDPOINT = 'https://prebid.scupio.com/recweb/prebid.aspx?cb=';
@@ -45,81 +41,43 @@ export const spec = {
     validBidRequests = convertOrtbRequestToProprietaryNative(validBidRequests);
 
     const adUnits = [];
-    const bidderUrl = REQUEST_ENDPOINT + Math.random();
+    var bidderUrl = REQUEST_ENDPOINT + Math.random();
+    var userIds;
 
     _each(validBidRequests, function (bid) {
-      const passthrough = bid.ortb2Imp?.ext?.prebid?.passthrough;
-      const filteredPassthrough = passthrough ? Object.fromEntries(
-        Object.entries({
-          bucket: passthrough.bucket,
-          client: passthrough.client,
-          gamAdCode: passthrough.gamAdCode,
-          gamLoc: passthrough.gamLoc,
-          colo: passthrough.colo,
-          device: passthrough.device,
-          lang: passthrough.lang,
-          pt: passthrough.pt,
-          region: passthrough.region,
-          site: passthrough.site,
-          ver: passthrough.ver
-        }).filter(([_, value]) => value !== undefined)
-      ) : undefined;
+      userIds = bid.userId;
 
-      const adUnit = {
-        adUnitCode: bid.adUnitCode,
-        requestId: bid.bidId,
-        transactionId: bid.transactionId,
-        adUnitId: bid.adUnitId,
-        sizes: bid.sizes,
-        mediaTypes: bid.mediaTypes || {
-          banner: {
-            sizes: bid.sizes
-          }
-        },
-        ortb2Imp: {
-          ext: {
-            prebid: {
-              passthrough: filteredPassthrough
-            },
-            data: {
-              adserver: {
-                name: bid.ortb2Imp?.ext?.data?.adserver?.name,
-                adslot: bid.ortb2Imp?.ext?.data?.adserver?.adslot
-              },
-              pbadslot: bid.ortb2Imp?.ext?.data?.pbadslot
-            },
-            gpid: bid.ortb2Imp?.ext?.gpid
+      if (bid.params.cid) {
+        adUnits.push({
+          cid: bid.params.cid,
+          adUnitCode: bid.adUnitCode,
+          requestId: bid.bidId,
+          mediaTypes: bid.mediaTypes || {
+            banner: {
+              sizes: bid.sizes
+            }
           },
-          banner: {
-            pos: bid.ortb2Imp?.banner?.pos
-          }
-        }
-      };
-
-      if (bid.params?.cid) {
-        adUnit.cid = bid.params.cid;
-      } else if (bid.params?.ChannelID) {
-        adUnit.ChannelID = bid.params.ChannelID;
+          userIds: userIds || {}
+        });
+      } else {
+        adUnits.push({
+          ChannelID: bid.params.ChannelID,
+          adUnitCode: bid.adUnitCode,
+          requestId: bid.bidId,
+          mediaTypes: bid.mediaTypes || {
+            banner: {
+              sizes: bid.sizes
+            }
+          },
+          userIds: userIds || {}
+        });
       }
-
-      let floorInfo = {};
-      if (typeof bid.getFloor === 'function') {
-        const mediaType = bid.mediaTypes?.banner ? BANNER : (bid.mediaTypes?.native ? NATIVE : '*');
-        const sizes = bid.mediaTypes?.banner?.sizes || bid.sizes || [];
-        const size = sizes.length === 1 ? sizes[0] : '*';
-        floorInfo = bid.getFloor({ currency: 'USD', mediaType: mediaType, size: size }) || {};
-      }
-      adUnit.floor = floorInfo.floor;
-      adUnit.currency = floorInfo.currency;
-      adUnits.push(adUnit);
     });
 
     let topUrl = '';
-    if (bidderRequest?.refererInfo?.page) {
+    if (bidderRequest && bidderRequest.refererInfo) {
       topUrl = bidderRequest.refererInfo.page;
     }
-
-    const firstBid = validBidRequests[0] || {};
 
     return {
       method: 'POST',
@@ -131,22 +89,10 @@ export const spec = {
         },
         inIframe: inIframe(),
         url: topUrl,
-        referrer: bidderRequest?.refererInfo?.ref,
-        auctionId: firstBid?.auctionId,
-        bidderRequestId: firstBid?.bidderRequestId,
-        src: firstBid?.src,
-        userIds: firstBid?.userId || {},
-        userIdAsEids: firstBid?.userIdAsEids || [],
-        auctionsCount: firstBid?.auctionsCount,
-        bidRequestsCount: firstBid?.bidRequestsCount,
-        bidderRequestsCount: firstBid?.bidderRequestsCount,
-        bidderWinsCount: firstBid?.bidderWinsCount,
-        deferBilling: firstBid?.deferBilling,
-        metrics: firstBid?.metrics || {},
+        referrer: bidderRequest.refererInfo.ref,
         adUnits: adUnits,
         // TODO: please do not send internal data structures over the network
-        refererInfo: bidderRequest?.refererInfo?.legacy,
-        ortb2: bidderRequest?.ortb2
+        refererInfo: bidderRequest.refererInfo.legacy,
       },
       validBidRequests: validBidRequests
     };
@@ -170,12 +116,12 @@ export const spec = {
         return;
       }
 
-      const matchedResponse = ((serverResponse.body) || []).find(function (res) {
+      let matchedResponse = find(serverResponse.body, function (res) {
         let valid = false;
 
         if (res && !res.consumed) {
-          const mediaTypes = req.mediaTypes;
-          const adUnitCode = req.adUnitCode;
+          let mediaTypes = req.mediaTypes;
+          let adUnitCode = req.adUnitCode;
           if (res.adUnitCode) {
             return res.adUnitCode === adUnitCode;
           } else if (res.width && res.height && mediaTypes) {
@@ -183,14 +129,14 @@ export const spec = {
               valid = true;
             } else if (mediaTypes.banner) {
               if (mediaTypes.banner.sizes) {
-                const width = res.width;
-                const height = res.height;
-                const sizes = mediaTypes.banner.sizes;
+                let width = res.width;
+                let height = res.height;
+                let sizes = mediaTypes.banner.sizes;
                 // check response size validation
                 if (typeof sizes[0] === 'number') { // for foramt Array[Number] check
                   valid = width === sizes[0] && height === sizes[1];
                 } else { // for format Array[Array[Number]] check
-                  valid = !!((sizes) || []).find(function (size) {
+                  valid = !!find(sizes, function (size) {
                     return (width === size[0] && height === size[1]);
                   });
                 }
@@ -246,11 +192,11 @@ export const spec = {
               return;
             }
 
-            const reqNativeLayout = req.mediaTypes.native;
-            const resNative = matchedResponse.native;
+            let reqNativeLayout = req.mediaTypes.native;
+            let resNative = matchedResponse.native;
 
             // check title
-            const title = reqNativeLayout.title;
+            let title = reqNativeLayout.title;
             if (title && title.required) {
               if (typeof resNative.title !== 'string') {
                 return;
@@ -260,7 +206,7 @@ export const spec = {
             }
 
             // check body
-            const body = reqNativeLayout.body;
+            let body = reqNativeLayout.body;
             if (body && body.required) {
               if (typeof resNative.body !== 'string') {
                 return;
@@ -268,7 +214,7 @@ export const spec = {
             }
 
             // check image
-            const image = reqNativeLayout.image;
+            let image = reqNativeLayout.image;
             if (image && image.required) {
               if (resNative.image) {
                 if (typeof resNative.image.url !== 'string') { // check image url
@@ -284,7 +230,7 @@ export const spec = {
             }
 
             // check sponsoredBy
-            const sponsoredBy = reqNativeLayout.sponsoredBy;
+            let sponsoredBy = reqNativeLayout.sponsoredBy;
             if (sponsoredBy && sponsoredBy.required) {
               if (typeof resNative.sponsoredBy !== 'string') {
                 return;
@@ -292,7 +238,7 @@ export const spec = {
             }
 
             // check icon
-            const icon = reqNativeLayout.icon;
+            let icon = reqNativeLayout.icon;
             if (icon && icon.required) {
               if (resNative.icon) {
                 if (typeof resNative.icon.url !== 'string') { // check icon url
@@ -313,7 +259,7 @@ export const spec = {
             }
 
             // check clickTracker
-            const clickTrackers = resNative.clickTrackers;
+            let clickTrackers = resNative.clickTrackers;
             if (clickTrackers) {
               if (clickTrackers.length === 0) {
                 return;
@@ -323,7 +269,7 @@ export const spec = {
             }
 
             // check impressionTrackers
-            const impressionTrackers = resNative.impressionTrackers;
+            let impressionTrackers = resNative.impressionTrackers;
             if (impressionTrackers) {
               if (impressionTrackers.length === 0) {
                 return;

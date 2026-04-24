@@ -1,6 +1,5 @@
-import { expect } from 'chai';
-import { spec } from 'modules/addefendBidAdapter.js';
-import { getGlobal } from '../../../src/prebidGlobal.js';
+import {expect} from 'chai';
+import {spec} from 'modules/addefendBidAdapter.js';
 
 describe('addefendBidAdapter', () => {
   const defaultBidRequest = {
@@ -67,7 +66,7 @@ describe('addefendBidAdapter', () => {
     });
 
     it('contains prebid version parameter', () => {
-      expect(request.data.v).to.equal(getGlobal().version);
+      expect(request.data.v).to.equal($$PREBID_GLOBAL$$.version);
     });
 
     it('contains correct referer', () => {
@@ -84,12 +83,12 @@ describe('addefendBidAdapter', () => {
 
     it('sends correct bid parameters', () => {
       const bidRequest = deepClone(defaultBidRequest);
-      expect(request.data.bids).to.deep.equal([{
+      expect(request.data.bids).to.deep.equal([ {
         bidId: bidRequest.bidId,
         placementId: bidRequest.params.placementId,
-        sizes: ['300x250', '300x600'],
+        sizes: [ '300x250', '300x600' ],
         transactionId: 'd58851660c0c4461e4aa06344fc9c0c6'
-      }]);
+      } ]);
     });
 
     it('handles empty gdpr object', () => {
@@ -154,7 +153,7 @@ describe('addefendBidAdapter', () => {
         }
       ];
 
-      const result = spec.interpretResponse({ body: serverResponse });
+      const result = spec.interpretResponse({body: serverResponse});
       expect(result.length).to.equal(expectedResponse.length);
       Object.keys(expectedResponse[0]).forEach((key) => {
         expect(result[0][key]).to.deep.equal(expectedResponse[0][key]);
@@ -170,14 +169,14 @@ describe('addefendBidAdapter', () => {
           'ttl': 60
         }
       ];
-      const result = spec.interpretResponse({ body: serverResponse });
+      const result = spec.interpretResponse({body: serverResponse});
 
       expect(result.length).to.equal(0);
     });
 
     it('handles nobid responses', () => {
       const serverResponse = [];
-      const result = spec.interpretResponse({ body: serverResponse });
+      const result = spec.interpretResponse({body: serverResponse});
 
       expect(result.length).to.equal(0);
     });

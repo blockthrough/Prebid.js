@@ -1,10 +1,10 @@
-import { expect } from 'chai';
-import { setEndPoints, spec } from 'modules/aidemBidAdapter.js';
-import * as utils from '../../../src/utils.js';
-import { deepSetValue } from '../../../src/utils.js';
-import { server } from '../../mocks/xhr.js';
-import { config } from '../../../src/config.js';
-import { NATIVE } from '../../../src/mediaTypes.js';
+import {expect} from 'chai';
+import {setEndPoints, spec} from 'modules/aidemBidAdapter.js';
+import * as utils from '../../../src/utils';
+import {deepSetValue} from '../../../src/utils';
+import {server} from '../../mocks/xhr';
+import {config} from '../../../src/config';
+import {NATIVE} from '../../../src/mediaTypes.js';
 
 // Full banner + Full Video + Basic Banner + Basic Video
 const VALID_BIDS = [
@@ -161,14 +161,14 @@ const DEFAULT_VALID_BANNER_REQUESTS = [
     mediaTypes: {
       banner: {
         sizes: [
-          [300, 250],
-          [300, 600]
+          [ 300, 250 ],
+          [ 300, 600 ]
         ]
       }
     },
     params: {
       siteId: '1',
-      placementId: '13144370',
+      placementId: '13144370'
     },
     src: 'client',
     transactionId: 'db739693-9b4a-4669-9945-8eab938783cc'
@@ -193,7 +193,7 @@ const DEFAULT_VALID_VIDEO_REQUESTS = [
     },
     params: {
       siteId: '1',
-      placementId: '13144370',
+      placementId: '13144370'
     },
     src: 'client',
     transactionId: 'db739693-9b4a-4669-9945-8eab938783cc'
@@ -209,7 +209,7 @@ const VALID_BIDDER_REQUEST = {
       params: {
         placementId: '13144370',
         siteId: '23434',
-        publisherId: '7689670753',
+        publisherId: '7689670753'
       },
     }
   ],
@@ -218,50 +218,6 @@ const VALID_BIDDER_REQUEST = {
     domain: 'test-domain',
     ref: 'test-referer'
   },
-}
-
-const VALID_GDPR_BIDDER_REQUEST = {
-  auctionId: '19c97f22-5bd1-4b16-a128-80f75fb0a8a0',
-  bidderCode: 'aidem',
-  bidderRequestId: '1bbb7854dfa0d8',
-  bids: [
-    {
-      params: {
-        placementId: '13144370',
-        siteId: '23434',
-        publisherId: '7689670753',
-      },
-    }
-  ],
-  refererInfo: {
-    page: 'test-page',
-    domain: 'test-domain',
-    ref: 'test-referer'
-  },
-  gdprConsent: {
-    consentString: 'test-gdpr-string'
-  }
-}
-
-const VALID_USP_BIDDER_REQUEST = {
-  auctionId: '19c97f22-5bd1-4b16-a128-80f75fb0a8a0',
-  bidderCode: 'aidem',
-  bidderRequestId: '1bbb7854dfa0d8',
-  bids: [
-    {
-      params: {
-        placementId: '13144370',
-        siteId: '23434',
-        publisherId: '7689670753',
-      },
-    }
-  ],
-  refererInfo: {
-    page: 'test-page',
-    domain: 'test-domain',
-    ref: 'test-referer'
-  },
-  uspConsent: '1YYY'
 }
 
 const SERVER_RESPONSE_BANNER = {
@@ -448,14 +404,14 @@ describe('Aidem adapter', () => {
     });
 
     it('should have a well formatted banner payload', () => {
-      const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST);
+      const {data} = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST);
       expect(data).to.be.a('object').that.has.all.keys(
         'id', 'imp', 'regs', 'site', 'environment', 'at', 'test'
       )
       expect(data.imp).to.be.a('array').that.has.lengthOf(DEFAULT_VALID_BANNER_REQUESTS.length)
 
       expect(data.imp[0]).to.be.a('object').that.has.all.keys(
-        'banner', 'id', 'tagId', 'secure'
+        'banner', 'id', 'tagId'
       )
       expect(data.imp[0].banner).to.be.a('object').that.has.all.keys(
         'format', 'topframe'
@@ -464,14 +420,14 @@ describe('Aidem adapter', () => {
 
     if (FEATURES.VIDEO) {
       it('should have a well formatted video payload', () => {
-        const { data } = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST);
+        const {data} = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST);
         expect(data).to.be.a('object').that.has.all.keys(
           'id', 'imp', 'regs', 'site', 'environment', 'at', 'test'
         )
         expect(data.imp).to.be.a('array').that.has.lengthOf(DEFAULT_VALID_VIDEO_REQUESTS.length)
 
         expect(data.imp[0]).to.be.a('object').that.has.all.keys(
-          'video', 'id', 'tagId', 'secure'
+          'video', 'id', 'tagId'
         )
         expect(data.imp[0].video).to.be.a('object').that.has.all.keys(
           'mimes', 'minduration', 'maxduration', 'protocols', 'w', 'h'
@@ -480,7 +436,7 @@ describe('Aidem adapter', () => {
     }
 
     it('should hav wpar keys in environment object', function () {
-      const { data } = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST);
+      const {data} = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST);
       expect(data).to.have.property('environment')
       expect(data.environment).to.be.a('object').that.have.property('wpar')
       expect(data.environment.wpar).to.be.a('object').that.has.keys('innerWidth', 'innerHeight')
@@ -489,8 +445,8 @@ describe('Aidem adapter', () => {
 
   describe('interpretResponse', () => {
     it('should return a valid bid array with a banner bid', () => {
-      const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST)
-      const bids = spec.interpretResponse({ body: SERVER_RESPONSE_BANNER }, { data })
+      const {data} = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST)
+      const bids = spec.interpretResponse({body: SERVER_RESPONSE_BANNER}, { data })
       expect(bids).to.be.a('array').that.has.lengthOf(1)
       bids.forEach(value => {
         expect(value).to.be.a('object').that.has.all.keys(
@@ -501,8 +457,8 @@ describe('Aidem adapter', () => {
 
     if (FEATURES.VIDEO) {
       it('should return a valid bid array with a video bid', () => {
-        const { data } = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST)
-        const bids = spec.interpretResponse({ body: SERVER_RESPONSE_VIDEO }, { data })
+        const {data} = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST)
+        const bids = spec.interpretResponse({body: SERVER_RESPONSE_VIDEO}, { data })
         expect(bids).to.be.a('array').that.has.lengthOf(1)
         bids.forEach(value => {
           expect(value).to.be.a('object').that.has.all.keys(
@@ -513,8 +469,8 @@ describe('Aidem adapter', () => {
     }
 
     it('should return a valid bid array with netRevenue', () => {
-      const { data } = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST)
-      const bids = spec.interpretResponse({ body: SERVER_RESPONSE_VIDEO }, { data })
+      const {data} = spec.buildRequests(DEFAULT_VALID_VIDEO_REQUESTS, VALID_BIDDER_REQUEST)
+      const bids = spec.interpretResponse({body: SERVER_RESPONSE_VIDEO}, { data })
       expect(bids).to.be.a('array').that.has.lengthOf(1)
       expect(bids[0].netRevenue).to.be.true
     });
@@ -645,51 +601,47 @@ describe('Aidem adapter', () => {
     });
 
     it(`should set gdpr to true`, function () {
-      // config.setConfig({
-      //   consentManagement: {
-      //     gdpr: {
-      //       consentData: {
-      //         getTCData: {
-      //           tcString: 'test-gdpr-string'
-      //         }
-      //       }
-      //     },
-      //   }
-      // });
-      const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_GDPR_BIDDER_REQUEST);
+      config.setConfig({
+        consentManagement: {
+          gdpr: {
+            // any data here set gdpr to true
+          },
+        }
+      });
+      const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST);
       expect(data.regs.gdpr_applies).to.equal(true)
     });
 
     it(`should set usp_consent string`, function () {
-      // config.setConfig({
-      //   consentManagement: {
-      //     usp: {
-      //       cmpApi: 'static',
-      //       consentData: {
-      //         getUSPData: {
-      //           uspString: '1YYY'
-      //         }
-      //       }
-      //     }
-      //   }
-      // });
-      const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_USP_BIDDER_REQUEST);
+      config.setConfig({
+        consentManagement: {
+          usp: {
+            cmpApi: 'static',
+            consentData: {
+              getUSPData: {
+                uspString: '1YYY'
+              }
+            }
+          }
+        }
+      });
+      const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST);
       expect(data.regs.us_privacy).to.equal('1YYY')
     });
 
     it(`should not set usp_consent string`, function () {
-      // config.setConfig({
-      //   consentManagement: {
-      //     usp: {
-      //       cmpApi: 'iab',
-      //       consentData: {
-      //         getUSPData: {
-      //           uspString: '1YYY'
-      //         }
-      //       }
-      //     }
-      //   }
-      // });
+      config.setConfig({
+        consentManagement: {
+          usp: {
+            cmpApi: 'iab',
+            consentData: {
+              getUSPData: {
+                uspString: '1YYY'
+              }
+            }
+          }
+        }
+      });
       const { data } = spec.buildRequests(DEFAULT_VALID_BANNER_REQUESTS, VALID_BIDDER_REQUEST);
       expect(data.regs.us_privacy).to.undefined
     });

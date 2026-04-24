@@ -19,8 +19,8 @@ describe('Adyoulike Adapter', function () {
       consentString: consentString,
       gdprApplies: true
     },
-    refererInfo: { location: referrerUrl, canonicalUrl, domain, topmostLocation: 'fakePageURL' },
-    ortb2: { site: { page: pageUrl, ref: referrerUrl } }
+    refererInfo: {location: referrerUrl, canonicalUrl, domain, topmostLocation: 'fakePageURL'},
+    ortb2: {site: {page: pageUrl, ref: referrerUrl}}
   };
   const bidRequestWithEmptyPlacement = [
     {
@@ -30,9 +30,9 @@ describe('Adyoulike Adapter', function () {
       'params': {},
       'sizes': '300x250',
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x250', '300x600'] }
+        { 'banner':
+          {'sizes': ['300x250', '300x600']
+          }
         }
     }
   ];
@@ -64,60 +64,53 @@ describe('Adyoulike Adapter', function () {
       },
       'sizes': '300x250',
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x250'] },
-          'native':
-          {
-            'image': {
-              'required': true,
-            },
-            'title': {
-              'required': true,
-              'len': 80
-            },
-            'cta': {
-              'required': false
-            },
-            'sponsoredBy': {
-              'required': true
-            },
-            'clickUrl': {
-              'required': true
-            },
-            'privacyIcon': {
-              'required': false
-            },
-            'privacyLink': {
-              'required': false
-            },
-            'body': {
-              'required': true
-            },
-            'icon': {
-              'required': true,
-              'sizes': []
-            }
+        { 'banner':
+          {'sizes': ['300x250']
+          },
+        'native':
+          { 'image': {
+            'required': true,
+          },
+          'title': {
+            'required': true,
+            'len': 80
+          },
+          'cta': {
+            'required': false
+          },
+          'sponsoredBy': {
+            'required': true
+          },
+          'clickUrl': {
+            'required': true
+          },
+          'privacyIcon': {
+            'required': false
+          },
+          'privacyLink': {
+            'required': false
+          },
+          'body': {
+            'required': true
+          },
+          'icon': {
+            'required': true,
+            'sizes': []
+          }
           },
         },
-      'ortb2': {
-        'source': {
-          'ext': {
-            'schain': {
-              validation: 'strict',
-              config: {
-                ver: '1.0',
-                complete: 1,
-                nodes: [
-                  {
-                    asi: 'indirectseller.com',
-                    sid: '00001',
-                    hp: 1
-                  }
-                ]
-              }
+      'schain': {
+        validation: 'strict',
+        config: {
+          ver: '1.0',
+          complete: 1,
+          nodes: [
+            {
+              asi: 'indirectseller.com',
+              sid: '00001',
+              hp: 1
             }
-          }
+          ]
         }
       },
       ortb2Imp: {
@@ -179,7 +172,7 @@ describe('Adyoulike Adapter', function () {
       {
         'video': {
           'context': 'instream',
-          'playerSize': [[640, 480]]
+          'playerSize': [[ 640, 480 ]]
         }
       },
       ortb2Imp: {
@@ -310,9 +303,9 @@ describe('Adyoulike Adapter', function () {
       },
       'sizes': '300x250',
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x250'] }
+        { 'banner':
+          {'sizes': ['300x250']
+          }
         },
       ortb2Imp: {
         ext: {
@@ -332,9 +325,9 @@ describe('Adyoulike Adapter', function () {
       },
       'sizes': '300x250',
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x250'] }
+        { 'banner':
+          {'sizes': ['300x250']
+          }
         },
       ortb2Imp: {
         ext: {
@@ -351,9 +344,9 @@ describe('Adyoulike Adapter', function () {
       },
       'sizes': [[300, 600]],
       'mediaTypes':
-        {
-          'banner':
-          { 'sizes': ['300x600'] }
+        { 'banner':
+          {'sizes': ['300x600']
+          }
         },
       ortb2Imp: {
         ext: {
@@ -390,8 +383,7 @@ describe('Adyoulike Adapter', function () {
 
   const requestDataOnePlacement = {
     'bid_id_0':
-    {
-      'PlacementID': 'e622af275681965d3095808561a1e510',
+    { 'PlacementID': 'e622af275681965d3095808561a1e510',
       'TransactionID': '1bca18cc-c0fe-439b-88c2-8247d3448f22',
       'Width': 300,
       'Height': 600,
@@ -401,16 +393,14 @@ describe('Adyoulike Adapter', function () {
 
   const requestDataMultiPlacement = {
     'bid_id_0':
-    {
-      'PlacementID': 'e622af275681965d3095808561a1e510',
+    { 'PlacementID': 'e622af275681965d3095808561a1e510',
       'TransactionID': '1bca18cc-c0fe-439b-88c2-8247d3448f22',
       'Width': 300,
       'Height': 600,
       'AvailableSizes': '300x600'
     },
     'bid_id_1':
-    {
-      'PlacementID': 'e622af275681965d3095808561a1e510',
+    { 'PlacementID': 'e622af275681965d3095808561a1e510',
       'TransactionID': 'e63b2d86-ca60-4167-9cf1-497607079634',
       'Width': 400,
       'Height': 250,
@@ -570,7 +560,7 @@ describe('Adyoulike Adapter', function () {
   ];
   const adapter = newBidder(spec);
 
-  const getEndpoint = (dc = defaultDC) => `https://${dc}.omnitagjs.com/hb-api/prebid`;
+  let getEndpoint = (dc = defaultDC) => `https://${dc}.omnitagjs.com/hb-api/prebid`;
 
   describe('inherited functions', function () {
     it('exists and is a function', function () {
@@ -579,7 +569,7 @@ describe('Adyoulike Adapter', function () {
   });
 
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidId': 'bid_id_1',
       'bidder': 'adyoulike',
       'placementCode': 'adunit/hb-1',
@@ -590,7 +580,7 @@ describe('Adyoulike Adapter', function () {
       'transactionId': 'bid_id_1_transaction_id'
     };
 
-    const bidWSize = {
+    let bidWSize = {
       'bidId': 'bid_id_1',
       'bidder': 'adyoulike',
       'placementCode': 'adunit/hb-1',
@@ -601,7 +591,7 @@ describe('Adyoulike Adapter', function () {
       'transactionId': 'bid_id_1_transaction_id'
     };
 
-    const nativeBid = {
+    let nativeBid = {
       'bidId': 'bid_id_1',
       'bidder': 'adyoulike',
       'placementCode': 'adunit/hb-1',
@@ -629,19 +619,19 @@ describe('Adyoulike Adapter', function () {
     });
 
     it('should return false when required params are not passed', function () {
-      const invalidBid = Object.assign({}, bid);
-      delete invalidBid.sizes;
+      let bid = Object.assign({}, bid);
+      delete bid.size;
 
-      expect(!!spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(!!spec.isBidRequestValid(bid)).to.equal(false);
     });
 
     it('should return false when required params are not passed', function () {
-      const invalidBid = Object.assign({}, bid);
-      delete invalidBid.params;
-      invalidBid.params = {
+      let bid = Object.assign({}, bid);
+      delete bid.params;
+      bid.params = {
         'placement': 0
       };
-      expect(!!spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(!!spec.isBidRequestValid(bid)).to.equal(false);
     });
   });
 
@@ -670,9 +660,9 @@ describe('Adyoulike Adapter', function () {
     });
 
     it('should add gdpr/usp consent information and SChain to the request', function () {
-      const consentString = 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==';
-      const uspConsentData = '1YCC';
-      const bidderRequest = {
+      let consentString = 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==';
+      let uspConsentData = '1YCC';
+      let bidderRequest = {
         'auctionId': '1d1a030790a475',
         'bidderRequestId': '22edbae2733bf6',
         'timeout': 3000,
@@ -692,13 +682,13 @@ describe('Adyoulike Adapter', function () {
       expect(payload.gdprConsent.consentString).to.exist.and.to.equal(consentString);
       expect(payload.gdprConsent.consentRequired).to.exist.and.to.be.true;
       expect(payload.uspConsent).to.exist.and.to.equal(uspConsentData);
-      expect(payload.Bids.bid_id_0.SChain).to.exist.and.to.deep.equal(bidRequestWithSinglePlacement[0].ortb2.source.ext.schain);
+      expect(payload.Bids.bid_id_0.SChain).to.exist.and.to.deep.equal(bidRequestWithSinglePlacement[0].schain);
     });
 
     it('should not set a default value for gdpr consentRequired', function () {
-      const consentString = 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==';
-      const uspConsentData = '1YCC';
-      const bidderRequest = {
+      let consentString = 'BOJ8RZsOJ8RZsABAB8AAAAAZ+A==';
+      let uspConsentData = '1YCC';
+      let bidderRequest = {
         'auctionId': '1d1a030790a475',
         'bidderRequestId': '22edbae2733bf6',
         'timeout': 3000,
@@ -719,7 +709,7 @@ describe('Adyoulike Adapter', function () {
     });
 
     it('should add eids eids information to the request', function () {
-      const bidRequest = bidRequestWithSinglePlacement;
+      let bidRequest = bidRequestWithSinglePlacement;
       bidRequest[0].userIdAsEids = [{
         'source': 'pubcid.org',
         'uids': [{
@@ -750,11 +740,11 @@ describe('Adyoulike Adapter', function () {
       expect(payload.Bids['bid_id_0'].PlacementID).to.be.equal('placement_0');
       expect(payload.PageRefreshed).to.equal(false);
       expect(payload.Bids['bid_id_0'].TransactionID).to.be.equal('bid_id_0_transaction_id');
-      expect(payload.ortb2).to.deep.equal({ site: { page: pageUrl, ref: referrerUrl } });
+      expect(payload.ortb2).to.deep.equal({site: {page: pageUrl, ref: referrerUrl}});
     });
 
     it('sends bid request to endpoint with single placement without canonical', function () {
-      const request = spec.buildRequests(bidRequestWithSinglePlacement, { ...bidderRequest, refererInfo: { ...bidderRequest.refererInfo, canonicalUrl: null } });
+      const request = spec.buildRequests(bidRequestWithSinglePlacement, {...bidderRequest, refererInfo: {...bidderRequest.refererInfo, canonicalUrl: null}});
       const payload = JSON.parse(request.data);
 
       expect(request.url).to.contain(getEndpoint());
@@ -769,7 +759,7 @@ describe('Adyoulike Adapter', function () {
     });
 
     it('sends bid request to endpoint with single placement multiple mediatype', function () {
-      const request = spec.buildRequests(bidRequestWithSinglePlacement, { ...bidderRequest, refererInfo: { ...bidderRequest.refererInfo, canonicalUrl: null } });
+      const request = spec.buildRequests(bidRequestWithSinglePlacement, {...bidderRequest, refererInfo: {...bidderRequest.refererInfo, canonicalUrl: null}});
       const payload = JSON.parse(request.data);
 
       expect(request.url).to.contain(getEndpoint());
@@ -822,26 +812,20 @@ describe('Adyoulike Adapter', function () {
       }
     });
 
-    it('handles 204 responses', function () {
-      serverResponse.body = '';
-      const result = spec.interpretResponse(serverResponse, []);
-      expect(result).deep.equal([]);
-    });
-
     it('handles nobid responses', function () {
-      const response = [{
+      let response = [{
         BidID: '123dfsdf',
         Attempt: '32344fdse1',
         Placement: '12df1'
       }];
       serverResponse.body = response;
-      const result = spec.interpretResponse(serverResponse, []);
+      let result = spec.interpretResponse(serverResponse, []);
       expect(result).deep.equal([]);
     });
 
     it('receive reponse with single placement', function () {
       serverResponse.body = responseWithSinglePlacement;
-      const result = spec.interpretResponse(serverResponse, { data: '{"Bids":' + JSON.stringify(requestDataOnePlacement) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"Bids":' + JSON.stringify(requestDataOnePlacement) + '}'});
 
       expect(result.length).to.equal(1);
       expect(result[0].cpm).to.equal(0.5);
@@ -853,7 +837,7 @@ describe('Adyoulike Adapter', function () {
 
     it('receive reponse with multiple placement', function () {
       serverResponse.body = responseWithMultiplePlacements;
-      const result = spec.interpretResponse(serverResponse, { data: '{"Bids":' + JSON.stringify(requestDataMultiPlacement) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"Bids":' + JSON.stringify(requestDataMultiPlacement) + '}'});
 
       expect(result.length).to.equal(2);
 
@@ -870,7 +854,7 @@ describe('Adyoulike Adapter', function () {
 
     it('receive reponse with Native from ad markup', function () {
       serverResponse.body = responseWithSinglePlacement;
-      const result = spec.interpretResponse(serverResponse, { data: '{"Bids":' + JSON.stringify(sentBidNative) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"Bids":' + JSON.stringify(sentBidNative) + '}'});
 
       expect(result.length).to.equal(1);
 
@@ -879,7 +863,7 @@ describe('Adyoulike Adapter', function () {
 
     it('receive reponse with Native ad', function () {
       serverResponse.body = responseWithSingleNative;
-      const result = spec.interpretResponse(serverResponse, { data: '{"Bids":' + JSON.stringify(sentBidNative) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"Bids":' + JSON.stringify(sentBidNative) + '}'});
 
       expect(result.length).to.equal(1);
 
@@ -894,7 +878,7 @@ describe('Adyoulike Adapter', function () {
 
     it('receive Vast reponse with Video ad', function () {
       serverResponse.body = responseWithSingleVideo;
-      const result = spec.interpretResponse(serverResponse, { data: '{"Bids":' + JSON.stringify(sentBidVideo) + '}' });
+      let result = spec.interpretResponse(serverResponse, {data: '{"Bids":' + JSON.stringify(sentBidVideo) + '}'});
 
       expect(result.length).to.equal(1);
       expect(result).to.deep.equal(videoResult);
@@ -920,14 +904,14 @@ describe('Adyoulike Adapter', function () {
       });
 
       it('should add GDPR parameters if provided', function() {
-        expect(spec.getUserSyncs(userSyncConfig, {}, { gdprApplies: true, consentString: undefined }, undefined)).to.deep.equal([{
+        expect(spec.getUserSyncs(userSyncConfig, {}, {gdprApplies: true, consentString: undefined}, undefined)).to.deep.equal([{
           type: 'iframe', url: `${syncurl_iframe}&gdpr=1&gdpr_consent=`
         }]);
 
-        expect(spec.getUserSyncs(userSyncConfig, {}, { gdprApplies: true, consentString: 'foo?' }, undefined)).to.deep.equal([{
+        expect(spec.getUserSyncs(userSyncConfig, {}, {gdprApplies: true, consentString: 'foo?'}, undefined)).to.deep.equal([{
           type: 'iframe', url: `${syncurl_iframe}&gdpr=1&gdpr_consent=foo%3F`
         }]);
-        expect(spec.getUserSyncs(userSyncConfig, {}, { gdprApplies: false, consentString: 'bar' }, undefined)).to.deep.equal([{
+        expect(spec.getUserSyncs(userSyncConfig, {}, {gdprApplies: false, consentString: 'bar'}, undefined)).to.deep.equal([{
           type: 'iframe', url: `${syncurl_iframe}&gdpr=0&gdpr_consent=bar`
         }]);
       });
@@ -942,7 +926,7 @@ describe('Adyoulike Adapter', function () {
         let sandbox;
 
         this.beforeEach(function() {
-          sandbox = sinon.createSandbox();
+          sandbox = sinon.sandbox.create();
         });
 
         this.afterEach(function() {
@@ -1011,7 +995,7 @@ describe('Adyoulike Adapter', function () {
 
       it('should return empty list of syncs', function() {
         expect(spec.getUserSyncs(userSyncConfig, {}, undefined, undefined)).to.deep.equal(emptySync);
-        expect(spec.getUserSyncs(userSyncConfig, {}, { gdprApplies: true, consentString: 'foo' }, 'bar')).to.deep.equal(emptySync);
+        expect(spec.getUserSyncs(userSyncConfig, {}, {gdprApplies: true, consentString: 'foo'}, 'bar')).to.deep.equal(emptySync);
       });
     });
   });

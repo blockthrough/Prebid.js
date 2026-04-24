@@ -1,25 +1,16 @@
-import { getCurrencyFromBidderRequest } from '../libraries/ortb2Utils/currency.js';
-import { tryAppendQueryString } from '../libraries/urlUtils/urlUtils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER } from '../src/mediaTypes.js';
 import {
   createTrackPixelHtml,
   deepAccess,
   deepSetValue, getBidIdParameter,
+  getDNT,
   getWindowTop,
   isEmpty,
   logError
 } from '../src/utils.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').BidderRequest} BidderRequest
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {config} from '../src/config.js';
+import {BANNER} from '../src/mediaTypes.js';
+import {tryAppendQueryString} from '../libraries/urlUtils/urlUtils.js';
 
 const BIDDER_CODE = 'gmossp';
 const ENDPOINT = 'https://sp.gmossp-sp.jp/hb/prebid/query.ad';
@@ -41,15 +32,15 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {validBidRequests} validBidRequests an array of bids
-   * @param {BidderRequest} bidderRequest
+   * @param {validBidRequests[]} - an array of bids
    * @return ServerRequest Info describing the request to the server.
    */
   buildRequests: function (validBidRequests, bidderRequest) {
     const bidRequests = [];
 
     const urlInfo = getUrlInfo(bidderRequest.refererInfo);
-    const cur = getCurrencyType(bidderRequest);
+    const cur = getCurrencyType();
+    const dnt = getDNT() ? '1' : '0';
 
     for (let i = 0; i < validBidRequests.length; i++) {
       let queryString = '';
@@ -74,6 +65,7 @@ export const spec = {
       queryString = tryAppendQueryString(queryString, 'meta_url', urlInfo.canonicalLink);
       queryString = tryAppendQueryString(queryString, 'ref', urlInfo.ref);
       queryString = tryAppendQueryString(queryString, 'cur', cur);
+      queryString = tryAppendQueryString(queryString, 'dnt', dnt);
 
       bidRequests.push({
         method: 'GET',
@@ -87,9 +79,8 @@ export const spec = {
   /**
    * Unpack the response from the server into a list of bids.
    *
-   * @param {*} bidderResponse A successful response from the server.
-   * @param {Array} requests
-   * @return {Array} An array of bids which were nested inside the server.
+   * @param {*} serverResponse A successful response from the server.
+   * @return {Bid[]} An array of bids which were nested inside the server.
    */
   interpretResponse: function (bidderResponse, requests) {
     const res = bidderResponse.body;
@@ -154,17 +145,20 @@ export const spec = {
 
 };
 
-function getCurrencyType(bidderRequest) {
-  return getCurrencyFromBidderRequest(bidderRequest) || 'JPY';
+function getCurrencyType() {
+  if (config.getConfig('currency.adServerCurrency')) {
+    return config.getConfig('currency.adServerCurrency');
+  }
+  return 'JPY';
 }
 
 function getUrlInfo(refererInfo) {
   let canonicalLink = refererInfo.canonicalUrl;
 
   if (!canonicalLink) {
-    const metaElements = getMetaElements();
+    let metaElements = getMetaElements();
     for (let i = 0; i < metaElements.length && !canonicalLink; i++) {
-      if (metaElements[i].getAttribute('property') === 'og:url') {
+      if (metaElements[i].getAttribute('property') == 'og:url') {
         canonicalLink = metaElements[i].content;
       }
     }

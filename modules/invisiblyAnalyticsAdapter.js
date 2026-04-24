@@ -5,9 +5,8 @@ import { ajaxBuilder } from '../src/ajax.js';
 import adapter from '../libraries/analyticsAdapter/AnalyticsAdapter.js';
 import adapterManager from '../src/adapterManager.js';
 
-import { deepClone, hasNonSerializableProperty, generateUUID, logInfo } from '../src/utils.js';
-import { EVENTS } from '../src/constants.js';
-import { getViewportSize } from '../libraries/viewport/viewport.js';
+import { generateUUID, logInfo } from '../src/utils.js';
+import CONSTANTS from '../src/constants.json';
 
 const DEFAULT_EVENT_URL = 'https://api.pymx5.com/v1/' + 'sites/events';
 const analyticsType = 'endpoint';
@@ -16,19 +15,22 @@ const ajax = ajaxBuilder(0);
 
 // Events needed
 const {
-  AUCTION_INIT,
-  AUCTION_END,
-  BID_ADJUSTMENT,
-  BID_TIMEOUT,
-  BID_REQUESTED,
-  BID_RESPONSE,
-  NO_BID,
-  BID_WON,
-  BIDDER_DONE,
-  SET_TARGETING,
-  REQUEST_BIDS,
-  AD_RENDER_FAILED,
-} = EVENTS;
+  EVENTS: {
+    AUCTION_INIT,
+    AUCTION_END,
+    BID_ADJUSTMENT,
+    BID_TIMEOUT,
+    BID_REQUESTED,
+    BID_RESPONSE,
+    NO_BID,
+    BID_WON,
+    BIDDER_DONE,
+    SET_TARGETING,
+    REQUEST_BIDS,
+    ADD_AD_UNITS,
+    AD_RENDER_FAILED,
+  },
+} = CONSTANTS;
 
 const _VERSION = 1;
 const _pageViewId = generateUUID();
@@ -38,9 +40,14 @@ let _bidRequestTimeout = 0;
 let flushInterval;
 let invisiblyAnalyticsEnabled = false;
 
-const { width: x, height: y } = getViewportSize();
+const w = window;
+const d = document;
+let e = d.documentElement;
+let g = d.getElementsByTagName('body')[0];
+let x = w.innerWidth || e.clientWidth || g.clientWidth;
+let y = w.innerHeight || e.clientHeight || g.clientHeight;
 
-const _pageView = {
+let _pageView = {
   eventType: 'pageView',
   userAgent: window.navigator.userAgent,
   timestamp: Date.now(),
@@ -52,11 +59,11 @@ const _pageView = {
 };
 
 // pass only 1% of events & fail the rest 99%
-const weightedFilter = { filter: Math.random() > 0.99 };
+let weightedFilter = { filter: Math.random() > 0.99 };
 
-const _eventQueue = [_pageView];
+let _eventQueue = [_pageView];
 
-const invisiblyAdapter = Object.assign(
+let invisiblyAdapter = Object.assign(
   adapter({ url: DEFAULT_EVENT_URL, analyticsType }),
   {
     track({ eventType, args }) {
@@ -98,18 +105,18 @@ function flush() {
 
   if (_eventQueue.length > 0) {
     while (_eventQueue.length) {
-      const eventFromQue = _eventQueue.shift();
-      const eventtype = 'PREBID_' + eventFromQue.eventType;
+      let eventFromQue = _eventQueue.shift();
+      let eventtype = 'PREBID_' + eventFromQue.eventType;
       delete eventFromQue.eventType;
 
-      const data = {
+      let data = {
         pageViewId: _pageViewId,
         ver: _VERSION,
         bundleId: initOptions.bundleId,
         ...eventFromQue,
       };
 
-      const payload = {
+      let payload = {
         event_type: eventtype,
         event_data: { ...data },
       };
@@ -128,12 +135,7 @@ function flush() {
 }
 
 function handleEvent(eventType, eventArgs) {
-  if (eventArgs) {
-    eventArgs = hasNonSerializableProperty(eventArgs) ? eventArgs : deepClone(eventArgs)
-  } else {
-    eventArgs = {}
-  }
-
+  eventArgs = eventArgs ? JSON.parse(JSON.stringify(eventArgs)) : {};
   let invisiblyEvent = {};
 
   switch (eventType) {
@@ -183,6 +185,10 @@ function handleEvent(eventType, eventArgs) {
       break;
     }
     case REQUEST_BIDS: {
+      invisiblyEvent = eventArgs;
+      break;
+    }
+    case ADD_AD_UNITS: {
       invisiblyEvent = eventArgs;
       break;
     }

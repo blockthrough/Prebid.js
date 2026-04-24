@@ -13,7 +13,7 @@ describe('AppierAdapter', function () {
   });
 
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidder': 'appier',
       'params': {
         'hzid': 'abcd'
@@ -30,17 +30,17 @@ describe('AppierAdapter', function () {
     });
 
     it('should return false when required param zoneId is missing', function () {
-      const invalidBid = Object.assign({}, bid);
-      invalidBid.params = {};
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      let bid = Object.assign({}, bid);
+      bid.params = {};
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
 
     it('should return false when required param zoneId has wrong type', function () {
-      const invalidBid = Object.assign({}, bid);
-      invalidBid.params = {
+      let bid = Object.assign({}, bid);
+      bid.params = {
         'hzid': null
       };
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
   });
 
@@ -137,7 +137,7 @@ describe('AppierAdapter', function () {
   describe('getApiServer', function() {
     it('should use the server specified by setConfig(appier.server)', function() {
       config.setConfig({
-        'appier': { 'server': 'fake_server' }
+        'appier': {'server': 'fake_server'}
       });
 
       const server = spec.getApiServer();
@@ -147,7 +147,7 @@ describe('AppierAdapter', function () {
 
     it('should retrieve a farm specific hostname if server is not specpfied', function() {
       config.setConfig({
-        'appier': { 'farm': 'tw' }
+        'appier': {'farm': 'tw'}
       });
 
       const server = spec.getApiServer();
@@ -157,7 +157,7 @@ describe('AppierAdapter', function () {
 
     it('if farm is not recognized, use the default farm', function() {
       config.setConfig({
-        'appier': { 'farm': 'no_this_farm' }
+        'appier': {'farm': 'no_this_farm'}
       });
 
       const server = spec.getApiServer();

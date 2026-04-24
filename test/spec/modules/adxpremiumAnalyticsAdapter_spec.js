@@ -1,11 +1,11 @@
-import adxpremiumAnalyticsAdapter, { testSend } from 'modules/adxpremiumAnalyticsAdapter.js';
-
+import adxpremiumAnalyticsAdapter from 'modules/adxpremiumAnalyticsAdapter.js';
+import { testSend } from 'modules/adxpremiumAnalyticsAdapter.js';
 import { expect } from 'chai';
 import adapterManager from 'src/adapterManager.js';
 import { server } from 'test/mocks/xhr.js';
-import { EVENTS } from 'src/constants.js';
 
-const events = require('src/events');
+let events = require('src/events');
+let constants = require('src/constants.json');
 
 describe('AdxPremium analytics adapter', function () {
   beforeEach(function () {
@@ -17,12 +17,12 @@ describe('AdxPremium analytics adapter', function () {
   });
 
   describe('track', function () {
-    const initOptions = {
+    let initOptions = {
       pubId: 123,
       sid: 's2'
     };
 
-    const auctionInit = {
+    let auctionInit = {
       'auctionId': 'c4f0cce0-264c-483a-b2f4-8ac2248a896b',
       'timestamp': 1589707613899,
       'auctionStatus': 'inProgress',
@@ -143,7 +143,7 @@ describe('AdxPremium analytics adapter', function () {
     };
 
     // requests & responses
-    const bidRequest = {
+    let bidRequest = {
       'bidderCode': 'luponmedia',
       'auctionId': 'c4f0cce0-264c-483a-b2f4-8ac2248a896b',
       'bidderRequestId': '18c49b05a23645',
@@ -232,10 +232,11 @@ describe('AdxPremium analytics adapter', function () {
       'start': 1589707613908
     };
 
-    const bidResponse = {
+    let bidResponse = {
       'bidderCode': 'luponmedia',
       'width': 300,
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '3b40e0da8968f5',
       'requestId': '284f8e1469246a',
       'mediaType': 'banner',
@@ -278,7 +279,7 @@ describe('AdxPremium analytics adapter', function () {
     expectedAfterBidData['screen_resolution'] = window.screen.width + 'x' + window.screen.height;
     expectedAfterBidData = btoa(JSON.stringify(expectedAfterBidData));
 
-    const expectedAfterBid = {
+    let expectedAfterBid = {
       'query': 'mutation {createEvent(input: {event: {eventData: "' + expectedAfterBidData + '"}}) {event {createTime } } }'
     };
 
@@ -288,12 +289,12 @@ describe('AdxPremium analytics adapter', function () {
     expectedAfterTimeoutData['screen_resolution'] = window.screen.width + 'x' + window.screen.height;
     expectedAfterTimeoutData = btoa(JSON.stringify(expectedAfterTimeoutData));
 
-    const expectedAfterTimeout = {
+    let expectedAfterTimeout = {
       'query': 'mutation {createEvent(input: {event: {eventData: "' + expectedAfterTimeoutData + '"}}) {event {createTime } } }'
     };
 
     // lets simulate that some bidders timeout
-    const bidTimeoutArgsV1 = [
+    let bidTimeoutArgsV1 = [
       {
         'bidId': '284f8e1469246b',
         'bidder': 'luponmedia',
@@ -303,10 +304,11 @@ describe('AdxPremium analytics adapter', function () {
     ];
 
     // now simulate some WIN and RENDERING
-    const wonRequest = {
+    let wonRequest = {
       'bidderCode': 'luponmedia',
       'width': 300,
       'height': 250,
+      'statusMessage': 'Bid available',
       'adId': '3b40e0da8968f5',
       'requestId': '284f8e1469246a',
       'mediaType': 'banner',
@@ -354,7 +356,7 @@ describe('AdxPremium analytics adapter', function () {
     wonExpectData['screen_resolution'] = window.screen.width + 'x' + window.screen.height;
     wonExpectData = btoa(JSON.stringify(wonExpectData));
 
-    const wonExpect = {
+    let wonExpect = {
       'query': 'mutation {createEvent(input: {event: {eventData: "' + wonExpectData + '"}}) {event {createTime } } }'
     };
 
@@ -376,25 +378,25 @@ describe('AdxPremium analytics adapter', function () {
 
     it('builds and sends auction data', function () {
       // Step 1: Send auction init event
-      events.emit(EVENTS.AUCTION_INIT, auctionInit);
+      events.emit(constants.EVENTS.AUCTION_INIT, auctionInit);
 
       // Step 2: Send bid requested event
-      events.emit(EVENTS.BID_REQUESTED, bidRequest);
+      events.emit(constants.EVENTS.BID_REQUESTED, bidRequest);
 
       // Step 3: Send bid response event
-      events.emit(EVENTS.BID_RESPONSE, bidResponse);
+      events.emit(constants.EVENTS.BID_RESPONSE, bidResponse);
 
       // Step 4: Send bid time out event
-      events.emit(EVENTS.BID_TIMEOUT, bidTimeoutArgsV1);
+      events.emit(constants.EVENTS.BID_TIMEOUT, bidTimeoutArgsV1);
 
       // Step 5: Send auction end event
-      events.emit(EVENTS.AUCTION_END, {});
+      events.emit(constants.EVENTS.AUCTION_END, {});
 
       testSend();
 
       expect(server.requests.length).to.equal(2);
 
-      const realAfterBid = JSON.parse(server.requests[0].requestBody);
+      let realAfterBid = JSON.parse(server.requests[0].requestBody);
 
       expect(realAfterBid).to.deep.equal(expectedAfterBid);
 
@@ -402,10 +404,10 @@ describe('AdxPremium analytics adapter', function () {
       expect(realAfterBid).to.deep.equal(expectedAfterTimeout);
 
       // Step 6: Send auction bid won event
-      events.emit(EVENTS.BID_WON, wonRequest);
+      events.emit(constants.EVENTS.BID_WON, wonRequest);
 
       expect(server.requests.length).to.equal(3);
-      const winEventData = JSON.parse(server.requests[1].requestBody);
+      let winEventData = JSON.parse(server.requests[1].requestBody);
 
       expect(winEventData).to.deep.equal(wonExpect);
     });

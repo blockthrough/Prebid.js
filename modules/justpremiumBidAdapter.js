@@ -1,5 +1,5 @@
 import { registerBidder } from '../src/adapters/bidderFactory.js'
-import { deepAccess, getWinDimensions } from '../src/utils.js';
+import { deepAccess } from '../src/utils.js';
 
 const BIDDER_CODE = 'justpremium'
 const GVLID = 62
@@ -17,9 +17,7 @@ export const spec = {
 
   buildRequests: (validBidRequests, bidderRequest) => {
     const c = preparePubCond(validBidRequests)
-    const {
-      screen
-    } = getWinDimensions();
+    const dim = getWebsiteDim()
     const ggExt = getGumGumParams()
     const payload = {
       zone: validBidRequests.map(b => {
@@ -29,10 +27,10 @@ export const spec = {
       }),
       // TODO: is 'page' the right value here?
       referer: bidderRequest.refererInfo.page,
-      sw: screen.width,
-      sh: screen.height,
-      ww: getWinDimensions().innerWidth,
-      wh: getWinDimensions().innerHeight,
+      sw: dim.screenWidth,
+      sh: dim.screenHeight,
+      ww: dim.innerWidth,
+      wh: dim.innerHeight,
       c: c,
       id: validBidRequests[0].params.zone,
       sizes: {},
@@ -69,9 +67,8 @@ export const spec = {
       jp_adapter: JP_ADAPTER_VERSION
     }
 
-    const schain = validBidRequests[0]?.ortb2?.source?.ext?.schain;
-    if (schain) {
-      payload.schain = schain;
+    if (validBidRequests[0].schain) {
+      payload.schain = validBidRequests[0].schain;
     }
 
     const payloadString = JSON.stringify(payload)
@@ -86,12 +83,12 @@ export const spec = {
 
   interpretResponse: (serverResponse, bidRequests) => {
     const body = serverResponse.body
-    const bidResponses = []
+    let bidResponses = []
     bidRequests.bids.forEach(adUnit => {
-      const bid = findBid(adUnit.params, body.bid)
+      let bid = findBid(adUnit.params, body.bid)
       if (bid) {
-        const size = (adUnit.mediaTypes && adUnit.mediaTypes.banner && adUnit.mediaTypes.banner.sizes && adUnit.mediaTypes.banner.sizes.length && adUnit.mediaTypes.banner.sizes[0]) || []
-        const bidResponse = {
+        let size = (adUnit.mediaTypes && adUnit.mediaTypes.banner && adUnit.mediaTypes.banner.sizes && adUnit.mediaTypes.banner.sizes.length && adUnit.mediaTypes.banner.sizes[0]) || []
+        let bidResponse = {
           requestId: adUnit.bidId,
           creativeId: bid.id,
           width: size[0] || bid.width,
@@ -185,8 +182,7 @@ function preparePubCond (bids) {
     const exclude = params.exclude || []
 
     if (allow.length === 0 && exclude.length === 0) {
-      cond[params.zone] = 1
-      return cond[params.zone]
+      return cond[params.zone] = 1
     }
 
     cond[zone] = cond[zone] || [[], {}]
@@ -220,7 +216,7 @@ function preparePubCond (bids) {
   Object.keys(cond).forEach((zone) => {
     if (cond[zone] !== 1 && cond[zone][1].length) {
       cond[zone][0].forEach((r) => {
-        const idx = cond[zone][1].indexOf(r)
+        let idx = cond[zone][1].indexOf(r)
         if (idx > -1) {
           cond[zone][1].splice(idx, 1)
         }
@@ -247,6 +243,22 @@ function arrayUnique (array) {
   }
 
   return a
+}
+
+function getWebsiteDim () {
+  let top
+  try {
+    top = window.top
+  } catch (e) {
+    top = window
+  }
+
+  return {
+    screenWidth: top.screen.width,
+    screenHeight: top.screen.height,
+    innerWidth: top.innerWidth,
+    innerHeight: top.innerHeight
+  }
 }
 
 function getGumGumParams () {

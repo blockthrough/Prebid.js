@@ -196,10 +196,7 @@ describe('VideoByteBidAdapter', function () {
           hp: 1
         }]
       };
-      bidRequest.ortb2 = bidRequest.ortb2 || {};
-      bidRequest.ortb2.source = bidRequest.ortb2.source || {};
-      bidRequest.ortb2.source.ext = bidRequest.ortb2.source.ext || {};
-      bidRequest.ortb2.source.ext.schain = globalSchain;
+      bidRequest.schain = globalSchain;
       const requests = spec.buildRequests([bidRequest], bidderRequest);
       const data = JSON.parse(requests[0].data);
       const schain = data.source.ext.schain;
@@ -263,8 +260,8 @@ describe('VideoByteBidAdapter', function () {
           series: ['Series'],
           season: ['Season'],
           genre: ['Genre'],
-          contentrating: { 1: 'C-Rating' },
-          language: { 1: 'EN' }
+          contentrating: {1: 'C-Rating'},
+          language: {1: 'EN'}
         };
         const requests = spec.buildRequests([bidRequest], bidderRequest);
         const data = JSON.parse(requests[0].data);
@@ -275,7 +272,7 @@ describe('VideoByteBidAdapter', function () {
         bidRequest.params.video.content = {
           episode: '1',
           context: 'context',
-          livestream: { 0: 'stream' },
+          livestream: {0: 'stream'},
           len: [360],
           prodq: [1],
         };
@@ -464,7 +461,7 @@ describe('VideoByteBidAdapter', function () {
       }, {
         bidRequest
       });
-      const o = {
+      let o = {
         requestId: serverResponse.id,
         cpm: serverResponse.seatbid[0].bid[0].price,
         creativeId: serverResponse.seatbid[0].bid[0].crid,
@@ -483,19 +480,19 @@ describe('VideoByteBidAdapter', function () {
     });
 
     it('should default ttl to 300', function () {
-      const serverResponse = { seatbid: [{ bid: [{ id: 1, adid: 123, crid: 2, price: 6.01, adm: '<VAST></VAST>' }] }], cur: 'USD' };
+      const serverResponse = {seatbid: [{bid: [{id: 1, adid: 123, crid: 2, price: 6.01, adm: '<VAST></VAST>'}]}], cur: 'USD'};
       const bidResponse = spec.interpretResponse({ body: serverResponse }, { bidRequest });
       expect(bidResponse[0].ttl).to.equal(300);
     });
     it('should not allow ttl above 3601, default to 300', function () {
       bidRequest.params.video.ttl = 3601;
-      const serverResponse = { seatbid: [{ bid: [{ id: 1, adid: 123, crid: 2, price: 6.01, adm: '<VAST></VAST>' }] }], cur: 'USD' };
+      const serverResponse = {seatbid: [{bid: [{id: 1, adid: 123, crid: 2, price: 6.01, adm: '<VAST></VAST>'}]}], cur: 'USD'};
       const bidResponse = spec.interpretResponse({ body: serverResponse }, { bidRequest });
       expect(bidResponse[0].ttl).to.equal(300);
     });
     it('should not allow ttl below 1, default to 300', function () {
       bidRequest.params.video.ttl = 0;
-      const serverResponse = { seatbid: [{ bid: [{ id: 1, adid: 123, crid: 2, price: 6.01, adm: '<VAST></VAST>' }] }], cur: 'USD' };
+      const serverResponse = {seatbid: [{bid: [{id: 1, adid: 123, crid: 2, price: 6.01, adm: '<VAST></VAST>'}]}], cur: 'USD'};
       const bidResponse = spec.interpretResponse({ body: serverResponse }, { bidRequest });
       expect(bidResponse[0].ttl).to.equal(300);
     });
@@ -594,17 +591,17 @@ describe('VideoByteBidAdapter', function () {
       }
     };
     it('handles no parameters', function () {
-      const opts = spec.getUserSyncs({});
+      let opts = spec.getUserSyncs({});
       expect(opts).to.be.an('array').that.is.empty;
     });
     it('returns non if sync is not allowed', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: false, pixelEnabled: false });
+      let opts = spec.getUserSyncs({iframeEnabled: false, pixelEnabled: false});
 
       expect(opts).to.be.an('array').that.is.empty;
     });
 
     it('iframe sync enabled should return results', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: true, pixelEnabled: false }, [ortbResponse]);
+      let opts = spec.getUserSyncs({iframeEnabled: true, pixelEnabled: false}, [ortbResponse]);
 
       expect(opts.length).to.equal(1);
       expect(opts[0].type).to.equal('iframe');
@@ -612,7 +609,7 @@ describe('VideoByteBidAdapter', function () {
     });
 
     it('pixel sync enabled should return results', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: false, pixelEnabled: true }, [ortbResponse]);
+      let opts = spec.getUserSyncs({iframeEnabled: false, pixelEnabled: true}, [ortbResponse]);
 
       expect(opts.length).to.equal(1);
       expect(opts[0].type).to.equal('image');
@@ -620,7 +617,7 @@ describe('VideoByteBidAdapter', function () {
     });
 
     it('all sync enabled should return only iframe result', function () {
-      const opts = spec.getUserSyncs({ iframeEnabled: true, pixelEnabled: true }, [ortbResponse]);
+      let opts = spec.getUserSyncs({iframeEnabled: true, pixelEnabled: true}, [ortbResponse]);
 
       expect(opts.length).to.equal(1);
     });

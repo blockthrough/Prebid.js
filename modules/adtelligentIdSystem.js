@@ -8,20 +8,13 @@
 import * as ajax from '../src/ajax.js';
 import { submodule } from '../src/hook.js';
 
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- * @typedef {import('../modules/userId/index.js').ConsentData} ConsentData
- * @typedef {import('../modules/userId/index.js').IdResponse} IdResponse
- */
-
 const gvlid = 410;
 const moduleName = 'adtelligent';
 const syncUrl = 'https://idrs.adtelligent.com/get';
 
 function buildUrl(opts) {
   const queryPairs = [];
-  for (const key in opts) {
+  for (let key in opts) {
     queryPairs.push(`${key}=${encodeURIComponent(opts[key])}`);
   }
   return `${syncUrl}?${queryPairs.join('&')}`;
@@ -72,7 +65,7 @@ export const adtelligentIdModule = {
    * @param {ConsentData} [consentData]
    * @returns {IdResponse}
    */
-  getId(config, { gdpr: consentData } = {}) {
+  getId(config, consentData) {
     const gdpr = consentData && consentData.gdprApplies ? 1 : 0;
     const gdprConsent = gdpr ? consentData.consentString : '';
     const url = buildUrl({

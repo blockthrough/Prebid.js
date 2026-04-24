@@ -5,14 +5,9 @@
  * @requires module:modules/userId
  */
 
-import { submodule } from '../src/hook.js';
+import {submodule} from '../src/hook.js';
 import { logInfo, isArray } from '../src/utils.js';
-import { VENDORLESS_GVLID } from '../src/consentHandler.js';
-
-/**
- * @typedef {import('../modules/userId/index.js').Submodule} Submodule
- * @typedef {import('../modules/userId/index.js').SubmoduleConfig} SubmoduleConfig
- */
+import {VENDORLESS_GVLID} from '../src/consentHandler.js';
 
 const MODULE_NAME = 'pubProvidedId';
 
@@ -30,10 +25,10 @@ export const pubProvidedIdSubmodule = {
    * decode the stored id value for passing to bid request
    * @function
    * @param {string} value
-   * @returns {{pubProvidedId: Array}} or undefined if value doesn't exists
+   * @returns {{pubProvidedId: array}} or undefined if value doesn't exists
    */
   decode(value) {
-    const res = value ? { pubProvidedId: value } : undefined;
+    const res = value ? {pubProvidedId: value} : undefined;
     logInfo('PubProvidedId: Decoded value ' + JSON.stringify(res));
     return res;
   },
@@ -42,7 +37,7 @@ export const pubProvidedIdSubmodule = {
    * performs action to obtain id and return a value.
    * @function
    * @param {SubmoduleConfig} [config]
-   * @returns {{id: Array}}
+   * @returns {{id: array}}
    */
   getId(config) {
     const configParams = (config && config.params) || {};
@@ -53,7 +48,7 @@ export const pubProvidedIdSubmodule = {
     if (typeof configParams.eidsFunction === 'function') {
       res = res.concat(configParams.eidsFunction());
     }
-    return { id: res };
+    return {id: res};
   }
 };
 

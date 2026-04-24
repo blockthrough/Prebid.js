@@ -1,17 +1,9 @@
-import { _each, deepAccess, isArray, isEmptyStr, isFn, isPlainObject, timestamp } from '../src/utils.js';
+import { _each, deepAccess, isArray, isFn, isPlainObject, timestamp } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
+import { find } from '../src/polyfill.js';
 import { BANNER, NATIVE, VIDEO } from '../src/mediaTypes.js';
 import { Renderer } from '../src/Renderer.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').ServerRequest} ServerRequest
- * @typedef {import('../src/adapters/bidderFactory.js').SyncOptions} SyncOptions
- * @typedef {import('../src/adapters/bidderFactory.js').UserSync} UserSync
- */
 
 const ENDPOINT = 'https://ad.yieldlab.net';
 const BIDDER_CODE = 'yieldlab';
@@ -33,7 +25,10 @@ export const spec = {
    * @returns {boolean}
    */
   isBidRequestValid(bid) {
-    return !!(bid && bid.params && bid.params.adslotId && bid.params.supplyId);
+    if (bid && bid.params && bid.params.adslotId && bid.params.supplyId) {
+      return true;
+    }
+    return false;
   },
 
   /**
@@ -52,7 +47,7 @@ export const spec = {
     const timestamp = Date.now();
     const query = {
       ts: timestamp,
-      json: true
+      json: true,
     };
 
     _each(validBidRequests, function (bid) {
@@ -76,9 +71,8 @@ export const spec = {
           query[prop] = bid.params.customParams[prop];
         }
       }
-      const schain = bid?.ortb2?.source?.ext?.schain;
-      if (schain && isPlainObject(schain) && Array.isArray(schain.nodes)) {
-        query.schain = createSchainString(schain);
+      if (bid.schain && isPlainObject(bid.schain) && Array.isArray(bid.schain.nodes)) {
+        query.schain = createSchainString(bid.schain);
       }
 
       const iabContent = getContentObject(bid);
@@ -100,42 +94,8 @@ export const spec = {
       if (bidderRequest.gdprConsent) {
         query.gdpr = (typeof bidderRequest.gdprConsent.gdprApplies === 'boolean') ? bidderRequest.gdprConsent.gdprApplies : true;
         if (query.gdpr) {
-          query.gdpr_consent = bidderRequest.gdprConsent.consentString;
+          query.consent = bidderRequest.gdprConsent.consentString;
         }
-      }
-
-      if (bidderRequest.ortb2?.regs?.ext?.dsa !== undefined) {
-        const dsa = bidderRequest.ortb2.regs.ext.dsa;
-
-        assignIfNotUndefined(query, 'dsarequired', dsa.dsarequired);
-        assignIfNotUndefined(query, 'dsapubrender', dsa.pubrender);
-        assignIfNotUndefined(query, 'dsadatatopub', dsa.datatopub);
-
-        if (Array.isArray(dsa.transparency)) {
-          const filteredTransparencies = dsa.transparency.filter(({ domain, dsaparams }) => {
-            return domain && !domain.includes('~') && Array.isArray(dsaparams) && dsaparams.length > 0 && dsaparams.every(param => typeof param === 'number');
-          });
-
-          if (filteredTransparencies.length === 1) {
-            const { domain, dsaparams } = filteredTransparencies[0];
-            assignIfNotUndefined(query, 'dsadomain', domain);
-            assignIfNotUndefined(query, 'dsaparams', dsaparams.join(','));
-          } else if (filteredTransparencies.length > 1) {
-            const dsatransparency = filteredTransparencies.map(({ domain, dsaparams }) =>
-              `${domain}~${dsaparams.join('_')}`
-            ).join('~~');
-            if (dsatransparency) {
-              query.dsatransparency = dsatransparency;
-            }
-          }
-        }
-      }
-
-      const topics = getGoogleTopics(bidderRequest);
-      if (topics) {
-        assignIfNotUndefined(query, 'segtax', topics.segtax);
-        assignIfNotUndefined(query, 'segclass', topics.segclass);
-        assignIfNotUndefined(query, 'segments', topics.segments);
       }
     }
 
@@ -174,8 +134,8 @@ export const spec = {
         return;
       }
 
-      const matchedBid = ((serverResponse.body) || []).find(function (bidResponse) {
-        return String(bidRequest.params.adslotId) === String(bidResponse.id);
+      const matchedBid = find(serverResponse.body, function (bidResponse) {
+        return bidRequest.params.adslotId == bidResponse.id;
       });
 
       if (matchedBid) {
@@ -184,7 +144,7 @@ export const spec = {
         const extId = bidRequest.params.extId !== undefined ? '&id=' + bidRequest.params.extId : '';
         const adType = matchedBid.adtype !== undefined ? matchedBid.adtype : '';
         const gdprApplies = reqParams.gdpr ? '&gdpr=' + reqParams.gdpr : '';
-        const gdprConsent = reqParams.gdpr_consent ? '&gdpr_consent=' + reqParams.gdpr_consent : '';
+        const gdprConsent = reqParams.consent ? '&consent=' + reqParams.consent : '';
         const pvId = matchedBid.pvid !== undefined ? '&pvid=' + matchedBid.pvid : '';
         const iabContent = reqParams.iab_content ? '&iab_content=' + reqParams.iab_content : '';
 
@@ -196,19 +156,14 @@ export const spec = {
           creativeId: '' + matchedBid.id,
           dealId: (matchedBid['c.dealid']) ? matchedBid['c.dealid'] : matchedBid.pid,
           currency: CURRENCY_CODE,
-          netRevenue: matchedBid.netRevenue,
+          netRevenue: false,
           ttl: BID_RESPONSE_TTL_SEC,
           referrer: '',
           ad: `<script src="${ENDPOINT}/d/${matchedBid.id}/${bidRequest.params.supplyId}/?ts=${timestamp}${extId}${gdprApplies}${gdprConsent}${pvId}${iabContent}"></script>`,
           meta: {
-            advertiserDomains: [(matchedBid.advertiser) ? matchedBid.advertiser : 'n/a'],
+            advertiserDomains: (matchedBid.advertiser) ? matchedBid.advertiser : 'n/a',
           },
         };
-
-        const dsa = getDigitalServicesActObjectFromMatchedBid(matchedBid)
-        if (dsa !== undefined) {
-          bidResponse.meta = { ...bidResponse.meta, dsa: dsa };
-        }
 
         if (isVideo(bidRequest, adType)) {
           const playersize = getPlayerSize(bidRequest);
@@ -234,11 +189,11 @@ export const spec = {
           const { assets } = native;
           bidResponse.adUrl = `${ENDPOINT}/d/${matchedBid.id}/${bidRequest.params.supplyId}/?ts=${timestamp}${extId}${gdprApplies}${gdprConsent}${pvId}`;
           bidResponse.mediaType = NATIVE;
-          const nativeIconAssetObj = ((assets) || []).find(isImageAssetOfType(IMG_TYPE_ICON));
-          const nativeImageAssetObj = ((assets) || []).find(isImageAssetOfType(IMG_TYPE_MAIN));
+          const nativeIconAssetObj = find(assets, isImageAssetOfType(IMG_TYPE_ICON));
+          const nativeImageAssetObj = find(assets, isImageAssetOfType(IMG_TYPE_MAIN));
           const nativeImageAsset = nativeImageAssetObj ? nativeImageAssetObj.img : { url: '', w: 0, h: 0 };
-          const nativeTitleAsset = ((assets) || []).find(asset => hasValidProperty(asset, 'title'));
-          const nativeBodyAsset = ((assets) || []).find(asset => hasValidProperty(asset, 'data'));
+          const nativeTitleAsset = find(assets, asset => hasValidProperty(asset, 'title'));
+          const nativeBodyAsset = find(assets, asset => hasValidProperty(asset, 'data'));
           bidResponse.native = {
             title: nativeTitleAsset ? nativeTitleAsset.title.text : '',
             body: nativeBodyAsset ? nativeBodyAsset.data.value : '',
@@ -422,8 +377,7 @@ function createSchainString(schain) {
   const complete = (schain.complete === 1 || schain.complete === 0) ? schain.complete : '';
   const keys = ['asi', 'sid', 'hp', 'rid', 'name', 'domain', 'ext'];
   const nodesString = schain.nodes.reduce((acc, node) => {
-    acc += `!${keys.map(key => node[key] ? encodeURIComponentWithBangIncluded(node[key]) : '').join(',')}`;
-    return acc;
+    return acc += `!${keys.map(key => node[key] ? encodeURIComponentWithBangIncluded(node[key]) : '').join(',')}`;
   }, '');
   return `${ver},${complete}${nodesString}`;
 }
@@ -452,7 +406,7 @@ function getContentObject(bid) {
  * Creates a string for iab_content object by
  * 1. flatten the iab content object
  * 2. encoding the values
- * 3. joining array of defined keys ('keyword', 'cat') into one value separated with '|'
+ * 3. joining array of defined keys ('keyword', 'cat') into one value seperated with '|'
  * 4. encoding the whole string
  * @param {Object} iabContent
  * @returns {String}
@@ -556,7 +510,7 @@ function getBidFloor(bid, sizes) {
     mediaType: mediaType !== undefined && spec.supportedMediaTypes.includes(mediaType) ? mediaType : '*',
     size: sizes.length !== 1 ? '*' : sizes[0].split(DIMENSION_SIGN),
   });
-  if (floor?.currency === CURRENCY_CODE) {
+  if (floor.currency === CURRENCY_CODE) {
     return (floor.floor * 100).toFixed(0);
   }
   return undefined;
@@ -580,57 +534,6 @@ function hasValidProperty(obj, propName) {
  */
 function isImageAssetOfType(type) {
   return asset => asset?.img?.type === type;
-}
-
-/**
- * Retrieves the Digital Services Act (DSA) object from a matched bid.
- * Only includes specific attributes (behalf, paid, transparency, adrender) from the DSA object.
- *
- * @param {Object} matchedBid - The server response body to inspect for the DSA information.
- * @returns {Object|undefined} A copy of the DSA object if it exists, or undefined if not.
- */
-function getDigitalServicesActObjectFromMatchedBid(matchedBid) {
-  if (matchedBid.dsa) {
-    const { behalf, paid, transparency, adrender } = matchedBid.dsa;
-    return {
-      ...(behalf !== undefined && { behalf }),
-      ...(paid !== undefined && { paid }),
-      ...(transparency !== undefined && { transparency }),
-      ...(adrender !== undefined && { adrender })
-    };
-  }
-  return undefined;
-}
-
-/**
- * Conditionally assigns a value to a specified key on an object if the value is not undefined.
- *
- * @param {Object} obj - The object to which the value will be assigned.
- * @param {string} key - The key under which the value should be assigned.
- * @param {*} value - The value to be assigned, if it is not undefined.
- */
-function assignIfNotUndefined(obj, key, value) {
-  if (value !== undefined) {
-    obj[key] = value;
-  }
-}
-
-function getGoogleTopics(bid) {
-  const userData = deepAccess(bid, 'ortb2.user.data') || [];
-  const validData = userData.filter(dataObj =>
-    dataObj.segment && isArray(dataObj.segment) && dataObj.segment.length > 0 &&
-      dataObj.segment.every(seg => (seg.id && !isEmptyStr(seg.id) && isFinite(seg.id)))
-  )[0];
-
-  if (validData) {
-    return {
-      segtax: validData.ext?.segtax,
-      segclass: validData.ext?.segclass,
-      segments: validData.segment.map(seg => Number(seg.id)).join(','),
-    };
-  }
-
-  return undefined;
 }
 
 registerBidder(spec);

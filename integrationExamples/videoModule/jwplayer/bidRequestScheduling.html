@@ -24,8 +24,6 @@
                 params: {
                   vendorConfig: {
                     file: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4',
-                    width: 640,
-                    height: 480,
                     advertising: {
                       client: "googima",
                       schedule: {
@@ -52,17 +50,12 @@
                           mediationLayerAdServer: "dfp",
                           bidTimeout: 2000
                         },
-                        bidders: [{
-                          bidder: 'jwplayer',
-                          params: {
-                            publisherId: 'test-publisher-id',
-                            siteId: 'test-site-id',
-                            placementId: 'test-placement-id'
-                          }
-                        }, {
+                        bidders: [
+                          {
                             name: "ix",
                             siteId: "300"
-                        }]
+                          }
+                        ]
                       }
                     }
                   }

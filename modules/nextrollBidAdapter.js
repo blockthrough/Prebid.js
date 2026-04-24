@@ -6,33 +6,26 @@ import {
   isPlainObject,
   isStr,
   parseUrl,
-  replaceAuctionPrice
+  replaceAuctionPrice,
 } from '../src/utils.js';
-import { registerBidder } from '../src/adapters/bidderFactory.js';
-import { BANNER, NATIVE } from '../src/mediaTypes.js';
+import {registerBidder} from '../src/adapters/bidderFactory.js';
+import {BANNER, NATIVE} from '../src/mediaTypes.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { getOsVersion } from '../libraries/advangUtils/index.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
+import {find} from '../src/polyfill.js';
+
 const BIDDER_CODE = 'nextroll';
-const GVLID = 130;
 const BIDDER_ENDPOINT = 'https://d.adroll.com/bid/prebid/';
 const ADAPTER_VERSION = 5;
 
 export const spec = {
   code: BIDDER_CODE,
-  gvlid: GVLID,
   supportedMediaTypes: [BANNER, NATIVE],
 
   /**
    * Determines whether or not the given bid request is valid.
    *
-   * @param {Object} bidRequest The bid params to validate.
+   * @param {BidRequest} bid The bid params to validate.
    * @return boolean True if this is a valid bid, and false otherwise.
    */
   isBidRequestValid: function (bidRequest) {
@@ -42,15 +35,14 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {Array} validBidRequests - an array of bids
-   * @param {Object} bidderRequest
-   * @return {Object} Info describing the request to the server.
+   * @param {validBidRequests[]} - an array of bids
+   * @return ServerRequest Info describing the request to the server.
    */
   buildRequests: function (validBidRequests, bidderRequest) {
     // convert Native ORTB definition to old-style prebid native definition
     validBidRequests = convertOrtbRequestToProprietaryNative(validBidRequests);
     // TODO: is 'page' the right value here?
-    const topLocation = parseUrl(deepAccess(bidderRequest, 'refererInfo.page'));
+    let topLocation = parseUrl(deepAccess(bidderRequest, 'refererInfo.page'));
 
     return validBidRequests.map((bidRequest) => {
       return {
@@ -95,23 +87,23 @@ export const spec = {
     if (!serverResponse.body) {
       return [];
     } else {
-      const response = serverResponse.body
-      const bids = response.seatbid.reduce((acc, seatbid) => acc.concat(seatbid.bid), []);
+      let response = serverResponse.body
+      let bids = response.seatbid.reduce((acc, seatbid) => acc.concat(seatbid.bid), []);
       return bids.map((bid) => _buildResponse(response, bid));
     }
   }
 }
 
 function _getBanner(bidRequest) {
-  const sizes = _getSizes(bidRequest);
+  let sizes = _getSizes(bidRequest);
   if (sizes === undefined) return undefined;
-  return { format: sizes };
+  return {format: sizes};
 }
 
 function _getNative(mediaTypeNative) {
   if (mediaTypeNative === undefined) return undefined;
-  const assets = _getNativeAssets(mediaTypeNative);
-  if (assets === undefined || assets.length === 0) return undefined;
+  let assets = _getNativeAssets(mediaTypeNative);
+  if (assets === undefined || assets.length == 0) return undefined;
   return {
     request: {
       native: {
@@ -129,12 +121,12 @@ function _getNative(mediaTypeNative) {
   required: Overrides the asset required field configured, only overrides when is true.
 */
 const NATIVE_ASSET_MAP = [
-  { id: 1, kind: 'title', key: 'title', required: true },
-  { id: 2, kind: 'img', key: 'image', type: 3, required: true },
-  { id: 3, kind: 'img', key: 'icon', type: 1 },
-  { id: 4, kind: 'img', key: 'logo', type: 2 },
-  { id: 5, kind: 'data', key: 'sponsoredBy', type: 1 },
-  { id: 6, kind: 'data', key: 'body', type: 2 }
+  {id: 1, kind: 'title', key: 'title', required: true},
+  {id: 2, kind: 'img', key: 'image', type: 3, required: true},
+  {id: 3, kind: 'img', key: 'icon', type: 1},
+  {id: 4, kind: 'img', key: 'logo', type: 2},
+  {id: 5, kind: 'data', key: 'sponsoredBy', type: 1},
+  {id: 6, kind: 'data', key: 'body', type: 2}
 ];
 
 const ASSET_KIND_MAP = {
@@ -155,7 +147,7 @@ function _getAsset(mediaTypeNative, assetMap) {
 }
 
 function _getTitleAsset(title, _assetMap) {
-  return { len: title.len || 0 };
+  return {len: title.len || 0};
 }
 
 function _getMinAspectRatio(aspectRatio, property) {
@@ -201,7 +193,7 @@ function _getFloor(bidRequest) {
     return (bidRequest.params.bidfloor) ? bidRequest.params.bidfloor : null;
   }
 
-  const floor = bidRequest.getFloor({
+  let floor = bidRequest.getFloor({
     currency: 'USD',
     mediaType: '*',
     size: '*'
@@ -214,7 +206,7 @@ function _getFloor(bidRequest) {
 }
 
 function _buildResponse(bidResponse, bid) {
-  const response = {
+  let response = {
     requestId: bidResponse.id,
     cpm: bid.price,
     width: bid.w,
@@ -242,7 +234,7 @@ const privacyLink = 'https://app.adroll.com/optout/personalized';
 const privacyIcon = 'https://s.adroll.com/j/ad-choices-small.png';
 
 function _getNativeResponse(adm, price) {
-  const baseResponse = {
+  let baseResponse = {
     clickTrackers: (adm.link && adm.link.clicktrackers) || [],
     jstracker: adm.jstracker || [],
     clickUrl: replaceAuctionPrice(adm.link.url, price),
@@ -314,7 +306,7 @@ function _getDevice(_bidRequest) {
     ua: navigator.userAgent,
     language: navigator['language'],
     os: _getOs(navigator.userAgent.toLowerCase()),
-    osv: getOsVersion()
+    osv: _getOsVersion(navigator.userAgent)
   };
 }
 
@@ -338,7 +330,32 @@ function _getOs(userAgent) {
     'windows': /windows/i
   };
 
-  return ((Object.keys(osTable)) || []).find(os => userAgent.match(osTable[os])) || 'etc';
+  return find(Object.keys(osTable), os => {
+    if (userAgent.match(osTable[os])) {
+      return os;
+    }
+  }) || 'etc';
+}
+
+function _getOsVersion(userAgent) {
+  const clientStrings = [
+    { s: 'Android', r: /Android/ },
+    { s: 'iOS', r: /(iPhone|iPad|iPod)/ },
+    { s: 'Mac OS X', r: /Mac OS X/ },
+    { s: 'Mac OS', r: /(MacPPC|MacIntel|Mac_PowerPC|Macintosh)/ },
+    { s: 'Linux', r: /(Linux|X11)/ },
+    { s: 'Windows 10', r: /(Windows 10.0|Windows NT 10.0)/ },
+    { s: 'Windows 8.1', r: /(Windows 8.1|Windows NT 6.3)/ },
+    { s: 'Windows 8', r: /(Windows 8|Windows NT 6.2)/ },
+    { s: 'Windows 7', r: /(Windows 7|Windows NT 6.1)/ },
+    { s: 'Windows Vista', r: /Windows NT 6.0/ },
+    { s: 'Windows Server 2003', r: /Windows NT 5.2/ },
+    { s: 'Windows XP', r: /(Windows NT 5.1|Windows XP)/ },
+    { s: 'UNIX', r: /UNIX/ },
+    { s: 'Search Bot', r: /(nuhk|Googlebot|Yammybot|Openbot|Slurp|MSNBot|Ask Jeeves\/Teoma|ia_archiver)/ }
+  ];
+  let cs = find(clientStrings, cs => cs.r.test(userAgent));
+  return cs ? cs.s : 'unknown';
 }
 
 registerBidder(spec);

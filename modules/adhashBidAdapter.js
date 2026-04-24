@@ -1,13 +1,12 @@
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { getStorageManager } from '../src/storageManager.js';
-
+import { includes } from '../src/polyfill.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 
 const VERSION = '3.6';
 const BAD_WORD_STEP = 0.1;
 const BAD_WORD_MIN = 0.2;
 const ADHASH_BIDDER_CODE = 'adhash';
-const storage = getStorageManager({ bidderCode: ADHASH_BIDDER_CODE });
 
 /**
  * Function that checks the page where the ads are being served for brand safety.
@@ -42,9 +41,9 @@ function brandSafety(badWords, maxScore) {
 
   /**
    * Calculates the scoring for each bad word with dimishing returns
-   * @param {number} points points that this word costs
-   * @param {number} occurrences number of occurrences
-   * @returns {number} final score
+   * @param {integer} points points that this word costs
+   * @param {integer} occurrences number of occurrences
+   * @returns {float} final score
    */
   const scoreCalculator = (points, occurrences) => {
     let positive = true;
@@ -64,7 +63,7 @@ function brandSafety(badWords, maxScore) {
    * @param {string} rule rule type (full, partial, starts, ends, regexp)
    * @param {string} decodedWord decoded word
    * @param {string} wordsToMatch list of all words on the page separated by delimiters
-   * @returns {object|boolean} matched rule and occurrences. If nothing is matched returns false
+   * @returns {object|boolean} matched rule and occurances. If nothing is matched returns false
    */
   const wordsMatchedWithRule = function (rule, decodedWord, wordsToMatch) {
     if (!wordsToMatch) {
@@ -117,11 +116,11 @@ function brandSafety(badWords, maxScore) {
     let score = 0;
     const decodedUrl = decodeURI(window.top.location.href.substring(window.top.location.origin.length));
     const wordsAndNumbersInUrl = decodedUrl
-      .replaceAll(/[-,._/?=&#%]/g, ' ')
+      .replaceAll(/[-,\._/\?=&#%]/g, ' ')
       .replaceAll(/\s\s+/g, ' ')
       .toLowerCase()
       .trim();
-    const content = window.top.document.body.textContent.toLowerCase();
+    const content = window.top.document.body.innerText.toLowerCase();
     // \p{L} matches a single unicode code point in the category 'letter'. Matches any kind of letter from any language.
     const regexp = new RegExp('[\\p{L}]+', 'gu');
     const wordsMatched = content.match(regexp);
@@ -153,13 +152,13 @@ function brandSafety(badWords, maxScore) {
 
 export const spec = {
   code: ADHASH_BIDDER_CODE,
-  supportedMediaTypes: [BANNER, VIDEO],
+  supportedMediaTypes: [ BANNER, VIDEO ],
 
   isBidRequestValid: (bid) => {
     try {
       const { publisherId, platformURL, bidderURL } = bid.params;
       return (
-        (Object.keys(bid.mediaTypes).includes(BANNER) || Object.keys(bid.mediaTypes).includes(VIDEO)) &&
+        (includes(Object.keys(bid.mediaTypes), BANNER) || includes(Object.keys(bid.mediaTypes), VIDEO)) &&
         typeof publisherId === 'string' &&
         publisherId.length === 42 &&
         typeof platformURL === 'string' &&
@@ -172,6 +171,7 @@ export const spec = {
   },
 
   buildRequests: (validBidRequests, bidderRequest) => {
+    const storage = getStorageManager({ bidderCode: ADHASH_BIDDER_CODE });
     const { gdprConsent } = bidderRequest;
     const bidRequests = [];
     const body = document.body;
@@ -190,7 +190,7 @@ export const spec = {
       const url = `${bidderURL}/rtb?version=${VERSION}&prebid=true`;
       const index = Math.floor(Math.random() * validBidRequests[i].sizes.length);
       const size = validBidRequests[i].sizes[index].join('x');
-      const creativeData = Object.keys(validBidRequests[i].mediaTypes).includes(VIDEO) ? {
+      const creativeData = includes(Object.keys(validBidRequests[i].mediaTypes), VIDEO) ? {
         size: 'preroll',
         position: validBidRequests[i].adUnitCode,
         playerSize: size
@@ -199,11 +199,9 @@ export const spec = {
         position: validBidRequests[i].adUnitCode
       };
       let recentAds = [];
-      let recentAdsPrebid = [];
       if (storage.localStorageIsEnabled()) {
         const prefix = validBidRequests[i].params.prefix || 'adHash';
         recentAds = JSON.parse(storage.getDataFromLocalStorage(prefix + 'recentAds') || '[]');
-        recentAdsPrebid = JSON.parse(storage.getDataFromLocalStorage(prefix + 'recentAdsPrebid') || '[]');
       }
 
       // Needed for the ad density calculation
@@ -239,7 +237,6 @@ export const spec = {
           blockedCreatives: [],
           currentTimestamp: (new Date().getTime() / 1000) | 0,
           recentAds: recentAds,
-          recentAdsPrebid: recentAdsPrebid,
           GDPRApplies: gdprConsent ? gdprConsent.gdprApplies : null,
           GDPR: gdprConsent ? gdprConsent.consentString : null,
           servedAdsCount: window.adsCount,
@@ -266,19 +263,6 @@ export const spec = {
       return [];
     }
 
-    if (storage.localStorageIsEnabled()) {
-      const prefix = request.bidRequest.params.prefix || 'adHash';
-      const recentAdsPrebid = JSON.parse(storage.getDataFromLocalStorage(prefix + 'recentAdsPrebid') || '[]');
-      recentAdsPrebid.push([
-        (new Date().getTime() / 1000) | 0,
-        responseBody.creatives[0].advertiserId,
-        responseBody.creatives[0].budgetId,
-        responseBody.creatives[0].expectedHashes.length ? responseBody.creatives[0].expectedHashes[0] : '',
-      ]);
-      const recentAdsPrebidFinal = JSON.stringify(recentAdsPrebid.slice(-100));
-      storage.setDataInLocalStorage(prefix + 'recentAdsPrebid', recentAdsPrebidFinal);
-    }
-
     const publisherURL = JSON.stringify(request.bidRequest.params.platformURL);
     const bidderURL = request.bidRequest.params.bidderURL || 'https://bidder.adhash.com';
     const oneTimeId = request.bidRequest.adUnitCode + Math.random().toFixed(16).replace('0.', '.');
@@ -298,14 +282,14 @@ export const spec = {
         advertiserDomains: responseBody.advertiserDomains ? [responseBody.advertiserDomains] : []
       }
     };
-    if (typeof request === 'object' && typeof request.bidRequest === 'object' && typeof request.bidRequest.mediaTypes === 'object' && Object.keys(request.bidRequest.mediaTypes).includes(BANNER)) {
+    if (typeof request == 'object' && typeof request.bidRequest == 'object' && typeof request.bidRequest.mediaTypes == 'object' && includes(Object.keys(request.bidRequest.mediaTypes), BANNER)) {
       response = Object.assign({
         ad:
         `<div id="${oneTimeId}"></div>
         <script src="${bidderURL}/static/scripts/creative.min.js"></script>
         <script>callAdvertiser(${bidderResponse},['${oneTimeId}'],${requestData},${publisherURL})</script>`
       }, response);
-    } else if (Object.keys(request.bidRequest.mediaTypes).includes(VIDEO)) {
+    } else if (includes(Object.keys(request.bidRequest.mediaTypes), VIDEO)) {
       response = Object.assign({
         vastUrl: responseBody.creatives[0].vastURL,
         mediaType: VIDEO

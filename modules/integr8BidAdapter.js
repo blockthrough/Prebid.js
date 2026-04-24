@@ -3,21 +3,14 @@ import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { getStorageManager } from '../src/storageManager.js';
 import { BANNER, VIDEO } from '../src/mediaTypes.js';
 
-/**
- * @typedef {import('../src/adapters/bidderFactory.js').BidRequest} BidRequest
- * @typedef {import('../src/adapters/bidderFactory.js').Bid} Bid
- * @typedef {import('../src/adapters/bidderFactory.js').ServerResponse} ServerResponse
- * @typedef {import('../src/adapters/bidderFactory.js').validBidRequests} validBidRequests
- */
-
 const BIDDER_CODE = 'integr8';
-const DEFAULT_ENDPOINT_URL = 'https://central.sea.integr8.digital/bid';
+const ENDPOINT_URL = 'https://integr8.central.gjirafa.tech/bid';
 const DIMENSION_SEPARATOR = 'x';
 const SIZE_SEPARATOR = ';';
-const BISKO_ID = 'integr8Id';
+const BISKO_ID = 'biskoId';
 const STORAGE_ID = 'bisko-sid';
-const SEGMENTS = 'integr8Segments';
-const storage = getStorageManager({ bidderCode: BIDDER_CODE });
+const SEGMENTS = 'biskoSegments';
+const storage = getStorageManager({bidderCode: BIDDER_CODE});
 
 export const spec = {
   code: BIDDER_CODE,
@@ -34,12 +27,10 @@ export const spec = {
   /**
    * Make a server request from the list of BidRequests.
    *
-   * @param {Array} validBidRequests - an array of bids
-   * @param {Object} bidderRequest
-   * @return {Object} Info describing the request to the server.
+   * @param {validBidRequests[]} - an array of bids
+   * @return ServerRequest Info describing the request to the server.
    */
   buildRequests: function (validBidRequests, bidderRequest) {
-    let deliveryUrl = '';
     const storageId = storage.localStorageIsEnabled() ? storage.getDataFromLocalStorage(STORAGE_ID) || '' : '';
     const biskoId = storage.localStorageIsEnabled() ? storage.getDataFromLocalStorage(BISKO_ID) || '' : '';
     const segments = storage.localStorageIsEnabled() ? JSON.parse(storage.getDataFromLocalStorage(SEGMENTS)) || [] : [];
@@ -59,14 +50,11 @@ export const spec = {
       }
     }
 
-    const placements = validBidRequests.map(bidRequest => {
+    let placements = validBidRequests.map(bidRequest => {
       if (!propertyId) { propertyId = bidRequest.params.propertyId; }
       if (!pageViewGuid) { pageViewGuid = bidRequest.params.pageViewGuid || ''; }
       if (!contents.length && bidRequest.params.contents && bidRequest.params.contents.length) { contents = bidRequest.params.contents; }
       if (!Object.keys(data).length && bidRequest.params.data && Object.keys(bidRequest.params.data).length) { data = bidRequest.params.data; }
-      if (!deliveryUrl && bidRequest.params && typeof bidRequest.params.deliveryUrl === 'string') {
-        deliveryUrl = bidRequest.params.deliveryUrl;
-      }
 
       return {
         sizes: generateSizeParam(bidRequest.sizes),
@@ -79,11 +67,7 @@ export const spec = {
       };
     });
 
-    if (!deliveryUrl) {
-      deliveryUrl = DEFAULT_ENDPOINT_URL;
-    }
-
-    const body = {
+    let body = {
       propertyId: propertyId,
       pageViewGuid: pageViewGuid,
       storageId: storageId,
@@ -98,7 +82,7 @@ export const spec = {
 
     return [{
       method: 'POST',
-      url: deliveryUrl,
+      url: ENDPOINT_URL,
       data: body
     }];
   },
@@ -136,11 +120,11 @@ export const spec = {
 };
 
 /**
- * Generate size param for bid request using sizes array
- *
- * @param {Array} sizes Possible sizes for the ad unit.
- * @return {string} Processed sizes param to be used for the bid request.
- */
+* Generate size param for bid request using sizes array
+*
+* @param {Array} sizes Possible sizes for the ad unit.
+* @return {string} Processed sizes param to be used for the bid request.
+*/
 function generateSizeParam(sizes) {
   return sizes.map(size => size.join(DIMENSION_SEPARATOR)).join(SIZE_SEPARATOR);
 }
@@ -150,7 +134,7 @@ export function getBidFloor(bid) {
     return null;
   }
 
-  const floor = bid.getFloor({
+  let floor = bid.getFloor({
     currency: 'EUR',
     mediaType: '*',
     size: '*'

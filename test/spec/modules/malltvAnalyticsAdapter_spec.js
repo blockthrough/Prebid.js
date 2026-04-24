@@ -3,9 +3,9 @@ import {
   ANALYTICS_VERSION, BIDDER_STATUS, DEFAULT_SERVER
 } from 'modules/malltvAnalyticsAdapter.js'
 import { expect } from 'chai'
-import { getCpmInEur } from '../../../modules/malltvAnalyticsAdapter.js'
+import { getCpmInEur } from '../../../modules/malltvAnalyticsAdapter'
 import * as events from 'src/events'
-import { EVENTS } from 'src/constants.js'
+import constants from 'src/constants.json'
 
 const auctionId = 'b0b39610-b941-4659-a87c-de9f62d3e13e'
 const propertyId = '123456'
@@ -115,7 +115,7 @@ describe('Malltv Prebid AnalyticsAdapter Testing', function () {
     })
 
     describe('#getCachedAuction()', function() {
-      const existing = { timeoutBids: [{}] }
+      const existing = {timeoutBids: [{}]}
       malltvAnalyticsAdapter.cachedAuctions['test_auction_id'] = existing
 
       it('should get the existing cached object if it exists', function() {
@@ -481,14 +481,14 @@ describe('Malltv Prebid AnalyticsAdapter Testing', function () {
 
     it('should call handleBidTimeout as BID_TIMEOUT trigger event', function() {
       sinon.spy(malltvAnalyticsAdapter, 'handleBidTimeout')
-      events.emit(EVENTS.BID_TIMEOUT, {})
+      events.emit(constants.EVENTS.BID_TIMEOUT, {})
       sinon.assert.callCount(malltvAnalyticsAdapter.handleBidTimeout, 1)
       malltvAnalyticsAdapter.handleBidTimeout.restore()
     })
 
     it('should call handleAuctionEnd as AUCTION_END trigger event', function() {
       sinon.spy(malltvAnalyticsAdapter, 'handleAuctionEnd')
-      events.emit(EVENTS.AUCTION_END, {})
+      events.emit(constants.EVENTS.AUCTION_END, {})
       sinon.assert.callCount(malltvAnalyticsAdapter.handleAuctionEnd, 1)
       malltvAnalyticsAdapter.handleAuctionEnd.restore()
     })

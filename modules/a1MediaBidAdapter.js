@@ -1,7 +1,6 @@
 import { ortbConverter } from '../libraries/ortbConverter/converter.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { BANNER, VIDEO, NATIVE } from '../src/mediaTypes.js';
-import { replaceAuctionPrice } from '../src/utils.js';
 
 const BIDDER_CODE = 'a1media';
 const END_POINT = 'https://d11.contentsfeed.com/dsp/breq/a1';
@@ -82,21 +81,7 @@ export const spec = {
   },
 
   interpretResponse: function (serverResponse, bidRequest) {
-    if (!serverResponse.body) return [];
-    const parsedSeatbid = serverResponse.body.seatbid.map(seatbidItem => {
-      const parsedBid = seatbidItem.bid.map((bidItem) => ({
-        ...bidItem,
-        adm: replaceAuctionPrice(bidItem.adm, bidItem.price),
-        nurl: replaceAuctionPrice(bidItem.nurl, bidItem.price)
-      }));
-      return { ...seatbidItem, bid: parsedBid };
-    });
-
-    const responseBody = { ...serverResponse.body, seatbid: parsedSeatbid };
-    const bids = converter.fromORTB({
-      response: responseBody,
-      request: bidRequest.data,
-    }).bids;
+    const bids = converter.fromORTB({response: serverResponse.body, request: bidRequest.data}).bids;
     return bids;
   },
 

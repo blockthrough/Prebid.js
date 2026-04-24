@@ -1,17 +1,15 @@
-import { generateUUID, deepAccess, createTrackPixelHtml } from '../src/utils.js';
-import { getDevicePixelRatio } from '../libraries/devicePixelRatio/devicePixelRatio.js';
+import { generateUUID, deepAccess, createTrackPixelHtml, getDNT } from '../src/utils.js';
 import { registerBidder } from '../src/adapters/bidderFactory.js';
 import { config } from '../src/config.js';
 import { getStorageManager } from '../src/storageManager.js';
 import { convertOrtbRequestToProprietaryNative } from '../src/native.js';
-import { getDNT } from '../libraries/dnt/index.js';
 
 const CONSTANTS = {
   DSU_KEY: 'apr_dsu',
   BIDDER_CODE: 'apstream',
   GVLID: 394
 };
-const storage = getStorageManager({ bidderCode: CONSTANTS.BIDDER_CODE });
+const storage = getStorageManager({bidderCode: CONSTANTS.BIDDER_CODE});
 
 var dsuModule = (function() {
   'use strict';
@@ -19,7 +17,7 @@ var dsuModule = (function() {
   var DSU_KEY = 'apr_dsu';
   var DSU_VERSION_NUMBER = '1';
   var SIGNATURE_SALT = 'YicAu6ZpNG';
-  var DSU_CREATOR = { 'USERREPORT': '1' };
+  var DSU_CREATOR = {'USERREPORT': '1'};
 
   function stringToU8(str) {
     if (typeof TextEncoder === 'function') {
@@ -294,14 +292,15 @@ function getConsentStringFromPrebid(gdprConsentConfig) {
     return null;
   }
 
-  const vendorConsents = (
+  let isIab = config.getConfig('consentManagement.cmpApi') != 'static';
+  let vendorConsents = (
     gdprConsentConfig.vendorData.vendorConsents ||
     (gdprConsentConfig.vendorData.vendor || {}).consents ||
     {}
   );
-  const isConsentGiven = !!vendorConsents[CONSTANTS.GVLID.toString(10)];
+  let isConsentGiven = !!vendorConsents[CONSTANTS.GVLID.toString(10)];
 
-  return isConsentGiven ? consentString : null;
+  return isIab && isConsentGiven ? consentString : null;
 }
 
 function getIabConsentString(bidderRequest) {
@@ -336,7 +335,7 @@ function injectPixels(ad, pixels, scripts) {
 }
 
 function getScreenParams() {
-  return `${window.screen.width}x${window.screen.height}@${getDevicePixelRatio(window)}`;
+  return `${window.screen.width}x${window.screen.height}@${window.devicePixelRatio}`;
 }
 
 function getBids(bids) {
@@ -378,7 +377,7 @@ function getBids(bids) {
 };
 
 function getEndpointsGroups(bidRequests) {
-  const endpoints = [];
+  let endpoints = [];
   const getEndpoint = bid => {
     const publisherId = bid.params.publisherId || config.getConfig('apstream.publisherId');
     const isTestConfig = bid.params.test || config.getConfig('apstream.test');
@@ -464,7 +463,7 @@ function buildRequests(bidRequests, bidderRequest) {
 }
 
 function interpretResponse(serverResponse) {
-  const bidResponses = serverResponse && serverResponse.body;
+  let bidResponses = serverResponse && serverResponse.body;
 
   if (!bidResponses || !bidResponses.length) {
     return [];

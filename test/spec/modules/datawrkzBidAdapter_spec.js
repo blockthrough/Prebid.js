@@ -18,7 +18,7 @@ describe('datawrkzAdapterTests', function () {
   });
 
   describe('isBidRequestValid', function () {
-    const bid = {
+    let bid = {
       'bidder': BIDDER_CODE,
       'params': {
         'site_id': SITE_ID,
@@ -36,26 +36,26 @@ describe('datawrkzAdapterTests', function () {
     });
 
     it('should return false when params not found', function () {
-      const invalidBid = Object.assign({}, bid);
-      delete invalidBid.params;
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      let bid = Object.assign({}, bid);
+      delete bid.params;
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
 
     it('should return false when required site_id param not found', function () {
-      const invalidBid = Object.assign({}, bid);
-      invalidBid.params = { 'bidfloor': '1.0' }
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      let bid = Object.assign({}, bid);
+      bid.params = {'bidfloor': '1.0'}
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
 
     it('should return false when adunit is adpod video', function () {
-      const invalidBid = Object.assign({}, bid);
-      invalidBid.params = { 'bidfloor': '1.0', 'site_id': SITE_ID };
-      invalidBid.mediaTypes = {
+      let bid = Object.assign({}, bid);
+      bid.params = {'bidfloor': '1.0', 'site_id': SITE_ID};
+      bid.mediaTypes = {
         'video': {
           'context': 'adpod'
         }
       }
-      expect(spec.isBidRequestValid(invalidBid)).to.equal(false);
+      expect(spec.isBidRequestValid(bid)).to.equal(false);
     });
   });
 
@@ -67,12 +67,12 @@ describe('datawrkzAdapterTests', function () {
       'bidderRequestId': '22edbae2733bf6',
       'timeout': 3000,
       'uspConsent': consentString,
-      'gdprConsent': { 'gdprApplies': true },
+      'gdprConsent': {'gdprApplies': true},
     };
     const bannerBidRequests = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': { 'banner': { 'sizes': [[300, 250], [300, 600]] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'banner': {'sizes': [[300, 250], [300, 600]]}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'sizes': [[300, 250], [300, 600]],
@@ -82,8 +82,8 @@ describe('datawrkzAdapterTests', function () {
     }];
     const bannerBidRequestsSingleArraySlotAndDeals = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{ id: 'deal_1' }, { id: 'deal_2' }] },
-      'mediaTypes': { 'banner': {} },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{id: 'deal_1'}, {id: 'deal_2'}]},
+      'mediaTypes': {'banner': {}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'sizes': [300, 250],
@@ -93,17 +93,15 @@ describe('datawrkzAdapterTests', function () {
     }];
     const nativeBidRequests = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': {
-        'native': {
-          'title': { 'required': true, 'len': 80 },
-          'image': { 'required': true, 'sizes': [[300, 250]] },
-          'icon': { 'required': true, 'sizes': [[50, 50]] },
-          'sponsoredBy': { 'required': true },
-          'cta': { 'required': true },
-          'body': { 'required': true, 'len': 100 }
-        }
-      },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'native': {
+        'title': {'required': true, 'len': 80},
+        'image': {'required': true, 'sizes': [[300, 250]]},
+        'icon': {'required': true, 'sizes': [[50, 50]]},
+        'sponsoredBy': {'required': true},
+        'cta': {'required': true},
+        'body': {'required': true, 'len': 100}
+      }},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -112,17 +110,15 @@ describe('datawrkzAdapterTests', function () {
     }];
     const nativeBidRequestsSingleArraySlotAndDeals = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{ id: 'deal_1' }, { id: 'deal_2' }] },
-      'mediaTypes': {
-        'native': {
-          'title': { 'len': 80 },
-          'image': { 'sizes': [300, 250] },
-          'icon': { 'sizes': [50, 50] },
-          'sponsoredBy': {},
-          'cta': {},
-          'body': { 'len': 100 }
-        }
-      },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{id: 'deal_1'}, {id: 'deal_2'}]},
+      'mediaTypes': {'native': {
+        'title': {'len': 80},
+        'image': {'sizes': [300, 250]},
+        'icon': {'sizes': [50, 50]},
+        'sponsoredBy': {},
+        'cta': {},
+        'body': {'len': 100}
+      }},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -131,8 +127,8 @@ describe('datawrkzAdapterTests', function () {
     }];
     const instreamVideoBidRequests = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': { 'video': { 'context': 'instream', 'playerSize': [[640, 480]] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'video': {'context': 'instream', 'playerSize': [[640, 480]]}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -141,8 +137,8 @@ describe('datawrkzAdapterTests', function () {
     }];
     const instreamVideoBidRequestsSingleArraySlotAndDeals = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{ id: 'deal_1' }, { id: 'deal_2' }] },
-      'mediaTypes': { 'video': { 'context': 'instream', 'playerSize': [640, 480] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{id: 'deal_1'}, {id: 'deal_2'}]},
+      'mediaTypes': {'video': {'context': 'instream', 'playerSize': [640, 480]}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -151,8 +147,8 @@ describe('datawrkzAdapterTests', function () {
     }];
     const outstreamVideoBidRequests = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': { 'video': { 'context': 'outstream', 'playerSize': [[640, 480]], 'mimes': ['video/mp4', 'video/x-flv'] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'video': {'context': 'outstream', 'playerSize': [[640, 480]], 'mimes': ['video/mp4', 'video/x-flv']}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -161,8 +157,8 @@ describe('datawrkzAdapterTests', function () {
     }];
     const outstreamVideoBidRequestsSingleArraySlotAndDeals = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{ id: 'deal_1' }, { id: 'deal_2' }] },
-      'mediaTypes': { 'video': { 'context': 'outstream', 'playerSize': [640, 480], 'mimes': ['video/mp4', 'video/x-flv'] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00, 'deals': [{id: 'deal_1'}, {id: 'deal_2'}]},
+      'mediaTypes': {'video': {'context': 'outstream', 'playerSize': [640, 480], 'mimes': ['video/mp4', 'video/x-flv']}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -171,7 +167,7 @@ describe('datawrkzAdapterTests', function () {
     }];
     const bidRequestsWithNoMediaType = [{
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -190,7 +186,7 @@ describe('datawrkzAdapterTests', function () {
     });
 
     it('invalid media type in bid request', function () {
-      bidRequestsWithNoMediaType[0].mediaTypes = { 'test': {} };
+      bidRequestsWithNoMediaType[0].mediaTypes = {'test': {}};
       const requests = spec.buildRequests(bidRequestsWithNoMediaType, bidderRequest);
       assert.lengthOf(requests, 0);
     });
@@ -216,11 +212,11 @@ describe('datawrkzAdapterTests', function () {
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(FINAL_URL);
       expect(payload.imp).to.exist;
-      expect(payload).to.nested.include({ 'imp[0].banner.w': 300 });
-      expect(payload).to.nested.include({ 'imp[0].banner.h': 250 });
-      expect(payload).to.nested.include({ 'regs.ext.us_privacy': consentString });
-      expect(payload).to.nested.include({ 'regs.ext.gdpr': '1' });
-      expect(payload).to.nested.include({ 'regs.coppa': '1' });
+      expect(payload).to.nested.include({'imp[0].banner.w': 300});
+      expect(payload).to.nested.include({'imp[0].banner.h': 250});
+      expect(payload).to.nested.include({'regs.ext.us_privacy': consentString});
+      expect(payload).to.nested.include({'regs.ext.gdpr': '1'});
+      expect(payload).to.nested.include({'regs.coppa': '1'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('banner');
     });
@@ -231,10 +227,10 @@ describe('datawrkzAdapterTests', function () {
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(FINAL_URL);
       expect(payload.imp).to.exist;
-      expect(payload).to.nested.include({ 'imp[0].banner.w': 300 });
-      expect(payload).to.nested.include({ 'imp[0].banner.h': 250 });
-      expect(payload).to.nested.include({ 'imp[0].pmp.deals[0].id': 'deal_1' });
-      expect(payload).to.nested.include({ 'imp[0].pmp.deals[1].id': 'deal_2' });
+      expect(payload).to.nested.include({'imp[0].banner.w': 300});
+      expect(payload).to.nested.include({'imp[0].banner.h': 250});
+      expect(payload).to.nested.include({'imp[0].pmp.deals[0].id': 'deal_1'});
+      expect(payload).to.nested.include({'imp[0].pmp.deals[1].id': 'deal_2'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('banner');
     });
@@ -247,9 +243,9 @@ describe('datawrkzAdapterTests', function () {
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(FINAL_URL);
       expect(payload.imp[0].native.request).to.exist;
-      expect(payload).to.nested.include({ 'regs.ext.us_privacy': consentString });
-      expect(payload).to.nested.include({ 'regs.ext.gdpr': '1' });
-      expect(payload).to.nested.include({ 'regs.coppa': '1' });
+      expect(payload).to.nested.include({'regs.ext.us_privacy': consentString});
+      expect(payload).to.nested.include({'regs.ext.gdpr': '1'});
+      expect(payload).to.nested.include({'regs.coppa': '1'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('native');
     });
@@ -261,8 +257,8 @@ describe('datawrkzAdapterTests', function () {
       expect(requests[0].url).to.equal(FINAL_URL);
       expect(payload.imp).to.exist;
       expect(payload.imp[0].native.request).to.exist;
-      expect(payload).to.nested.include({ 'imp[0].pmp.deals[0].id': 'deal_1' });
-      expect(payload).to.nested.include({ 'imp[0].pmp.deals[1].id': 'deal_2' });
+      expect(payload).to.nested.include({'imp[0].pmp.deals[0].id': 'deal_1'});
+      expect(payload).to.nested.include({'imp[0].pmp.deals[1].id': 'deal_2'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('native');
     });
@@ -274,9 +270,9 @@ describe('datawrkzAdapterTests', function () {
       const payload = JSON.parse(requests[0].data);
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(FINAL_URL);
-      expect(payload).to.nested.include({ 'regs.ext.us_privacy': consentString });
-      expect(payload).to.nested.include({ 'regs.ext.gdpr': '1' });
-      expect(payload).to.nested.include({ 'regs.coppa': '1' });
+      expect(payload).to.nested.include({'regs.ext.us_privacy': consentString});
+      expect(payload).to.nested.include({'regs.ext.gdpr': '1'});
+      expect(payload).to.nested.include({'regs.coppa': '1'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('video');
     });
@@ -297,11 +293,11 @@ describe('datawrkzAdapterTests', function () {
       const payload = JSON.parse(requests[0].data);
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(FINAL_URL);
-      expect(payload).to.nested.include({ 'imp[0].video.w': 640 });
-      expect(payload).to.nested.include({ 'imp[0].video.h': 480 });
-      expect(payload).to.nested.include({ 'regs.ext.us_privacy': consentString });
-      expect(payload).to.nested.include({ 'regs.ext.gdpr': '1' });
-      expect(payload).to.nested.include({ 'regs.coppa': '1' });
+      expect(payload).to.nested.include({'imp[0].video.w': 640});
+      expect(payload).to.nested.include({'imp[0].video.h': 480});
+      expect(payload).to.nested.include({'regs.ext.us_privacy': consentString});
+      expect(payload).to.nested.include({'regs.ext.gdpr': '1'});
+      expect(payload).to.nested.include({'regs.coppa': '1'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('video');
     });
@@ -311,10 +307,10 @@ describe('datawrkzAdapterTests', function () {
       const payload = JSON.parse(requests[0].data);
       expect(requests[0].method).to.equal('POST');
       expect(requests[0].url).to.equal(FINAL_URL);
-      expect(payload).to.nested.include({ 'imp[0].video.w': 640 });
-      expect(payload).to.nested.include({ 'imp[0].video.h': 480 });
-      expect(payload).to.nested.include({ 'imp[0].pmp.deals[0].id': 'deal_1' });
-      expect(payload).to.nested.include({ 'imp[0].pmp.deals[1].id': 'deal_2' });
+      expect(payload).to.nested.include({'imp[0].video.w': 640});
+      expect(payload).to.nested.include({'imp[0].video.h': 480});
+      expect(payload).to.nested.include({'imp[0].pmp.deals[0].id': 'deal_1'});
+      expect(payload).to.nested.include({'imp[0].pmp.deals[1].id': 'deal_2'});
       expect(requests[0].bidRequest).to.exist;
       expect(requests[0].bidRequest.requestedMediaType).to.equal('video');
     });
@@ -323,8 +319,8 @@ describe('datawrkzAdapterTests', function () {
   describe('interpretResponse', function () {
     const bidRequest = {
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': { 'banner': { 'sizes': [[300, 250], [300, 600]] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'banner': {'sizes': [[300, 250], [300, 600]]}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'sizes': [[300, 250], [300, 600]],
@@ -335,17 +331,15 @@ describe('datawrkzAdapterTests', function () {
     };
     const nativeBidRequest = {
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': {
-        'native': {
-          'title': { 'required': true, 'len': 80 },
-          'image': { 'required': true, 'sizes': [300, 250] },
-          'icon': { 'required': true, 'sizes': [50, 50] },
-          'sponsoredBy': { 'required': true },
-          'cta': { 'required': true },
-          'body': { 'required': true }
-        }
-      },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'native': {
+        'title': {'required': true, 'len': 80},
+        'image': {'required': true, 'sizes': [300, 250]},
+        'icon': {'required': true, 'sizes': [50, 50]},
+        'sponsoredBy': {'required': true},
+        'cta': {'required': true},
+        'body': {'required': true}
+      }},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -353,18 +347,18 @@ describe('datawrkzAdapterTests', function () {
       'auctionId': 'auctionId',
       'requestedMediaType': 'native',
       'assets': [
-        { 'id': 1, 'required': 1, 'title': { 'len': 80 } },
-        { 'id': 2, 'required': 1, 'img': { 'type': 3, 'w': 300, 'h': 250 } },
-        { 'id': 3, 'required': 1, 'img': { 'type': 1, 'w': 50, 'h': 50 } },
-        { 'id': 4, 'required': 1, 'data': { 'type': 1 } },
-        { 'id': 5, 'required': 1, 'data': { 'type': 12 } },
-        { 'id': 6, 'required': 1, 'data': { 'type': 2, 'len': 100 } }
+        {'id': 1, 'required': 1, 'title': {'len': 80}},
+        {'id': 2, 'required': 1, 'img': {'type': 3, 'w': 300, 'h': 250}},
+        {'id': 3, 'required': 1, 'img': {'type': 1, 'w': 50, 'h': 50}},
+        {'id': 4, 'required': 1, 'data': {'type': 1}},
+        {'id': 5, 'required': 1, 'data': {'type': 12}},
+        {'id': 6, 'required': 1, 'data': {'type': 2, 'len': 100}}
       ]
     };
     const instreamVideoBidRequest = {
       'bidder': BIDDER_CODE,
-      'params': { 'site_id': SITE_ID, 'bidfloor': 1.00 },
-      'mediaTypes': { 'video': { 'context': 'instream', 'playerSize': [640, 480] } },
+      'params': {'site_id': SITE_ID, 'bidfloor': 1.00},
+      'mediaTypes': {'video': {'context': 'instream', 'playerSize': [640, 480]}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -374,14 +368,12 @@ describe('datawrkzAdapterTests', function () {
     };
     const outstreamVideoBidRequest = {
       'bidder': BIDDER_CODE,
-      'params': {
-        'site_id': SITE_ID,
+      'params': {'site_id': SITE_ID,
         'bidfloor': 1.00,
         'outstreamType': 'slider_top_left',
         'outstreamConfig':
-          { 'ad_unit_audio': 1, 'show_player_close_button_after': 5, 'hide_player_control': 0 }
-      },
-      'mediaTypes': { 'video': { 'context': 'outstream', 'playerSize': [640, 480] } },
+          {'ad_unit_audio': 1, 'show_player_close_button_after': 5, 'hide_player_control': 0}},
+      'mediaTypes': {'video': {'context': 'outstream', 'playerSize': [640, 480]}},
       'adUnitCode': 'adUnitCode',
       'transactionId': 'transactionId',
       'bidId': 'bidId',
@@ -402,37 +394,37 @@ describe('datawrkzAdapterTests', function () {
     });
 
     it('check if id missing in response', function () {
-      const serverResponse = { 'body': { 'seatbid': [{}] }, 'headers': {} };
+      const serverResponse = {'body': {'seatbid': [{}]}, 'headers': {}};
       const result = spec.interpretResponse(serverResponse, request);
       expect(result).to.deep.equal([]);
     });
 
     it('check if seatbid present in response', function () {
-      const serverResponse = { 'body': { 'id': 'id' }, 'headers': {} };
+      const serverResponse = {'body': {'id': 'id'}, 'headers': {}};
       const result = spec.interpretResponse(serverResponse, request);
       expect(result).to.deep.equal([]);
     });
 
     it('check empty array response seatbid', function () {
-      const serverResponse = { 'body': { 'id': 'id', 'seatbid': [] }, 'headers': {} };
+      const serverResponse = {'body': {'id': 'id', 'seatbid': []}, 'headers': {}};
       const result = spec.interpretResponse(serverResponse, request);
       expect(result).to.deep.equal([]);
     });
 
     it('check bid present in seatbid', function () {
-      const serverResponse = { 'body': { 'id': 'id', 'seatbid': [{}] }, 'headers': {} };
+      const serverResponse = {'body': {'id': 'id', 'seatbid': [{}]}, 'headers': {}};
       const result = spec.interpretResponse(serverResponse, request);
       expect(result).to.have.lengthOf(0);
     });
 
     it('check empty array bid in seatbid', function () {
-      const serverResponse = { 'body': { 'id': 'id', 'seatbid': [{ 'bid': [] }] }, 'headers': {} };
+      const serverResponse = {'body': {'id': 'id', 'seatbid': [{'bid': []}]}, 'headers': {}};
       const result = spec.interpretResponse(serverResponse, request);
       expect(result).to.have.lengthOf(0);
     });
 
     it('banner response missing bid price', function () {
-      const serverResponse = { 'body': { 'id': 'id', 'seatbid': [{ 'bid': [{ 'id': 1 }] }] }, 'headers': {} };
+      const serverResponse = {'body': {'id': 'id', 'seatbid': [{'bid': [{'id': 1}]}]}, 'headers': {}};
       const result = spec.interpretResponse(serverResponse, request);
       expect(result).to.have.lengthOf(1);
       expect(result[0].requestId).to.equal('bidId');

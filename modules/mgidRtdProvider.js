@@ -1,13 +1,9 @@
 import { submodule } from '../src/hook.js';
-import { ajax } from '../src/ajax.js';
-import { deepAccess, logError, logInfo, mergeDeep } from '../src/utils.js';
-import { getStorageManager } from '../src/storageManager.js';
-import { getRefererInfo } from '../src/refererDetection.js';
-import { MODULE_TYPE_RTD } from '../src/activities/modules.js';
-
-/**
- * @typedef {import('../modules/rtdModule/index.js').RtdSubmodule} RtdSubmodule
- */
+import {ajax} from '../src/ajax.js';
+import {deepAccess, logError, logInfo, mergeDeep} from '../src/utils.js';
+import {getStorageManager} from '../src/storageManager.js';
+import {getRefererInfo} from '../src/refererDetection.js';
+import {MODULE_TYPE_RTD} from '../src/activities/modules.js';
 
 const MODULE_NAME = 'realTimeData';
 const SUBMODULE_NAME = 'mgid';
@@ -142,10 +138,10 @@ function getContextUrl() {
 }
 
 function getDataForMerge(responseData) {
-  const siteData = {
+  let siteData = {
     name: ORTB2_NAME
   };
-  const userData = {
+  let userData = {
     name: ORTB2_NAME
   };
 
@@ -167,7 +163,7 @@ function getDataForMerge(responseData) {
     }
   }
 
-  const result = {};
+  let result = {};
   if (siteData.segment || siteData.ext) {
     result.site = {
       content: {
